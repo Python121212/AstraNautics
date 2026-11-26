@@ -38,6 +38,7 @@ public class AstraNautics {
         ModCreativeTabs.TABS.register(modEventBus);
 
         modEventBus.addListener(this::commonSetup);
+        modEventBus.addListener(com.astranautics.network.ModNetwork::register);
         modEventBus.addListener(this::loadComplete);
 
         ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, Config.SPEC);

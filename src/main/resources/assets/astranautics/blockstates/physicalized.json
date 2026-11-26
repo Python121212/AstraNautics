@@ -1,7 +1,8 @@
 {
   "variants": {
-    "": {
-      "model": "astranautics:block/physicalized"
-    }
+    "powered=true,airborne=true": { "model": "astranautics:block/physicalized" },
+    "powered=true,airborne=false": { "model": "astranautics:block/physicalized" },
+    "powered=false,airborne=true": { "model": "astranautics:block/physicalized" },
+    "powered=false,airborne=false": { "model": "astranautics:block/physicalized" }
   }
 }

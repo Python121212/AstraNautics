@@ -2,9 +2,14 @@
   "itemGroup.astranautics": "AstraNautics",
   "item.astranautics.physicalizer": "物理化装置",
   "block.astranautics.physicalized": "物理化されたブロック",
-  "tooltip.astranautics.physicalizer.1": "ブロックに使用すると物理演算を追加します。",
-  "tooltip.astranautics.physicalizer.2": "物理化されたブロックに使用すると元に戻ります。",
-  "message.astranautics.physicalized": "物理演算を追加しました！",
-  "message.astranautics.restored": "元のブロックに戻しました。",
-  "message.astranautics.physicalizer_help": "ブロックに右クリック: 物理化 / 物理化ブロックに右クリック: 復元"
+  "block.astranautics.physics_core": "物理コア",
+  "tooltip.astranautics.physicalizer.1": "レバーON: 物理演算を追加（ブロック/空中）",
+  "tooltip.astranautics.physicalizer.2": "レバーOFF: 物理演算を停止して元の位置へ",
+  "tooltip.astranautics.physicalizer.3": "スニーク+右クリック: 元のブロックへ復元",
+  "tooltip.astranautics.engine": "物理エンジン: AstraLite（超軽量・回転なし）",
+  "message.astranautics.lever_on": "レバーON: 物理演算を有効化",
+  "message.astranautics.lever_off": "レバーOFF: 物理演算を停止",
+  "message.astranautics.airborne_on": "空中にブロック化して物理演算を追加",
+  "message.astranautics.restored": "元のブロックに戻しました",
+  "message.astranautics.physicalizer_help": "ブロック/空中に右クリック: 物理化（ON） / 物理化ブロックに右クリック: OFF⇔ON / スニークで復元"
 }

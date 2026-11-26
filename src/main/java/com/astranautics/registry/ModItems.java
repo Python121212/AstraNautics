@@ -22,6 +22,10 @@ public final class ModItems {
     public static final RegistryObject<Item> PHYSICALIZED = ITEMS.register("physicalized",
             () -> new BlockItem(ModBlocks.PHYSICALIZED.get(), new Item.Properties()));
 
+    /** 物理コアの BlockItem。 */
+    public static final RegistryObject<Item> PHYSICS_CORE = ITEMS.register("physics_core",
+            () -> new BlockItem(ModBlocks.PHYSICS_CORE.get(), new Item.Properties()));
+
     private ModItems() {
     }
 }

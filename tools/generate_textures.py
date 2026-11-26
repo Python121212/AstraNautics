@@ -107,3 +107,47 @@ img.resize((SIZE * 8, SIZE * 8), Image.NEAREST).save(
     os.path.join(root, "images/physicalizer_block_preview.png")
 )
 print("generated:", os.path.join(root, "images/physicalizer_block.png"))
+
+
+# ----------------------------------------------------------------------
+# 物理コア（空中で物理化したときに出現するブロック）
+# ----------------------------------------------------------------------
+CORE_PALETTE = {
+    "k": (10, 22, 30, 255),
+    "d": (20, 52, 64, 255),
+    "t": (34, 118, 132, 255),
+    "c": (86, 214, 222, 255),
+    "C": (170, 248, 250, 255),
+    "W": (240, 255, 255, 255),
+}
+
+core = Image.new("RGBA", (SIZE, SIZE))
+for y in range(SIZE):
+    for x in range(SIZE):
+        # 上下左右の縁を暗く、中央を明るくした結晶風のグラデーション
+        dx = abs(x - 7.5)
+        dy = abs(y - 7.5)
+        dist = (dx * dx + dy * dy) ** 0.5
+        if dist > 7.0:
+            ch = "k"
+        elif dist > 5.4:
+            ch = "d"
+        elif dist > 3.6:
+            ch = "t"
+        elif dist > 2.0:
+            ch = "c"
+        elif dist > 0.9:
+            ch = "C"
+        else:
+            ch = "W"
+        # 菱形のハイライト
+        if (x + y) % 9 == 0 and 2 <= x <= 13 and 2 <= y <= 13 and dist <= 5.4:
+            ch = "C" if ch in ("t", "d") else ch
+        core.putpixel((x, y), CORE_PALETTE[ch])
+
+core.save(os.path.join(root, "images/physics_core.png"))
+core.save(os.path.join(tex_dir, "physics_core.png"))
+core.resize((SIZE * 8, SIZE * 8), Image.NEAREST).save(
+    os.path.join(root, "images/physics_core_preview.png")
+)
+print("generated:", os.path.join(root, "images/physics_core.png"))

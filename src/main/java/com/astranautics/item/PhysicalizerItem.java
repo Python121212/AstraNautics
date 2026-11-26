@@ -1,6 +1,7 @@
 package com.astranautics.item;
 
 import com.astranautics.block.PhysicalizedBlock;
+import com.astranautics.registry.ModBlocks;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
@@ -20,11 +21,14 @@ import org.jetbrains.annotations.Nullable;
 import java.util.List;
 
 /**
- * 物理化装置（Physicalizer）。
+ * 物理化装置（Physicalizer）。レバーのように物理演算を ON / OFF する。
  *
- * <p>ブロックに対して使用すると、そのブロックを「物理化」して
- * 浮遊・回転するオブジェクトに変化させます（{@link PhysicalizedBlock}）。
- * 物理化されたブロックに使用すると元のブロックへ戻します。</p>
+ * <ul>
+ *   <li>ブロック（または空気）に使用 → <b>レバー ON（上）</b>: 物理演算を追加</li>
+ *   <li>物理化ブロックに使用 → <b>レバー OFF（下）</b>: 物理演算を停止して元の位置へ</li>
+ *   <li>レバー OFF の物理化ブロックに使用 → 元のブロックへ復元</li>
+ *   <li>空気に使用 → その場に物理コアが空中ブロック化され、落ちていく</li>
+ * </ul>
  */
 public class PhysicalizerItem extends Item {
 
@@ -37,40 +41,57 @@ public class PhysicalizerItem extends Item {
         Level level = context.getLevel();
         BlockPos pos = context.getClickedPos();
         Player player = context.getPlayer();
+        ItemStack stack = context.getItemInHand();
 
-        if (level.getBlockState(pos).is(com.astranautics.registry.ModBlocks.PHYSICALIZED.get())) {
-            // 物理化解除
-            if (!level.isClientSide) {
-                boolean restored = PhysicalizedBlock.restore(level, pos);
-                if (restored) {
-                    level.playSound(null, pos, SoundEvents.AMETHYST_BLOCK_BREAK, SoundSource.BLOCKS,
-                            0.8F, 1.4F);
-                    spawnRestoreParticles(level, pos);
-                    if (player != null) {
-                        player.displayClientMessage(
-                                Component.translatable("message.astranautics.restored")
-                                        .withStyle(ChatFormatting.AQUA), true);
+        // --- 既に物理化されているブロック ---
+        if (level.getBlockState(pos).is(ModBlocks.PHYSICALIZED.get())) {
+            if (player == null) {
+                return InteractionResult.PASS;
+            }
+            // スニーク時は完全復元、通常はレバー OFF（物理演算の停止）
+            if (player.isShiftKeyDown()) {
+                if (!level.isClientSide) {
+                    boolean restored = PhysicalizedBlock.restore(level, pos);
+                    if (restored) {
+                        level.playSound(null, pos, SoundEvents.BEACON_DEACTIVATE, SoundSource.BLOCKS, 0.6F, 1.6F);
+                        message(player, "message.astranautics.restored", ChatFormatting.AQUA);
                     }
+                }
+                return InteractionResult.sidedSuccess(level.isClientSide);
+            }
+
+            if (!level.isClientSide
+                    && level.getBlockEntity(pos) instanceof com.astranautics.block.PhysicalizedBlockEntity be) {
+                if (be.isPhysicsEnabled()) {
+                    be.disablePhysics();
+                    level.setBlock(pos, level.getBlockState(pos)
+                            .setValue(PhysicalizedBlock.POWERED, Boolean.FALSE), 3);
+                    level.playSound(null, pos, SoundEvents.LEVER_CLICK, SoundSource.BLOCKS, 0.6F, 0.8F);
+                    message(player, "message.astranautics.lever_off", ChatFormatting.GRAY);
+                } else {
+                    be.enablePhysics();
+                    level.setBlock(pos, level.getBlockState(pos)
+                            .setValue(PhysicalizedBlock.POWERED, Boolean.TRUE), 3);
+                    level.playSound(null, pos, SoundEvents.LEVER_CLICK, SoundSource.BLOCKS, 0.6F, 1.2F);
+                    message(player, "message.astranautics.lever_on", ChatFormatting.AQUA);
                 }
             }
             return InteractionResult.sidedSuccess(level.isClientSide);
         }
 
-        // 物理化
-        boolean success = PhysicalizedBlock.physicalize(level, pos);
-        if (!success) {
+        // --- 新規に物理化（対象が空気なら空中にブロック化） ---
+        boolean airborne = level.getBlockState(pos).isAir();
+        if (!PhysicalizedBlock.physicalize(level, pos)) {
             return InteractionResult.PASS;
         }
         if (!level.isClientSide) {
-            level.playSound(null, pos, SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.BLOCKS, 1.0F, 0.7F);
-            level.playSound(null, pos, SoundEvents.BEACON_ACTIVATE, SoundSource.BLOCKS, 0.4F, 1.8F);
+            level.playSound(null, pos, SoundEvents.LEVER_CLICK, SoundSource.BLOCKS, 0.7F, 1.15F);
+            level.playSound(null, pos, SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.BLOCKS, 0.8F, 0.6F);
             if (player != null) {
-                player.displayClientMessage(
-                        Component.translatable("message.astranautics.physicalized")
-                                .withStyle(ChatFormatting.AQUA), true);
-                // サバイバルでは 1 個消費
+                message(player, airborne ? "message.astranautics.airborne_on"
+                        : "message.astranautics.lever_on", ChatFormatting.AQUA);
                 if (!player.getAbilities().instabuild) {
-                    context.getItemInHand().shrink(1);
+                    stack.shrink(1);
                 }
             }
         }
@@ -80,30 +101,23 @@ public class PhysicalizerItem extends Item {
     @Override
     public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
         ItemStack stack = player.getItemInHand(hand);
-        if (player.isShiftKeyDown()) {
-            if (!level.isClientSide) {
-                player.displayClientMessage(
-                        Component.translatable("message.astranautics.physicalizer_help")
-                                .withStyle(ChatFormatting.GRAY), false);
-            }
-            return InteractionResultHolder.sidedSuccess(stack, level.isClientSide);
+        if (player.isShiftKeyDown() && !level.isClientSide) {
+            player.displayClientMessage(
+                    Component.translatable("message.astranautics.physicalizer_help")
+                            .withStyle(ChatFormatting.GRAY), false);
         }
-        return InteractionResultHolder.pass(stack);
+        return InteractionResultHolder.sidedSuccess(stack, level.isClientSide);
     }
 
-    private static void spawnRestoreParticles(Level level, BlockPos pos) {
-        if (level instanceof net.minecraft.server.level.ServerLevel serverLevel) {
-            serverLevel.sendParticles(net.minecraft.core.particles.ParticleTypes.END_ROD,
-                    pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5,
-                    12, 0.35, 0.35, 0.35, 0.02);
-        }
+    private static void message(Player player, String key, ChatFormatting color) {
+        player.displayClientMessage(Component.translatable(key).withStyle(color), true);
     }
 
     @Override
     public void appendHoverText(ItemStack stack, @Nullable Level level, List<Component> tooltip, TooltipFlag flag) {
-        tooltip.add(Component.translatable("tooltip.astranautics.physicalizer.1")
-                .withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable("tooltip.astranautics.physicalizer.2")
-                .withStyle(ChatFormatting.DARK_AQUA));
+        tooltip.add(Component.translatable("tooltip.astranautics.physicalizer.1").withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable("tooltip.astranautics.physicalizer.2").withStyle(ChatFormatting.DARK_AQUA));
+        tooltip.add(Component.translatable("tooltip.astranautics.physicalizer.3").withStyle(ChatFormatting.DARK_GRAY));
+        tooltip.add(Component.translatable("tooltip.astranautics.engine").withStyle(ChatFormatting.DARK_GRAY));
     }
 }

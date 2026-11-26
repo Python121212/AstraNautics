@@ -21,6 +21,7 @@ public final class ModCreativeTabs {
                     .displayItems((parameters, output) -> {
                         output.accept(ModItems.PHYSICALIZER.get());
                         output.accept(ModItems.PHYSICALIZED.get());
+                        output.accept(ModItems.PHYSICS_CORE.get());
                     })
                     .build());
 

@@ -2,9 +2,14 @@
   "itemGroup.astranautics": "AstraNautics",
   "item.astranautics.physicalizer": "Physicalizer",
   "block.astranautics.physicalized": "Physicalized Block",
-  "tooltip.astranautics.physicalizer.1": "Right-click a block to add physics to it.",
-  "tooltip.astranautics.physicalizer.2": "Sneak + right-click while holding to see help.",
-  "message.astranautics.physicalized": "Physics applied!",
-  "message.astranautics.restored": "Restored to the original block.",
-  "message.astranautics.physicalizer_help": "Right-click a block: physics applied / Right-click a physicalized block: restore."
+  "block.astranautics.physics_core": "Physics Core",
+  "tooltip.astranautics.physicalizer.1": "Lever ON: adds physics (block or air)",
+  "tooltip.astranautics.physicalizer.2": "Lever OFF: stops physics, returns to grid",
+  "tooltip.astranautics.physicalizer.3": "Sneak + right-click: restore original block",
+  "tooltip.astranautics.engine": "Physics engine: AstraLite (ultra-light, no rotation)",
+  "message.astranautics.lever_on": "Lever ON: physics enabled",
+  "message.astranautics.lever_off": "Lever OFF: physics stopped",
+  "message.astranautics.airborne_on": "Placed a block in mid-air with physics",
+  "message.astranautics.restored": "Restored the original block",
+  "message.astranautics.physicalizer_help": "Right-click block/air: physicalize (ON) / right-click physicalized: OFF<->ON / sneak to restore"
 }

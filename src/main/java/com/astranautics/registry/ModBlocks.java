@@ -26,6 +26,14 @@ public final class ModBlocks {
                     .noOcclusion()
                     .dynamicShape()));
 
+    /** 空中で物理化したときに出現する「物理コア」。 */
+    public static final RegistryObject<Block> PHYSICS_CORE = BLOCKS.register("physics_core",
+            () -> new Block(BlockBehaviour.Properties.of()
+                    .mapColor(MapColor.COLOR_CYAN)
+                    .strength(0.6F, 6.0F)
+                    .sound(SoundType.AMETHYST)
+                    .lightLevel(state -> 7)));
+
     private ModBlocks() {
     }
 }
