@@ -417,13 +417,4 @@ public class ShipEntity extends Entity {
         }
         tag.put("Cells", list);
     }
-
-    /* ------------------------------------------------------------------ */
-    /* ネットワーク                                                        */
-    /* ------------------------------------------------------------------ */
-
-    @Override
-    public Packet<?> getAddEntityPacket() {
-        return new ClientboundAddEntityPacket(this);
-    }
 }
