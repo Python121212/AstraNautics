@@ -1,25 +1,23 @@
 package com.astranautics;
 
+import com.astranautics.registry.ModBlockEntities;
+import com.astranautics.registry.ModBlocks;
+import com.astranautics.registry.ModCreativeTabs;
+import com.astranautics.registry.ModItems;
 import com.mojang.logging.LogUtils;
-import net.minecraft.world.item.CreativeModeTabs;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.event.BuildCreativeModeTabContentsEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.config.ModConfig;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.minecraftforge.fml.event.lifecycle.FMLLoadCompleteEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
-import net.minecraftforge.fml.loading.FMLEnvironment;
 import org.slf4j.Logger;
 
 /**
  * AstraNautics のメインクラス。
  *
- * <p>現時点では「読み込み確認用」の最小構成で、専用のクリエイティブタブ・
- * アイテム・ブロックは未実装です。ここから徐々に機能を追加していきます。</p>
+ * <p>登録処理（ブロック・アイテム・ブロックエンティティ・専用クリエイティブタブ）を行います。</p>
  */
 @Mod(AstraNautics.MOD_ID)
 public class AstraNautics {
@@ -33,17 +31,18 @@ public class AstraNautics {
     public AstraNautics() {
         IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
 
-        // 共通セットアップ
+        // レジストリ登録
+        ModBlocks.BLOCKS.register(modEventBus);
+        ModItems.ITEMS.register(modEventBus);
+        ModBlockEntities.BLOCK_ENTITIES.register(modEventBus);
+        ModCreativeTabs.TABS.register(modEventBus);
+
         modEventBus.addListener(this::commonSetup);
-        // ロード完了時に一度だけログを出す（読み込み確認用）
         modEventBus.addListener(this::loadComplete);
 
         ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, Config.SPEC);
 
-        // クリエイティブタブへのアイテム追加フック（将来のアイテム追加用）
-        modEventBus.addListener(this::addCreative);
-
-        LOGGER.info("[{}] コンストラクタ実行: 読み込み準備中...", MOD_ID);
+        LOGGER.info("[{}] コンストラクタ実行: 登録処理を開始します", MOD_ID);
     }
 
     private void commonSetup(final FMLCommonSetupEvent event) {
@@ -54,17 +53,5 @@ public class AstraNautics {
         event.enqueueWork(() ->
                 LOGGER.info("[{}] バージョン {} の読み込みが完了しました。Ready for launch!",
                         MOD_ID, ModListHelper.version()));
-    }
-
-    private void addCreative(BuildCreativeModeTabContentsEvent event) {
-        // 例: event.getTabKey() == CreativeModeTabs.INGREDIENTS のときにアイテムを追加する
-        if (event.getTabKey() == CreativeModeTabs.INGREDIENTS) {
-            // 今後ここに AstraNautics のアイテムを追加
-        }
-    }
-
-    /** 現在の環境がクライアントかどうか（クラスロードに依存しない判定） */
-    public static boolean isClient() {
-        return FMLEnvironment.dist == Dist.CLIENT;
     }
 }

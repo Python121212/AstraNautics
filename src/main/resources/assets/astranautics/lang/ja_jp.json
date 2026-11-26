@@ -1,4 +1,10 @@
 {
-  "_comment": "AstraNautics の言語ファイル（日本語）",
-  "itemGroup.astranautics": "AstraNautics"
+  "itemGroup.astranautics": "AstraNautics",
+  "item.astranautics.physicalizer": "物理化装置",
+  "block.astranautics.physicalized": "物理化されたブロック",
+  "tooltip.astranautics.physicalizer.1": "ブロックに使用すると物理演算を追加します。",
+  "tooltip.astranautics.physicalizer.2": "物理化されたブロックに使用すると元に戻ります。",
+  "message.astranautics.physicalized": "物理演算を追加しました！",
+  "message.astranautics.restored": "元のブロックに戻しました。",
+  "message.astranautics.physicalizer_help": "ブロックに右クリック: 物理化 / 物理化ブロックに右クリック: 復元"
 }

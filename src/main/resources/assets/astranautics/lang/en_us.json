@@ -1,4 +1,10 @@
 {
-  "_comment": "AstraNautics language file (English)",
-  "itemGroup.astranautics": "AstraNautics"
+  "itemGroup.astranautics": "AstraNautics",
+  "item.astranautics.physicalizer": "Physicalizer",
+  "block.astranautics.physicalized": "Physicalized Block",
+  "tooltip.astranautics.physicalizer.1": "Right-click a block to add physics to it.",
+  "tooltip.astranautics.physicalizer.2": "Sneak + right-click while holding to see help.",
+  "message.astranautics.physicalized": "Physics applied!",
+  "message.astranautics.restored": "Restored to the original block.",
+  "message.astranautics.physicalizer_help": "Right-click a block: physics applied / Right-click a physicalized block: restore."
 }
