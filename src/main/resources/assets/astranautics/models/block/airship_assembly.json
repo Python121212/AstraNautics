@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/orientable",
+  "textures": {
+    "top": "astranautics:block/airship_assembly_top",
+    "front": "astranautics:block/airship_assembly_front",
+    "side": "astranautics:block/airship_assembly_side"
+  }
+}

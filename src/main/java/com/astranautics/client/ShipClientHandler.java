@@ -81,9 +81,26 @@ public final class ShipClientHandler {
                         String.format("%.2f", ship.getDeltaMovement().length())),
                 x, y + 50, 0xFFCFEFFF, false);
 
+        // 浮力（気密外皮 + レビタイト）
+        int by = y + 62;
+        double lift = ship.syncedLift();
+        graphics.fill(x - 4, by - 4, x + panelW + 4, by + 30, 0xB0001018);
+        graphics.fill(x - 4, by - 4, x + panelW + 4, by - 3, 0xFFB08CF0);
+        int liftW = (int) (panelW * Math.min(1.0D, lift / 20.0D));
+        graphics.fill(x, by + 12, x + panelW, by + 17, 0xFF241B33);
+        graphics.fill(x, by + 12, x + liftW, by + 17, 0xFFB08CF0);
+        graphics.drawString(minecraft.font, Component.translatable(
+                        "hud.astranautics.ship_lift",
+                        String.format("%.1f", lift),
+                        ship.syncedEnvelope(), ship.syncedLevitite()),
+                x, by, 0xFFD8C6FF, false);
+        graphics.drawString(minecraft.font, Component.translatable(
+                        "hud.astranautics.ship_lift_hint"),
+                x, by + 20, lift > 0 ? 0xFF9FD8E0 : 0xFF8A98A0, false);
+
         // 自作エンジンの情報
         var engine = ship.engine();
-        int ey = y + 64;
+        int ey = by + 38;
         if (engine != null && !engine.isEmpty()) {
             graphics.fill(x - 4, ey - 4, x + panelW + 4, ey + 56, 0xB0001018);
             graphics.fill(x - 4, ey - 4, x + panelW + 4, ey - 3, 0xFFFFC46A);

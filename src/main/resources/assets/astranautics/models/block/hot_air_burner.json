@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/orientable",
+  "textures": {
+    "top": "astranautics:block/hot_air_burner_top",
+    "front": "astranautics:block/hot_air_burner_front",
+    "side": "astranautics:block/hot_air_burner_side"
+  }
+}

@@ -1012,3 +1012,165 @@ def make_nozzle_shape_textures():
 
 
 make_nozzle_shape_textures()
+
+
+# ----------------------------------------------------------------------
+# 航空ブロック（気密外皮・熱気バーナー・蒸気ベント・レビタイト・組み立て台）
+# ----------------------------------------------------------------------
+def make_aero_textures():
+    tex_dir = os.path.join(root, "src/main/resources/assets/astranautics/textures/block")
+
+    # --- 気密外皮：布の縫い目が入った気球の膜 ---
+    env = Image.new("RGBA", (SIZE, SIZE), (232, 228, 214, 255))
+    for y in range(SIZE):
+        for x in range(SIZE):
+            if (x // 4) % 2 == 0:
+                env.putpixel((x, y), (226, 220, 204, 255))
+    for y in range(SIZE):
+        env.putpixel((0, y), (196, 186, 166, 255))
+        env.putpixel((15, y), (196, 186, 166, 255))
+        env.putpixel((7, y), (204, 196, 176, 255))
+        env.putpixel((8, y), (212, 204, 186, 255))
+    for x in range(0, SIZE, 3):
+        env.putpixel((x, 3), (206, 148, 96, 255))
+        env.putpixel((x, 12), (206, 148, 96, 255))
+    env.putpixel((4, 7), (150, 150, 150, 255))
+    env.putpixel((11, 7), (150, 150, 150, 255))
+    env.save(os.path.join(tex_dir, "envelope.png"))
+
+    # --- 熱気バーナー ---
+    def burner_common(img):
+        for y in range(SIZE):
+            img.putpixel((0, y), (74, 66, 58, 255))
+            img.putpixel((15, y), (74, 66, 58, 255))
+        for x in range(SIZE):
+            img.putpixel((x, 0), (96, 88, 78, 255))
+            img.putpixel((x, 15), (58, 52, 46, 255))
+        return img
+
+    btop = burner_common(_metal_base())
+    for y in range(4, 12):
+        for x in range(4, 12):
+            d = max(abs(x - 7.5), abs(y - 7.5))
+            if d < 1.6:
+                btop.putpixel((x, y), (255, 214, 120, 255))
+            elif d < 3.0:
+                btop.putpixel((x, y), (232, 128, 52, 255))
+            else:
+                btop.putpixel((x, y), (86, 60, 44, 255))
+    btop.save(os.path.join(tex_dir, "hot_air_burner_top.png"))
+
+    bside = burner_common(_metal_base())
+    for (bx, by) in ((3, 3), (12, 3), (3, 12), (12, 12)):
+        bside.putpixel((bx, by), (188, 188, 188, 255))
+    bside.save(os.path.join(tex_dir, "hot_air_burner_side.png"))
+
+    bfront = burner_common(_metal_base())
+    for y in range(5, 11):
+        for x in range(5, 11):
+            bfront.putpixel((x, y), (58, 40, 30, 255))
+    for x in range(6, 10):
+        for y in range(6, 10):
+            if (x + y) % 2 == 0:
+                bfront.putpixel((x, y), (240, 140, 60, 255))
+    bfront.putpixel((7, 4), (200, 200, 200, 255))
+    bfront.putpixel((8, 4), (200, 200, 200, 255))
+    bfront.save(os.path.join(tex_dir, "hot_air_burner_front.png"))
+
+    # --- 蒸気ベント（銅） ---
+    def steam_common(img):
+        for y in range(SIZE):
+            for x in range(SIZE):
+                if 2 <= y <= 3:
+                    img.putpixel((x, y), (214, 140, 92, 255))
+        for (bx, by) in ((2, 6), (13, 6), (2, 11), (13, 11)):
+            img.putpixel((bx, by), (248, 196, 148, 255))
+        return img
+
+    stop = steam_common(Image.new("RGBA", (SIZE, SIZE), (172, 100, 60, 255)))
+    for y in range(4, 12):
+        for x in range(4, 12):
+            d = abs(x - 7.5) + abs(y - 7.5)
+            if d < 2.2:
+                stop.putpixel((x, y), (60, 66, 72, 255))
+            elif d < 4.4:
+                stop.putpixel((x, y), (196, 200, 204, 255))
+    stop.save(os.path.join(tex_dir, "steam_vent_top.png"))
+
+    sside = steam_common(Image.new("RGBA", (SIZE, SIZE), (168, 98, 58, 255)))
+    for y in range(SIZE):
+        for x in range(SIZE):
+            if (x + y) % 7 == 0:
+                sside.putpixel((x, y), (150, 86, 50, 255))
+    sside.save(os.path.join(tex_dir, "steam_vent_side.png"))
+
+    sfront = steam_common(Image.new("RGBA", (SIZE, SIZE), (168, 98, 58, 255)))
+    for y in range(5, 12):
+        sfront.putpixel((6, y), (224, 230, 236, 255))
+        sfront.putpixel((7, y), (236, 240, 246, 255))
+        sfront.putpixel((8, y), (196, 206, 214, 255))
+    sfront.putpixel((7, 4), (80, 80, 80, 255))
+    sfront.save(os.path.join(tex_dir, "steam_vent_front.png"))
+
+    # --- レビタイト（浮く岩） ---
+    def levitite(pink):
+        img = Image.new("RGBA", (SIZE, SIZE), (60, 44, 92, 255) if not pink
+                        else (86, 50, 84, 255))
+        deep = (44, 30, 74, 255) if not pink else (66, 36, 66, 255)
+        glow = (196, 150, 255, 255) if not pink else (255, 170, 226, 255)
+        mid = (120, 92, 190, 255) if not pink else (188, 106, 168, 255)
+        for y in range(SIZE):
+            for x in range(SIZE):
+                v = (x * 5 + y * 7) % 13
+                if v == 0:
+                    img.putpixel((x, y), deep)
+                elif v == 3:
+                    img.putpixel((x, y), mid)
+        for (cx, cy, r) in ((5, 5, 2), (11, 7, 2), (7, 12, 2)):
+            for dy in range(-r, r + 1):
+                for dx in range(-r, r + 1):
+                    if abs(dx) + abs(dy) <= r:
+                        x, y = cx + dx, cy + dy
+                        if 0 <= x < SIZE and 0 < y < SIZE - 1:
+                            img.putpixel((x, y), glow if abs(dx) + abs(dy) < r else mid)
+        for y in range(SIZE):
+            img.putpixel((0, y), deep)
+            img.putpixel((15, y), deep)
+        return img
+
+    levitite(False).save(os.path.join(tex_dir, "levitite.png"))
+    levitite(True).save(os.path.join(tex_dir, "pearlescent_levitite.png"))
+
+    # --- 組み立て台 ---
+    atop = _metal_base()
+    for y in range(SIZE):
+        for x in range(SIZE):
+            d = abs(x - 7.5) + abs(y - 7.5)
+            if 2.5 < d < 3.5:
+                atop.putpixel((x, y), (120, 200, 220, 255))
+    atop.putpixel((7, 7), (200, 240, 250, 255))
+    atop.putpixel((8, 8), (200, 240, 250, 255))
+    atop.save(os.path.join(tex_dir, "airship_assembly_top.png"))
+
+    aside = _metal_base()
+    for x in range(1, 15, 3):
+        for y in range(2, 14):
+            aside.putpixel((x, y), (86, 96, 104, 255))
+    aside.save(os.path.join(tex_dir, "airship_assembly_side.png"))
+
+    afront = _metal_base()
+    for y in range(3, 13):
+        for x in range(3, 13):
+            if 4 <= x <= 11 and 5 <= y <= 10:
+                afront.putpixel((x, y), (28, 40, 48, 255))
+    for x in range(5, 11):
+        afront.putpixel((x, 8), (120, 220, 236, 255))
+        afront.putpixel((x, 9), (72, 150, 170, 255))
+    for y in range(5, 10):
+        afront.putpixel((5, y), (120, 220, 236, 255))
+    afront.save(os.path.join(tex_dir, "airship_assembly_front.png"))
+
+    print("generated: aero textures")
+
+
+make_aero_textures()

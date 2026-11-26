@@ -53,6 +53,15 @@ public class ShipEntity extends Entity {
     /** セル数（HUD 用）。 */
     public static final EntityDataAccessor<Integer> DATA_CELLS =
             SynchedEntityData.defineId(ShipEntity.class, EntityDataSerializers.INT);
+    /** 浮力（HUD 用）。 */
+    public static final EntityDataAccessor<Float> DATA_LIFT =
+            SynchedEntityData.defineId(ShipEntity.class, EntityDataSerializers.FLOAT);
+    /** レビタイトの数（HUD 用）。 */
+    public static final EntityDataAccessor<Integer> DATA_LEVITITE =
+            SynchedEntityData.defineId(ShipEntity.class, EntityDataSerializers.INT);
+    /** 気密空間のセル数（HUD 用）。 */
+    public static final EntityDataAccessor<Integer> DATA_ENVELOPE =
+            SynchedEntityData.defineId(ShipEntity.class, EntityDataSerializers.INT);
 
     /* ------------------------------------------------------------------ */
     /* 船体データ                                                          */
@@ -90,8 +99,25 @@ public class ShipEntity extends Entity {
     /** 燃料容量（＝燃料タンクの数で伸びる）。 */
     private double fuelCapacity = 1.0D;
 
-    /** 旋回の速さ。 */
-    private static final double TURN_SPEED = 1.2D;
+    /** 気密外皮で囲った気体の浮力（kpg）。 */
+    private double envelopeLift;
+    /** レビタイトの浮力（kpg）。 */
+    private double levititeLift;
+    /** 浮力の対象になった気密空間のセル数。 */
+    private int envelopeCells;
+    /** レビタイトの数。 */
+    private int levititeCount;
+    /** 上昇入力（+1 上昇 / -1 下降）。 */
+    private double liftInput;
+
+    /** 旋回の速さ（ラジアン/tick）。 */
+    private static final double TURN_SPEED = 0.05D;
+    /** 上昇／下降の強さ。 */
+    private static final double LIFT_GAIN = 0.045D;
+    /** 浮力 1 あたりの加速度（重さ 1 を支える力）。 */
+    private static final double BUOYANCY_GAIN = 0.02D;
+    /** 沈む速さの上限。 */
+    private static final double MAX_SINK = 0.12D;
     /** 空気抵抗（宇宙では小さくなる）。 */
     private static final double DRAG = 0.985D;
 
@@ -107,6 +133,9 @@ public class ShipEntity extends Entity {
         this.entityData.define(DATA_FUEL, 1.0F);
         this.entityData.define(DATA_THROTTLE, 0.0F);
         this.entityData.define(DATA_CELLS, 0);
+        this.entityData.define(DATA_LIFT, 0.0F);
+        this.entityData.define(DATA_LEVITITE, 0);
+        this.entityData.define(DATA_ENVELOPE, 0);
     }
 
     /* ------------------------------------------------------------------ */
@@ -139,6 +168,8 @@ public class ShipEntity extends Entity {
 
         // 自作エンジン（連結した部品）を評価して推力を上書き
         evaluateEngine(level, anchor);
+        // 浮力（気密外皮の熱気 + レビタイト）
+        evaluateBuoyancy(level);
 
         // 搭乗者を集計する場合は ShipService が設定する
         this.setPos(anchor.getX() + 0.5D, anchor.getY() + 0.5D, anchor.getZ() + 0.5D);
@@ -171,6 +202,63 @@ public class ShipEntity extends Entity {
         this.thrustPower = stats.thrust();
         this.fuelCapacity = stats.fuelCapacity();
         this.fuel = 1.0F;
+    }
+
+    /** 気密外皮とレビタイトの浮力を計算する（ブロックに戻す前の状態で実行）。 */
+    private void evaluateBuoyancy(Level level) {
+        List<BlockPos> positions = new ArrayList<>();
+        List<BlockState> states = new ArrayList<>();
+        for (Cell cell : this.cells) {
+            positions.add(this.blockPosition().offset(cell.localOffset));
+            states.add(cell.state);
+        }
+        com.astranautics.aero.Envelope.Report envelope =
+                com.astranautics.aero.Envelope.scan(level, positions, states);
+        this.envelopeLift = envelope.lift();
+        this.envelopeCells = envelope.totalCells();
+
+        com.astranautics.aero.Levitite.Result levitite =
+                com.astranautics.aero.Levitite.scan(positions, states);
+        this.levititeLift = levitite.lift();
+        this.levititeCount = levitite.total();
+        this.entityData.set(DATA_LIFT, (float) this.liftPower());
+        this.entityData.set(DATA_LEVITITE, this.levititeCount);
+        this.entityData.set(DATA_ENVELOPE, this.envelopeCells);
+    }
+
+    /** 浮力の合計（kpg）。 */
+    public double liftPower() {
+        return this.envelopeLift + this.levititeLift;
+    }
+
+    /** 気密空間のセル数。 */
+    public int envelopeCells() {
+        return this.envelopeCells;
+    }
+
+    /** レビタイトの数。 */
+    public int levititeCount() {
+        return this.levititeCount;
+    }
+
+    /** 同期された浮力（クライアント HUD 用）。 */
+    public float syncedLift() {
+        return this.entityData.get(DATA_LIFT);
+    }
+
+    /** 同期されたレビタイト数。 */
+    public int syncedLevitite() {
+        return this.entityData.get(DATA_LEVITITE);
+    }
+
+    /** 同期された気密空間セル数。 */
+    public int syncedEnvelope() {
+        return this.entityData.get(DATA_ENVELOPE);
+    }
+
+    /** 自重（ブロック + 搭載エンジン）。 */
+    public double hullWeight() {
+        return this.totalMass;
     }
 
     /** 自作エンジンの評価結果。 */
@@ -274,8 +362,33 @@ public class ShipEntity extends Entity {
                     (float) Mth.clamp(target, 0.0D, 1.3D), 0.01F);
         }
 
+        // 浮力（気密外皮の熱気 + レビタイト）と重力
+        double lift = liftPower();
+        if (lift > 0.0D) {
+            // 浮力が重さを上回るぶんだけ上昇。足りなければゆっくり沈む
+            double net = lift - this.totalMass * 0.5D;
+            double vertical;
+            if (net > 0.0D) {
+                vertical = Math.min(LIFT_GAIN, net * BUOYANCY_GAIN);
+            } else {
+                vertical = Math.max(-MAX_SINK, net * BUOYANCY_GAIN);
+            }
+            // 上昇入力（スペース）で押し上げ、スニークで押し下げ
+            vertical += this.liftInput * LIFT_GAIN;
+            velocity = velocity.add(0.0D, vertical, 0.0D);
+        } else if (this.liftInput != 0.0D && this.throttle > 0.01F) {
+            // 浮力が無くても、推進中は僅かに上下できる（姿勢制御）
+            velocity = velocity.add(0.0D, this.liftInput * LIFT_GAIN * 0.4D, 0.0D);
+        }
+
         // 抵抗（水中はさらに強い）
         double drag = this.isInWater() ? 0.90D : DRAG;
+        // レビタイトは低速だと抵抗が増える（Create Aeronautics と同じ挙動）
+        if (this.levititeCount > 0) {
+            drag *= com.astranautics.aero.Levitite.dragFor(velocity.length(),
+                    new com.astranautics.aero.Levitite.Result(this.levititeCount, 0,
+                            this.levititeLift));
+        }
         velocity = velocity.scale(drag);
         this.setDeltaMovement(velocity);
         this.move(net.minecraft.world.entity.MoverType.SELF, velocity);
@@ -345,26 +458,25 @@ public class ShipEntity extends Entity {
             return;
         }
 
-        float forward = 0.0F;
-        float turn = 0.0F;
-        // バニラの移動入力をそのまま使う（W/S = 前後、A/D = 旋回）
-        forward = this.pilot.zza;
-        turn = this.pilot.xxa;
+        // W/S = スロットル、A/D = ヨー、視点（マウス）＝機首の向き
+        float forward = this.pilot.zza;
+        float turn = this.pilot.xxa;
 
         this.throttle = Mth.approach(this.throttle, Mth.clamp(forward, 0.0F, 1.0F), 0.06F);
         this.setYRot(this.getYRot() - turn * (float) TURN_SPEED);
 
-        // 上下（スペース／スニーク）。搭乗中はジャンプ入力がサーバーへ届かないため、
-        // プレイヤーの視線ではなく「スニークで下降、前進で上昇」のシンプル操作にする
-        double lift = 0.0D;
+        // 機首の向きはパイロットの視線（マウス）に合わせる。
+        // 船体そのものは回転させない（ロール・ピッチなし＝常に水平姿勢）。
+        float targetYaw = this.pilot.getYRot();
+        this.setYRot(Mth.approach(this.getYRot(), targetYaw, 3.0F));
+
+        // 上下：スプリント（Ctrl）で上昇、スニークで下降
+        // （搭乗中はジャンプ入力がサーバーに届かないため、同期されるキーを使う）
+        this.liftInput = 0.0D;
         if (this.pilot.isShiftKeyDown()) {
-            lift = -0.045D;
-        } else if (forward > 0.0F && this.pilot.level().getBlockState(
-                this.pilot.blockPosition().below()).isAir()) {
-            lift = 0.02D;
-        }
-        if (lift != 0.0D) {
-            this.setDeltaMovement(this.getDeltaMovement().add(0.0D, lift, 0.0D));
+            this.liftInput = -1.0D;
+        } else if (this.pilot.isSprinting()) {
+            this.liftInput = 1.0D;
         }
 
         this.entityData.set(DATA_THROTTLE, this.throttle);
@@ -475,6 +587,10 @@ public class ShipEntity extends Entity {
     @Override
     protected void readAdditionalSaveData(CompoundTag tag) {
         this.totalMass = tag.getDouble("TotalMass");
+        this.envelopeLift = tag.getDouble("EnvelopeLift");
+        this.levititeLift = tag.getDouble("LevititeLift");
+        this.envelopeCells = tag.getInt("EnvelopeCells");
+        this.levititeCount = tag.getInt("LevititeCount");
         this.thrustPower = tag.getDouble("Thrust");
         this.throttle = tag.getFloat("Throttle");
         this.fuel = tag.getFloat("Fuel");
@@ -494,6 +610,10 @@ public class ShipEntity extends Entity {
     @Override
     protected void addAdditionalSaveData(CompoundTag tag) {
         tag.putDouble("TotalMass", this.totalMass);
+        tag.putDouble("EnvelopeLift", this.envelopeLift);
+        tag.putDouble("LevititeLift", this.levititeLift);
+        tag.putInt("EnvelopeCells", this.envelopeCells);
+        tag.putInt("LevititeCount", this.levititeCount);
         tag.putDouble("Thrust", this.thrustPower);
         tag.putFloat("Throttle", this.throttle);
         tag.putFloat("Fuel", this.fuel);

@@ -50,6 +50,31 @@ public final class ModItems {
         }
     }
 
+    /** 気密外皮の BlockItem。 */
+    public static final RegistryObject<Item> ENVELOPE = ITEMS.register("envelope",
+            () -> new BlockItem(ModBlocks.ENVELOPE.get(), new Item.Properties()));
+
+    /** 熱気バーナーの BlockItem。 */
+    public static final RegistryObject<Item> HOT_AIR_BURNER = ITEMS.register("hot_air_burner",
+            () -> new BlockItem(ModBlocks.HOT_AIR_BURNER.get(), new Item.Properties()));
+
+    /** 蒸気ベントの BlockItem。 */
+    public static final RegistryObject<Item> STEAM_VENT = ITEMS.register("steam_vent",
+            () -> new BlockItem(ModBlocks.STEAM_VENT.get(), new Item.Properties()));
+
+    /** レビタイトの BlockItem。 */
+    public static final RegistryObject<Item> LEVITITE = ITEMS.register("levitite",
+            () -> new BlockItem(ModBlocks.LEVITITE.get(), new Item.Properties()));
+
+    /** 真珠レビタイトの BlockItem。 */
+    public static final RegistryObject<Item> PEARLESCENT_LEVITITE =
+            ITEMS.register("pearlescent_levitite",
+                    () -> new BlockItem(ModBlocks.PEARLESCENT_LEVITITE.get(), new Item.Properties()));
+
+    /** 船体組み立て台の BlockItem。 */
+    public static final RegistryObject<Item> AIRSHIP_ASSEMBLY = ITEMS.register("airship_assembly",
+            () -> new BlockItem(ModBlocks.AIRSHIP_ASSEMBLY.get(), new Item.Properties()));
+
     /** ノズル金型の BlockItem。 */
     public static final RegistryObject<Item> NOZZLE_MOLD = ITEMS.register("nozzle_mold",
             () -> new BlockItem(ModBlocks.NOZZLE_MOLD.get(), new Item.Properties()));

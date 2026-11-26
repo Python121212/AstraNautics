@@ -62,6 +62,50 @@ public final class ModBlocks {
                     .sound(SoundType.METAL)));
 
     /* ------------------------------------------------------------------ */
+    /* 航空（Create Aeronautics 参考）                                      */
+    /* ------------------------------------------------------------------ */
+
+    /** 気密外皮。熱気を閉じ込める袋。 */
+    public static final RegistryObject<Block> ENVELOPE = BLOCKS.register("envelope",
+            () -> new com.astranautics.block.EnvelopeBlock(BlockBehaviour.Properties.of()
+                    .mapColor(MapColor.WOOL)
+                    .strength(0.6F, 1.0F)
+                    .sound(SoundType.WOOL)
+                    .noOcclusion()));
+
+    /** 熱気バーナー。気密外皮の中の空気を暖める。 */
+    public static final RegistryObject<Block> HOT_AIR_BURNER = BLOCKS.register("hot_air_burner",
+            () -> new com.astranautics.block.HotAirBurnerBlock(BlockBehaviour.Properties.of()
+                    .mapColor(MapColor.METAL)
+                    .strength(2.5F, 5.0F)
+                    .sound(SoundType.METAL)
+                    .lightLevel(state -> state.getValue(
+                            com.astranautics.block.HotAirBurnerBlock.LIT) ? 13 : 0)));
+
+    /** 蒸気ベント。熱気バーナーの 2.5 倍の出力。 */
+    public static final RegistryObject<Block> STEAM_VENT = BLOCKS.register("steam_vent",
+            () -> new com.astranautics.block.SteamVentBlock(BlockBehaviour.Properties.of()
+                    .mapColor(MapColor.METAL)
+                    .strength(2.5F, 5.0F)
+                    .sound(SoundType.COPPER)));
+
+    /** レビタイト（浮く岩）。 */
+    public static final RegistryObject<Block> LEVITITE = BLOCKS.register("levitite",
+            () -> new com.astranautics.block.LevititeBlock(false));
+
+    /** 真珠レビタイト（1.5 倍の浮力）。 */
+    public static final RegistryObject<Block> PEARLESCENT_LEVITITE =
+            BLOCKS.register("pearlescent_levitite",
+                    () -> new com.astranautics.block.LevititeBlock(true));
+
+    /** 船体組み立て台（浮力・重さのバランス表示）。 */
+    public static final RegistryObject<Block> AIRSHIP_ASSEMBLY = BLOCKS.register("airship_assembly",
+            () -> new com.astranautics.block.AirshipAssemblyBlock(BlockBehaviour.Properties.of()
+                    .mapColor(MapColor.METAL)
+                    .strength(3.0F, 6.0F)
+                    .sound(SoundType.METAL)));
+
+    /* ------------------------------------------------------------------ */
     /* 自作エンジンの部品                                                   */
     /* ------------------------------------------------------------------ */
 

@@ -1,5 +1,6 @@
 package com.astranautics.client.ponder;
 
+import com.astranautics.client.ponder.step.AeroSteps;
 import com.astranautics.client.ponder.step.EnginePartSteps;
 import com.astranautics.client.ponder.step.HelmSteps;
 import com.astranautics.client.ponder.step.ThrusterSteps;
@@ -63,7 +64,14 @@ public final class PonderCatalog {
         // --- 舵輪 ---
         register("ship_helm", HelmSteps.create());
 
-        // --- エンジン部品 7 種 ---
+        // --- 航空（気密外皮・熱気・レビタイト） ---
+        register("envelope", AeroSteps.envelope());
+        register("hot_air_burner", AeroSteps.hotAirBurner());
+        register("steam_vent", AeroSteps.steamVent());
+        register("levitite", AeroSteps.levitite());
+        register("airship_assembly", AeroSteps.airshipAssembly());
+
+        // --- エンジン部品 ---
         for (var part : com.astranautics.engine.EnginePart.values()) {
             register("engine_" + part.id, EnginePartSteps.create(part));
         }

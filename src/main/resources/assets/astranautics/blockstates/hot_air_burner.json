@@ -1,0 +1,124 @@
+{
+  "variants": {
+    "facing=north,heat=0,lit=true": {
+      "model": "astranautics:block/hot_air_burner"
+    },
+    "facing=north,heat=1,lit=true": {
+      "model": "astranautics:block/hot_air_burner"
+    },
+    "facing=north,heat=2,lit=true": {
+      "model": "astranautics:block/hot_air_burner"
+    },
+    "facing=north,heat=3,lit=true": {
+      "model": "astranautics:block/hot_air_burner"
+    },
+    "facing=north,heat=0,lit=false": {
+      "model": "astranautics:block/hot_air_burner"
+    },
+    "facing=north,heat=1,lit=false": {
+      "model": "astranautics:block/hot_air_burner"
+    },
+    "facing=north,heat=2,lit=false": {
+      "model": "astranautics:block/hot_air_burner"
+    },
+    "facing=north,heat=3,lit=false": {
+      "model": "astranautics:block/hot_air_burner"
+    },
+    "facing=east,heat=0,lit=true": {
+      "model": "astranautics:block/hot_air_burner",
+      "y": 90
+    },
+    "facing=east,heat=1,lit=true": {
+      "model": "astranautics:block/hot_air_burner",
+      "y": 90
+    },
+    "facing=east,heat=2,lit=true": {
+      "model": "astranautics:block/hot_air_burner",
+      "y": 90
+    },
+    "facing=east,heat=3,lit=true": {
+      "model": "astranautics:block/hot_air_burner",
+      "y": 90
+    },
+    "facing=east,heat=0,lit=false": {
+      "model": "astranautics:block/hot_air_burner",
+      "y": 90
+    },
+    "facing=east,heat=1,lit=false": {
+      "model": "astranautics:block/hot_air_burner",
+      "y": 90
+    },
+    "facing=east,heat=2,lit=false": {
+      "model": "astranautics:block/hot_air_burner",
+      "y": 90
+    },
+    "facing=east,heat=3,lit=false": {
+      "model": "astranautics:block/hot_air_burner",
+      "y": 90
+    },
+    "facing=south,heat=0,lit=true": {
+      "model": "astranautics:block/hot_air_burner",
+      "y": 180
+    },
+    "facing=south,heat=1,lit=true": {
+      "model": "astranautics:block/hot_air_burner",
+      "y": 180
+    },
+    "facing=south,heat=2,lit=true": {
+      "model": "astranautics:block/hot_air_burner",
+      "y": 180
+    },
+    "facing=south,heat=3,lit=true": {
+      "model": "astranautics:block/hot_air_burner",
+      "y": 180
+    },
+    "facing=south,heat=0,lit=false": {
+      "model": "astranautics:block/hot_air_burner",
+      "y": 180
+    },
+    "facing=south,heat=1,lit=false": {
+      "model": "astranautics:block/hot_air_burner",
+      "y": 180
+    },
+    "facing=south,heat=2,lit=false": {
+      "model": "astranautics:block/hot_air_burner",
+      "y": 180
+    },
+    "facing=south,heat=3,lit=false": {
+      "model": "astranautics:block/hot_air_burner",
+      "y": 180
+    },
+    "facing=west,heat=0,lit=true": {
+      "model": "astranautics:block/hot_air_burner",
+      "y": 270
+    },
+    "facing=west,heat=1,lit=true": {
+      "model": "astranautics:block/hot_air_burner",
+      "y": 270
+    },
+    "facing=west,heat=2,lit=true": {
+      "model": "astranautics:block/hot_air_burner",
+      "y": 270
+    },
+    "facing=west,heat=3,lit=true": {
+      "model": "astranautics:block/hot_air_burner",
+      "y": 270
+    },
+    "facing=west,heat=0,lit=false": {
+      "model": "astranautics:block/hot_air_burner",
+      "y": 270
+    },
+    "facing=west,heat=1,lit=false": {
+      "model": "astranautics:block/hot_air_burner",
+      "y": 270
+    },
+    "facing=west,heat=2,lit=false": {
+      "model": "astranautics:block/hot_air_burner",
+      "y": 270
+    },
+    "facing=west,heat=3,lit=false": {
+      "model": "astranautics:block/hot_air_burner",
+      "y": 270
+    }
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "astranautics:block/airship_assembly"
+    },
+    "facing=east": {
+      "model": "astranautics:block/airship_assembly",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "astranautics:block/airship_assembly",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "astranautics:block/airship_assembly",
+      "y": 270
+    }
+  }
+}
