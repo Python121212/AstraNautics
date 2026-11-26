@@ -4,6 +4,7 @@ import com.astranautics.registry.ModItems;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.Tag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.sounds.SoundEvents;
@@ -182,10 +183,10 @@ public class AdhesiveItem extends Item {
         if (tag == null || !tag.contains(TAG_GROUPS)) {
             return groups;
         }
-        ListTag list = tag.getList(TAG_GROUPS, net.minecraft.nbt.Tag.TAG_COMPOUND);
+        ListTag list = tag.getList(TAG_GROUPS, Tag.TAG_COMPOUND);
         for (int i = 0; i < list.size(); i++) {
             CompoundTag groupTag = list.getCompound(i);
-            ListTag positions = groupTag.getList("Positions", net.minecraft.nbt.Tag.TAG_COMPOUND);
+            ListTag positions = groupTag.getList("Positions", Tag.TAG_COMPOUND);
             List<BlockPos> group = new ArrayList<>(positions.size());
             for (int j = 0; j < positions.size(); j++) {
                 CompoundTag posTag = positions.getCompound(j);
@@ -200,7 +201,7 @@ public class AdhesiveItem extends Item {
 
     private static void addGroup(ItemStack stack, List<BlockPos> group) {
         CompoundTag tag = stack.getOrCreateTag();
-        ListTag list = tag.getList(TAG_GROUPS, net.minecraft.nbt.Tag.TAG_COMPOUND);
+        ListTag list = tag.getList(TAG_GROUPS, Tag.TAG_COMPOUND);
         CompoundTag groupTag = new CompoundTag();
         ListTag positions = new ListTag();
         for (BlockPos pos : group) {
@@ -234,7 +235,7 @@ public class AdhesiveItem extends Item {
         if (tag == null || !tag.contains(TAG_SELECTION)) {
             return selection;
         }
-        ListTag positions = tag.getList(TAG_SELECTION, net.minecraft.nbt.Tag.TAG_COMPOUND);
+        ListTag positions = tag.getList(TAG_SELECTION, Tag.TAG_COMPOUND);
         for (int i = 0; i < positions.size(); i++) {
             CompoundTag posTag = positions.getCompound(i);
             selection.add(new BlockPos(posTag.getInt("X"), posTag.getInt("Y"), posTag.getInt("Z")));
