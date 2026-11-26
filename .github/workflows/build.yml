@@ -38,6 +38,15 @@ jobs:
         if: always()
         run: ls -l build/libs || true
 
+      - name: Verify jar contents
+        run: |
+          JAR=$(ls build/libs/astranautics-*-mc*.jar | grep -v sources | head -n 1)
+          echo "Checking $JAR"
+          unzip -l "$JAR" | tee /dev/stderr | grep -q "com/astranautics/AstraNautics.class"
+          unzip -l "$JAR" | grep -q "META-INF/mods.toml"
+          unzip -l "$JAR" | grep -q "pack.mcmeta"
+          echo "OK: 読み込み用 jar の中身を確認しました"
+
       - name: Upload mod jar
         uses: actions/upload-artifact@v4
         with:
