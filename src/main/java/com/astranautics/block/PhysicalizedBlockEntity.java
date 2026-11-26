@@ -1,6 +1,7 @@
 package com.astranautics.block;
 
 import com.astranautics.physics.LightPhysicsEngine;
+import com.astranautics.physics.MaterialProfile;
 import com.astranautics.registry.ModBlockEntities;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -57,6 +58,12 @@ public class PhysicalizedBlockEntity extends BlockEntity {
 
     /** 同期用ハッシュ（変化検出）。 */
     private int lastSyncHash;
+    /** 素材別物性（キャッシュ）。 */
+    private MaterialProfile material;
+    /** レッドストーンで ON にされたか（信号が切れたら OFF に戻す）。 */
+    private boolean heldByRedstone;
+    /** tick ごとの同期が必要か（インパルスを受けたとき）。 */
+    public boolean dirty;
 
     public PhysicalizedBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlockEntities.PHYSICALIZED.get(), pos, state);
@@ -69,6 +76,31 @@ public class PhysicalizedBlockEntity extends BlockEntity {
     public void setOriginalState(BlockState state) {
         this.originalStateTag = NbtUtils.writeBlockState(state);
         this.cachedOriginal = state;
+        this.material = null;   // 素材が変わったら物性を再計算
+        setChanged();
+    }
+
+    /** 素材別の物性値（キャッシュ付き）。 */
+    public MaterialProfile getMaterial() {
+        if (this.material == null) {
+            this.material = MaterialProfile.of(getOriginalState());
+        }
+        return this.material;
+    }
+
+    /** レッドストーンで ON にされたか。 */
+    public boolean isPhysicsHeldByRedstone() {
+        return this.heldByRedstone;
+    }
+
+    public void setPhysicsHeldByRedstone(boolean held) {
+        this.heldByRedstone = held;
+    }
+
+    /** 移設時（長距離移動）に物理状態を引き継ぐ。 */
+    public void setPhysicsEnabledFromTransfer(boolean enabled) {
+        this.physicsEnabled = enabled;
+        this.sleepTicks = 0;
         setChanged();
     }
 
@@ -110,6 +142,9 @@ public class PhysicalizedBlockEntity extends BlockEntity {
     public void enablePhysics() {
         this.physicsEnabled = true;
         this.sleepTicks = 0;
+        if (this.level != null) {
+            com.astranautics.physics.ClusterManager.rebuild(this.level, this.worldPosition);
+        }
         // わずかに浮いた状態から始めて「物理化した」感を出す
         this.offY = Math.max(this.offY, 0.02D);
         // 置いた場所が既に埋まっていても押し出されないよう、少しだけ持ち上げる
@@ -121,6 +156,7 @@ public class PhysicalizedBlockEntity extends BlockEntity {
     /** 物理演算を OFF（レバー下）にする。元のグリッド位置へ戻す。 */
     public void disablePhysics() {
         this.physicsEnabled = false;
+        this.heldByRedstone = false;
         this.offX = 0.0D;
         this.offY = 0.0D;
         this.offZ = 0.0D;
@@ -162,10 +198,13 @@ public class PhysicalizedBlockEntity extends BlockEntity {
     }
 
     public void addImpulse(double ix, double iy, double iz) {
-        this.velX += ix;
-        this.velY += iy;
-        this.velZ += iz;
+        // 重いものは動きにくい（質量でスケール）
+        double inv = 1.0D / Math.max(0.2D, getMaterial().mass());
+        this.velX += ix * inv;
+        this.velY += iy * inv;
+        this.velZ += iz * inv;
         this.sleepTicks = 0;
+        this.dirty = true;
         setChanged();
     }
 
@@ -252,15 +291,43 @@ public class PhysicalizedBlockEntity extends BlockEntity {
     /* tick                                                                 */
     /* ------------------------------------------------------------------ */
 
-    /** サーバー側：軽量物理エンジンを回す。 */
+    /** サーバー側：軽量物理エンジンを回す（外力・プレイヤー・クラスタも含む）。 */
     public static void serverTick(Level level, BlockPos pos, BlockState state, PhysicalizedBlockEntity be) {
-        if (level.isClientSide || !be.physicsEnabled) {
+        if (level.isClientSide || !(level instanceof net.minecraft.server.level.ServerLevel serverLevel)) {
             return;
         }
-        if (be.sleepTicks >= LightPhysicsEngine.SLEEP_TICKS) {
+
+        // レッドストーン／水流などはスリープ中でも判定する（軽い処理）
+        if (level.getGameTime() % 5L == 0L) {
+            com.astranautics.physics.PhysicsRuntime.applyEnvironment(serverLevel, be);
+        }
+
+        if (!be.physicsEnabled) {
             return;
         }
+
+        // 止まっていても、プレイヤーが触れば動き出す
+        com.astranautics.physics.PhysicsRuntime.playerInteraction(serverLevel, be);
+
+        if (be.sleepTicks >= LightPhysicsEngine.SLEEP_TICKS && !be.dirty) {
+            return;
+        }
+        be.dirty = false;
+
         LightPhysicsEngine.tick(level, pos, be);
+
+        // クラスタ単位の押し出し（重なり解消）
+        com.astranautics.physics.PhysicsCluster cluster =
+                com.astranautics.physics.ClusterManager.at(level, pos);
+        if (cluster != null && cluster.size() > 1 && !cluster.isSleeping()) {
+            com.astranautics.physics.PhysicsRuntime.resolveClusterOverlap(serverLevel, cluster);
+        }
+
+        // 長距離移動したらグリッド位置を補正（将来の宇宙船移動の布石）
+        if (level.getGameTime() % 20L == 0L) {
+            com.astranautics.physics.PhysicsRuntime.normalizeLongOffsets(serverLevel, be);
+        }
+
         be.syncNow();
     }
 

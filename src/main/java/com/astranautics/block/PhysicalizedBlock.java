@@ -192,6 +192,8 @@ public class PhysicalizedBlock extends BaseEntityBlock {
             be.setOriginalState(original);
             be.enablePhysics();
             be.setChanged();
+            // 連結クラスタ（将来の「船 = 1 剛体」）を再構築
+            com.astranautics.physics.ClusterManager.rebuild(level, pos);
         }
 
         if (level instanceof ServerLevel serverLevel) {
@@ -231,10 +233,15 @@ public class PhysicalizedBlock extends BaseEntityBlock {
 
     @Override
     public void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
-        if (!state.is(newState.getBlock())
-                && level.getBlockEntity(pos) instanceof PhysicalizedBlockEntity be) {
-            // 物理演算中でもドロップはアイテム側のルートテーブルで処理される
-            be.setChanged();
+        if (!state.is(newState.getBlock())) {
+            // クラスタ登録を解除し、隣接クラスタを再構築する
+            com.astranautics.physics.ClusterManager.unregister(level, pos);
+            for (Direction dir : Direction.values()) {
+                BlockPos neighbor = pos.relative(dir);
+                if (level.getBlockEntity(neighbor) instanceof PhysicalizedBlockEntity) {
+                    com.astranautics.physics.ClusterManager.rebuild(level, neighbor);
+                }
+            }
         }
         super.onRemove(state, level, pos, newState, movedByPiston);
     }

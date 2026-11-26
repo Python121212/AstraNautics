@@ -11,5 +11,6 @@
   "message.astranautics.lever_off": "Lever OFF: physics stopped",
   "message.astranautics.airborne_on": "Placed a block in mid-air with physics",
   "message.astranautics.restored": "Restored the original block",
-  "message.astranautics.physicalizer_help": "Right-click block/air: physicalize (ON) / right-click physicalized: OFF<->ON / sneak to restore"
+  "message.astranautics.physicalizer_help": "Right-click block/air: physicalize (ON) / right-click physicalized: OFF<->ON / sneak to restore",
+  "message.astranautics.smack": "Smacked! (mass %s)"
 }

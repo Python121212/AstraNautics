@@ -67,10 +67,15 @@ public final class LightPhysicsEngine {
         double startY = be.getOffY();
         double startZ = be.getOffZ();
 
-        // 重力と抵抗
-        double vx = Mth.clamp(be.getVelX() * AIR_DRAG, -MAX_SPEED, MAX_SPEED);
-        double vy = Mth.clamp(be.getVelY() - GRAVITY, -MAX_SPEED, MAX_SPEED);
-        double vz = Mth.clamp(be.getVelZ() * AIR_DRAG, -MAX_SPEED, MAX_SPEED);
+        // 素材別の物性（重いほど加速しにくく、軽いほど吹き飛ぶ）
+        MaterialProfile material = be.getMaterial();
+        double mass = Math.max(0.2D, material.mass());
+        double gravity = GRAVITY * Math.min(1.6D, Math.sqrt(mass));
+        double drag = Math.max(0.0D, AIR_DRAG - material.drag());
+
+        double vx = Mth.clamp(be.getVelX() * drag, -MAX_SPEED, MAX_SPEED);
+        double vy = Mth.clamp(be.getVelY() - gravity, -MAX_SPEED, MAX_SPEED);
+        double vz = Mth.clamp(be.getVelZ() * drag, -MAX_SPEED, MAX_SPEED);
 
         double speed = Math.sqrt(vx * vx + vy * vy + vz * vz);
         int steps = Mth.clamp((int) Math.ceil(speed / SUBSTEP), 1, MAX_SUBSTEPS);
@@ -88,7 +93,7 @@ public final class LightPhysicsEngine {
                 } else if (dy < 0.0D) {
                     propagateContact(level, pos, be, 1, vy);
                     if (Math.abs(vy) > 0.22D) {
-                        vy = -vy * BOUNCE;                 // 軽く跳ねる
+                        vy = -vy * Math.max(BOUNCE, material.restitution());  // 素材別の反発
                         be.addOffset(0.0D, dy * 0.25D, 0.0D);
                     } else {
                         vy = 0.0D;
@@ -106,7 +111,7 @@ public final class LightPhysicsEngine {
                     be.addOffset(dx, 0.0D, 0.0D);
                 } else {
                     propagateContact(level, pos, be, 0, vx);
-                    vx = -vx * BOUNCE;
+                    vx = -vx * Math.max(BOUNCE, material.restitution());
                 }
             }
 
@@ -116,14 +121,16 @@ public final class LightPhysicsEngine {
                     be.addOffset(0.0D, 0.0D, dz);
                 } else {
                     propagateContact(level, pos, be, 2, vz);
-                    vz = -vz * BOUNCE;
+                    vz = -vz * Math.max(BOUNCE, material.restitution());
                 }
             }
         }
 
         if (grounded) {
-            vx *= GROUND_FRICTION;
-            vz *= GROUND_FRICTION;
+            // 素材の摩擦（氷はほぼ滑り、羊毛はよく止まる）
+            double friction = 1.0D - (1.0D - GROUND_FRICTION) * material.friction();
+            vx *= friction;
+            vz *= friction;
         }
         be.setVelocity(vx, vy, vz);
 
@@ -158,10 +165,21 @@ public final class LightPhysicsEngine {
             }
             if (level.getBlockEntity(p) instanceof PhysicalizedBlockEntity other && other.isPhysicsEnabled()) {
                 double impulse = Math.min(Math.abs(velocity) * CONTACT_IMPULSE, 0.05D);
+                // 重いセルには伝わりにくい（質量比で配分）
+                double ratio = Math.min(2.0D, be.getMaterial().mass() / other.getMaterial().mass());
                 other.addImpulse(
-                        axis == 0 ? Math.signum(velocity) * impulse : 0.0D,
-                        axis == 1 ? -impulse * 0.6D : 0.0D,
-                        axis == 2 ? Math.signum(velocity) * impulse : 0.0D);
+                        axis == 0 ? Math.signum(velocity) * impulse * ratio : 0.0D,
+                        axis == 1 ? -impulse * 0.6D * ratio : 0.0D,
+                        axis == 2 ? Math.signum(velocity) * impulse * ratio : 0.0D);
+                // 連結クラスタ全体にも揺れを伝える（物理強化）
+                PhysicsCluster cluster = ClusterManager.at(level, p);
+                if (cluster != null && cluster.size() > 1) {
+                    double share = impulse * ratio / cluster.size();
+                    cluster.applyImpulse(
+                            axis == 0 ? Math.signum(velocity) * share : 0.0D,
+                            axis == 1 ? -share * 0.4D : 0.0D,
+                            axis == 2 ? Math.signum(velocity) * share : 0.0D);
+                }
             }
         }
     }

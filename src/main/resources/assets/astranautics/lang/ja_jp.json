@@ -11,5 +11,6 @@
   "message.astranautics.lever_off": "レバーOFF: 物理演算を停止",
   "message.astranautics.airborne_on": "空中にブロック化して物理演算を追加",
   "message.astranautics.restored": "元のブロックに戻しました",
-  "message.astranautics.physicalizer_help": "ブロック/空中に右クリック: 物理化（ON） / 物理化ブロックに右クリック: OFF⇔ON / スニークで復元"
+  "message.astranautics.physicalizer_help": "ブロック/空中に右クリック: 物理化（ON） / 物理化ブロックに右クリック: OFF⇔ON / スニークで復元",
+  "message.astranautics.smack": "殴って発射！(質量 %s)"
 }
