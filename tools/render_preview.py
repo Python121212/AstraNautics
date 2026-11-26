@@ -305,6 +305,8 @@ def main():
     render_block("thruster", ("thruster_top.png", "thruster_side.png", "thruster_front.png"))
     render_block("ship_helm", ("ship_helm_top.png", "ship_helm_side.png",
                                "ship_helm_front.png"))
+    render_block("nozzle_mold", ("nozzle_mold_top.png", "nozzle_mold_side.png",
+                                 "nozzle_mold_front.png"))
     # 自作エンジンの部品（1 部品 1 枚）
     for name in ("combustion_chamber", "nozzle", "intake", "turbine",
                  "cooling_fin", "oxidizer_tank", "fuel_tank"):
