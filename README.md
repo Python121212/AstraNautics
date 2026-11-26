@@ -161,16 +161,17 @@ src/main/resources/
 テクスチャは `assets/astranautics/textures/block/lever_on.png` / `lever_off.png` を使用し、
 `LeverOverlayRenderer` が 2 枚の直交板として軽量に描画します。
 
-### 3D レバー（v0.3.2〜）
+### 3D レバー（1 枚のアトラス PNG で組み立て）
 物理化されたブロックの上には、**本物の 3D レバー**が載ります。
+テクスチャは **1 枚だけ**（`images/lever_atlas.png` / 64x32）で、UV を切り替えて組み立てます。
 
-- 台座（真鍮の立方体）＋ 持ち手（回転する角柱）＋ ノブで構成された純粋な 3D ジオメトリ
-- **ON** では持ち手が立ち上がって発光、**OFF** では横倒し（回転は描画時のみで滑らかに補間）
-- 使用テクスチャ: `images/lever_base.png` / `images/lever_handle_on.png` / `images/lever_handle_off.png`
-
-| ファイル | 内容 |
+| アトラス内の位置 | パーツ |
 | --- | --- |
-| `images/lever_base.png` | 台座のマテリアル |
-| `images/lever_handle_on.png` | 持ち手（ON・シアン） |
-| `images/lever_handle_off.png` | 持ち手（OFF・グレー） |
-| `images/lever_3d_parts_preview.png` | 台座＋持ち手の見本 |
+| 左上 (0,0) 16x16 | 台座（真鍮・リベット・溝） |
+| 上段 2 列目 | 持ち手 **ON**（シアン） |
+| 上段 3 列目 | 持ち手 **OFF**（グレー） |
+
+- 3D ジオメトリ: 台座（立方体）＋ 持ち手（角柱）＋ ノブ（立方体）
+- **ON** で立ち上がって発光、**OFF** で横倒し（描画時のみ補間回転）
+- MOD 側テクスチャ: `assets/astranautics/textures/block/lever_atlas.png`
+- 生成: `tools/generate_textures.py`（`make_lever_atlas()`）

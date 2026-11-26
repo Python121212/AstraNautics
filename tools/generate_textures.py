@@ -297,36 +297,36 @@ print("generated:", os.path.join(root, "images/lever_on_off_preview.png"))
 
 
 # ----------------------------------------------------------------------
-# 3D レバー用のマテリアルテクスチャ
-#   lever_base.png        … 真鍮の台座
-#   lever_handle_on.png   … 持ち手（ON・シアン）
-#   lever_handle_off.png  … 持ち手（OFF・グレー）
+# 3D レバー用アトラス（1 枚の PNG に台座・持ち手 ON/OFF をまとめる）
+#   レイアウト（16px セル × 4 列 × 2 行 = 64x32）
+#     (0,0) 台座 / (1,0) 持ち手ON / (2,0) 持ち手OFF / (3,0) 予備
+#   3D モデルはこの 1 枚の UV を切り替えて「組み立て」ます。
 # ----------------------------------------------------------------------
+ATLAS_COLS = 4
+ATLAS_ROWS = 2
+
+
 def make_brass_plate():
     img = Image.new("RGBA", (SIZE, SIZE))
     for y in range(SIZE):
         for x in range(SIZE):
-            # 上から下へ明るい→暗いグラデーション
             t = y / (SIZE - 1)
             r = int(214 - 66 * t)
             gg = int(172 - 62 * t)
             b = int(96 - 46 * t)
             img.putpixel((x, y), (r, gg, b, 255))
-    # リベット
     for (cx, cy) in ((3, 3), (12, 3), (3, 12), (12, 12)):
         img.putpixel((cx, cy), (240, 214, 150, 255))
         img.putpixel((cx + 1, cy + 1), (66, 44, 22, 255))
-    # 溝
     for x in range(SIZE):
         img.putpixel((x, 8), (120, 84, 40, 255))
     return img
 
 
-def make_handle(color_main, color_hi, color_dark):
+def make_handle(color_main, color_hi, color_dark, accent=(245, 255, 255, 255)):
     img = Image.new("RGBA", (SIZE, SIZE))
     for y in range(SIZE):
         for x in range(SIZE):
-            # 中央ほど明るい金属の棒
             d = abs(x - 7.5) / 7.5
             if d > 0.75:
                 c = color_dark
@@ -335,35 +335,26 @@ def make_handle(color_main, color_hi, color_dark):
             else:
                 c = color_hi
             img.putpixel((x, y), c + (255,))
-    # ノブのハイライト
     for (x, y) in ((7, 1), (8, 1), (7, 2)):
-        img.putpixel((x, y), (245, 255, 255, 255))
+        img.putpixel((x, y), accent)
     return img
 
 
-brass = make_brass_plate()
-brass.save(os.path.join(root, "images/lever_base.png"))
-brass.resize((SIZE * 8, SIZE * 8), Image.NEAREST).save(
-    os.path.join(root, "images/lever_base_preview.png"))
-brass.save(os.path.join(block_dir, "lever_base.png"))
+def make_lever_atlas():
+    """1 枚のアトラス PNG（64x32）に台座と持ち手をまとめる。"""
+    atlas = Image.new("RGBA", (SIZE * ATLAS_COLS, SIZE * ATLAS_ROWS), (0, 0, 0, 0))
+    atlas.paste(make_brass_plate(), (0, 0))
+    atlas.paste(make_handle((86, 214, 222), (186, 250, 252), (26, 96, 110)), (SIZE, 0))
+    atlas.paste(make_handle((150, 156, 162), (200, 208, 214), (86, 92, 98),
+                            accent=(230, 236, 240, 255)), (SIZE * 2, 0))
+    return atlas
 
-handle_on = make_handle((86, 214, 222), (186, 250, 252), (26, 96, 110))
-handle_off = make_handle((150, 156, 162), (200, 208, 214), (86, 92, 98))
-handle_on.save(os.path.join(root, "images/lever_handle_on.png"))
-handle_off.save(os.path.join(root, "images/lever_handle_off.png"))
-handle_on.resize((SIZE * 8, SIZE * 8), Image.NEAREST).save(
-    os.path.join(root, "images/lever_handle_on_preview.png"))
-handle_off.resize((SIZE * 8, SIZE * 8), Image.NEAREST).save(
-    os.path.join(root, "images/lever_handle_off_preview.png"))
-handle_on.save(os.path.join(block_dir, "lever_handle_on.png"))
-handle_off.save(os.path.join(block_dir, "lever_handle_off.png"))
 
-# 3D レバーの見本（台座＋持ち手を並べたプレビュー）
-demo = Image.new("RGBA", (SIZE * 2 + 2, SIZE), (0, 0, 0, 0))
-demo.paste(brass, (0, 0))
-demo.paste(handle_on, (SIZE + 2, 0))
-demo.resize(((SIZE * 2 + 2) * 8, SIZE * 8), Image.NEAREST).save(
-    os.path.join(root, "images/lever_3d_parts_preview.png"))
-print("generated:", os.path.join(root, "images/lever_base.png"),
-      os.path.join(root, "images/lever_handle_on.png"),
-      os.path.join(root, "images/lever_handle_off.png"))
+atlas = make_lever_atlas()
+atlas.save(os.path.join(root, "images/lever_atlas.png"))
+atlas.resize((atlas.width * 8, atlas.height * 8), Image.NEAREST).save(
+    os.path.join(root, "images/lever_atlas_preview.png")
+)
+atlas.save(os.path.join(block_dir, "lever_atlas.png"))
+print("generated:", os.path.join(root, "images/lever_atlas.png"),
+      f"({atlas.width}x{atlas.height})")

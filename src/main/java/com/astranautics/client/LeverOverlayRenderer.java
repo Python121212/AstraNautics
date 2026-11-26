@@ -15,18 +15,25 @@ import net.minecraft.util.Mth;
 /**
  * 物理化ブロックの真上に載る「本物の 3D レバー」。
  *
- * <p>台座（真鍮の立方体）＋ 持ち手（回転する角柱）で構成します。
- * レバー ON では持ち手が立ち上がり、OFF では横倒しになります。
- * テクスチャは `images/lever_base.png` / `lever_handle_on.png` / `lever_handle_off.png`。</p>
+ * <p>テクスチャは <b>1 枚のアトラス PNG</b>（`images/lever_atlas.png` / 64x32）だけを使い、
+ * UV を切り替えて台座と持ち手を「組み立て」ます。</p>
+ *
+ * <pre>
+ *  レイアウト（16px セル）
+ *    (0,0) 台座      u 0.00 - 0.25
+ *    (1,0) 持ち手ON  u 0.25 - 0.50
+ *    (2,0) 持ち手OFF u 0.50 - 0.75
+ * </pre>
  */
 public final class LeverOverlayRenderer {
 
-    private static final ResourceLocation BASE =
-            new ResourceLocation(AstraNautics.MOD_ID, "textures/block/lever_base.png");
-    private static final ResourceLocation HANDLE_ON =
-            new ResourceLocation(AstraNautics.MOD_ID, "textures/block/lever_handle_on.png");
-    private static final ResourceLocation HANDLE_OFF =
-            new ResourceLocation(AstraNautics.MOD_ID, "textures/block/lever_handle_off.png");
+    private static final ResourceLocation ATLAS =
+            new ResourceLocation(AstraNautics.MOD_ID, "textures/block/lever_atlas.png");
+
+    /** アトラス内の UV 範囲（u0, v0, u1, v1）。 */
+    private static final float[] UV_BASE = {0.00F, 0.00F, 0.25F, 0.50F};
+    private static final float[] UV_HANDLE_ON = {0.25F, 0.00F, 0.50F, 0.50F};
+    private static final float[] UV_HANDLE_OFF = {0.50F, 0.00F, 0.75F, 0.50F};
 
     private static Boolean available;
 
@@ -35,9 +42,7 @@ public final class LeverOverlayRenderer {
 
     public static boolean isAvailable() {
         if (available == null) {
-            var manager = Minecraft.getInstance().getResourceManager();
-            available = manager.getResource(BASE).isPresent()
-                    && manager.getResource(HANDLE_ON).isPresent();
+            available = Minecraft.getInstance().getResourceManager().getResource(ATLAS).isPresent();
         }
         return available;
     }
@@ -46,10 +51,7 @@ public final class LeverOverlayRenderer {
         available = null;
     }
 
-    /**
-     * レバー本体を描画する。
-     * ブロックの上面中央に台座を置き、その上で持ち手を回転させる。
-     */
+    /** レバー本体（台座＋持ち手＋ノブ）を描画する。 */
     public static void render(PhysicalizedBlockEntity be, float partialTick, PoseStack pose,
                               MultiBufferSource buffers, int packedLight) {
         if (!isAvailable()) {
@@ -60,39 +62,36 @@ public final class LeverOverlayRenderer {
         double y = Mth.lerp(partialTick, be.prevOffY, be.getOffY());
         double z = Mth.lerp(partialTick, be.prevOffZ, be.getOffZ());
 
-        // ON / OFF の角度を滑らかに補間（0 = 立ち上がり, 80度 = 横倒し）
+        // ON = 立ち上がり(0度) / OFF = 横倒し(80度)。描画時のみ滑らかに補間。
         float target = be.isPhysicsEnabled() ? 0.0F : 80.0F;
         be.leverTilt += (target - be.leverTilt) * 0.35F;
-        if (be.leverTilt < 0.01F && target == 0.0F) {
+        if (target == 0.0F && be.leverTilt < 0.01F) {
             be.leverTilt = 0.0F;
         }
 
-        int light = be.isPhysicsEnabled()
-                ? LightTexture.FULL_BRIGHT     // ON は光って見える
-                : packedLight;
+        int light = be.isPhysicsEnabled() ? LightTexture.FULL_BRIGHT : packedLight;
+
+        // 1 枚のアトラスから 1 つのバッファだけ取得（描画コールは 1 回）
+        VertexConsumer consumer = buffers.getBuffer(RenderType.entityCutout(ATLAS));
 
         pose.pushPose();
         pose.translate(x + 0.5D, y + 1.0D, z + 0.5D);
 
-        // --- 台座（真鍮の小さな立方体） ---
-        VertexConsumer base = buffers.getBuffer(RenderType.entityCutout(BASE));
+        // --- 台座 ---
         pose.pushPose();
         pose.translate(0.0D, 0.045D, 0.0D);
-        box(pose.last(), base, 0.22F, 0.09F, 0.22F, light);
+        box(pose.last(), consumer, UV_BASE, 0.22F, 0.09F, 0.22F, light);
         pose.popPose();
 
-        // --- 持ち手（回転する角柱） ---
-        VertexConsumer handle = buffers.getBuffer(RenderType.entityCutout(
-                be.isPhysicsEnabled() ? HANDLE_ON : HANDLE_OFF));
+        // --- 持ち手（ON / OFF で UV を切り替え） ---
+        float[] handleUv = be.isPhysicsEnabled() ? UV_HANDLE_ON : UV_HANDLE_OFF;
         pose.pushPose();
         pose.translate(0.0D, 0.09D, 0.0D);
         pose.mulPose(com.mojang.math.Axis.XP.rotationDegrees(be.leverTilt));
-        // 根元から上へ伸びる棒
         pose.translate(0.0D, 0.30D, 0.0D);
-        box(pose.last(), handle, 0.055F, 0.30F, 0.055F, light);
-        // ノブ（握り）
+        box(pose.last(), consumer, handleUv, 0.055F, 0.30F, 0.055F, light);
         pose.translate(0.0D, 0.34D, 0.0D);
-        box(pose.last(), handle, 0.10F, 0.09F, 0.10F, light);
+        box(pose.last(), consumer, handleUv, 0.10F, 0.09F, 0.10F, light);
         pose.popPose();
 
         pose.popPose();
@@ -100,37 +99,32 @@ public final class LeverOverlayRenderer {
 
     /* ------------------------------------------------------------------ */
 
-    /** 中心原点・指定サイズの直方体を 6 面描く（テクスチャは面ごとに UV 全体）。 */
-    private static void box(PoseStack.Pose entry, VertexConsumer consumer,
+    /** 中心原点・指定サイズの直方体を 6 面描く（アトラスの UV 範囲を各面に貼る）。 */
+    private static void box(PoseStack.Pose entry, VertexConsumer consumer, float[] uv,
                             float halfX, float halfY, float halfZ, int light) {
         float x0 = -halfX, x1 = halfX;
         float y0 = -halfY, y1 = halfY;
         float z0 = -halfZ, z1 = halfZ;
 
-        // 上
-        quad(entry, consumer, x0, y1, z0, x1, y1, z0, x1, y1, z1, x0, y1, z1, 0, 1, 0, light);
-        // 下
-        quad(entry, consumer, x0, y0, z0, x0, y0, z1, x1, y0, z1, x1, y0, z0, 0, -1, 0, light);
-        // 北 (-Z)
-        quad(entry, consumer, x1, y0, z0, x1, y1, z0, x0, y1, z0, x0, y0, z0, 0, 0, -1, light);
-        // 南 (+Z)
-        quad(entry, consumer, x0, y0, z1, x0, y1, z1, x1, y1, z1, x1, y0, z1, 0, 0, 1, light);
-        // 西 (-X)
-        quad(entry, consumer, x0, y0, z0, x0, y1, z0, x0, y1, z1, x0, y0, z1, -1, 0, 0, light);
-        // 東 (+X)
-        quad(entry, consumer, x1, y0, z1, x1, y1, z1, x1, y1, z0, x1, y0, z0, 1, 0, 0, light);
+        quad(entry, consumer, uv, x0, y1, z0, x1, y1, z0, x1, y1, z1, x0, y1, z1, 0, 1, 0, light);
+        quad(entry, consumer, uv, x0, y0, z0, x0, y0, z1, x1, y0, z1, x1, y0, z0, 0, -1, 0, light);
+        quad(entry, consumer, uv, x1, y0, z0, x1, y1, z0, x0, y1, z0, x0, y0, z0, 0, 0, -1, light);
+        quad(entry, consumer, uv, x0, y0, z1, x0, y1, z1, x1, y1, z1, x1, y0, z1, 0, 0, 1, light);
+        quad(entry, consumer, uv, x0, y0, z0, x0, y1, z0, x0, y1, z1, x0, y0, z1, -1, 0, 0, light);
+        quad(entry, consumer, uv, x1, y0, z1, x1, y1, z1, x1, y1, z0, x1, y0, z0, 1, 0, 0, light);
     }
 
-    private static void quad(PoseStack.Pose entry, VertexConsumer consumer,
+    private static void quad(PoseStack.Pose entry, VertexConsumer consumer, float[] uv,
                              float ax, float ay, float az,
                              float bx, float by, float bz,
                              float cx, float cy, float cz,
                              float dx, float dy, float dz,
                              float nx, float ny, float nz, int light) {
-        vertex(entry, consumer, ax, ay, az, 0.0F, 1.0F, nx, ny, nz, light);
-        vertex(entry, consumer, bx, by, bz, 0.0F, 0.0F, nx, ny, nz, light);
-        vertex(entry, consumer, cx, cy, cz, 1.0F, 0.0F, nx, ny, nz, light);
-        vertex(entry, consumer, dx, dy, dz, 1.0F, 1.0F, nx, ny, nz, light);
+        float u0 = uv[0], v0 = uv[1], u1 = uv[2], v1 = uv[3];
+        vertex(entry, consumer, ax, ay, az, u0, v1, nx, ny, nz, light);
+        vertex(entry, consumer, bx, by, bz, u0, v0, nx, ny, nz, light);
+        vertex(entry, consumer, cx, cy, cz, u1, v0, nx, ny, nz, light);
+        vertex(entry, consumer, dx, dy, dz, u1, v1, nx, ny, nz, light);
     }
 
     private static void vertex(PoseStack.Pose entry, VertexConsumer consumer,

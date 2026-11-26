@@ -14,8 +14,9 @@
   - 確認用プレビュー: `images/<name>_preview.png`（8倍拡大・NEAREST）
   - MOD 側: `src/main/resources/assets/astranautics/textures/item/` または `textures/block/`
 - PNG は手作業で生成せず、スクリプトに追記して再現可能にすること。
-- レバー等の 3D パーツを追加した場合も、面テクスチャの PNG を `images/` に保存する
-  （現在: `lever_base.png` / `lever_handle_on.png` / `lever_handle_off.png`）。
+- 複数パーツで構成する 3D オブジェクトは、**1 枚のアトラス PNG にまとめて** `images/` に保存する
+  （現在: `images/lever_atlas.png` 64x32 = 台座 / 持ち手ON / 持ち手OFF を UV で切り替え）。
+- 同じパーツ用に複数の PNG を増やさないこと。
 
 ```bash
 python3 -m venv .venv && .venv/bin/pip install Pillow
