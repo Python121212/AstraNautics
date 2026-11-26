@@ -85,20 +85,25 @@ public final class ShipClientHandler {
         var engine = ship.engine();
         int ey = y + 64;
         if (engine != null && !engine.isEmpty()) {
-            graphics.fill(x - 4, ey - 4, x + panelW + 4, ey + 46, 0xB0001018);
+            graphics.fill(x - 4, ey - 4, x + panelW + 4, ey + 56, 0xB0001018);
             graphics.fill(x - 4, ey - 4, x + panelW + 4, ey - 3, 0xFFFFC46A);
             graphics.drawString(minecraft.font, engine.summary(), x, ey, 0xFFFFE0A0, false);
             graphics.drawString(minecraft.font, engine.advice(), x, ey + 11, 0xFFCFEFFF, false);
+            graphics.drawString(minecraft.font, Component.translatable(
+                            "hud.astranautics.engine_speed",
+                            String.format("%.2f", engine.topSpeed()),
+                            String.format("%.0f", engine.designPressure() * 100.0D)),
+                    x, ey + 20, engine.overStressed() ? 0xFFFF8A6A : 0xFFCFEFFF, false);
 
             // 発熱バー
             int heatW = (int) (panelW * Math.min(1.0D, ship.engineHeat()));
-            graphics.fill(x, ey + 24, x + panelW, ey + 29, 0xFF1B3340);
-            graphics.fill(x, ey + 24, x + heatW, ey + 29,
+            graphics.fill(x, ey + 32, x + panelW, ey + 37, 0xFF1B3340);
+            graphics.fill(x, ey + 32, x + heatW, ey + 37,
                     ship.engineHeat() > 0.85D ? 0xFFFF6A5A : 0xFFFFC46A);
             graphics.drawString(minecraft.font, Component.translatable(
                             "hud.astranautics.engine_heat",
                             String.format("%.0f", ship.engineHeat() * 100.0D)),
-                    x, ey + 32, 0xFFE8D0A0, false);
+                    x, ey + 40, 0xFFE8D0A0, false);
         }
 
         // 操作方法（下部）

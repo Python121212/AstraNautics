@@ -911,3 +911,50 @@ def make_nozzle_mold_textures():
 
 
 make_nozzle_mold_textures()
+
+
+# ----------------------------------------------------------------------
+# ノズルの羽根（羽根板＋リベット。並べるとノズルを囲める形）
+# ----------------------------------------------------------------------
+def make_nozzle_vane_textures():
+    tex_dir = os.path.join(root, "src/main/resources/assets/astranautics/textures/block")
+    steel = (118, 132, 144, 255)
+    steel_hi = (172, 188, 200, 255)
+    steel_dark = (62, 72, 82, 255)
+    copper = (188, 116, 68, 255)
+
+    def base():
+        return _metal_base()
+
+    # top：3 枚の羽根板を放射状に
+    top = base()
+    for k in range(3):
+        ang = k * 2.0 * math.pi / 3.0 + math.pi / 6.0
+        for r in range(1, 8):
+            for w in (-1, 0, 1):
+                x = int(round(7.5 + math.cos(ang) * r - math.sin(ang) * w * 1.2))
+                y = int(round(7.5 + math.sin(ang) * r + math.cos(ang) * w * 1.2))
+                if 0 <= x < SIZE and 0 <= y < SIZE:
+                    top.putpixel((x, y), steel_hi if w == 0 else steel)
+    for y in range(6, 10):
+        for x in range(6, 10):
+            top.putpixel((x, y), copper if (x + y) % 3 else steel_dark)
+    top.save(os.path.join(tex_dir, "engine_nozzle_vane_top.png"))
+
+    # side：斜めの羽根板＋リベット
+    side = base()
+    for y in range(1, 15):
+        for x in range(SIZE):
+            if (x + y * 2) % 6 in (0, 1):
+                side.putpixel((x, y), steel_hi)
+            elif (x + y * 2) % 6 == 2:
+                side.putpixel((x, y), steel_dark)
+    for (bx, by) in ((2, 2), (13, 2), (2, 13), (13, 13)):
+        side.putpixel((bx, by), steel_hi)
+        side.putpixel((bx + 1, by), steel_dark)
+    _plate_seams(side, [(0, 7, 15, 7)])
+    side.save(os.path.join(tex_dir, "engine_nozzle_vane_side.png"))
+    print("generated: engine_nozzle_vane_* textures")
+
+
+make_nozzle_vane_textures()

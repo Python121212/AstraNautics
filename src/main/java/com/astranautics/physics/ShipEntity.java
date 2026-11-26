@@ -279,6 +279,26 @@ public class ShipEntity extends Entity {
         this.setDeltaMovement(velocity);
         this.move(net.minecraft.world.entity.MoverType.SELF, velocity);
 
+        // 設計上の最高速度でキャップ（ノズル・羽根の構成で変わる）
+        double limit = maxSpeed();
+        if (velocity.length() > limit) {
+            velocity = velocity.normalize().scale(limit);
+            this.setDeltaMovement(velocity);
+        }
+
+        // 羽根で囲みすぎたエンジンは損傷する（設計圧力 > 1.0）
+        if (!this.engine.isEmpty() && this.engine.overStressed() && this.throttle > 0.5F
+                && this.random.nextInt(600) == 0) {
+            this.throttle = 0.0F;
+            this.entityData.set(DATA_THROTTLE, 0.0F);
+            this.engineHeat = 1.1D;
+            if (this.level() instanceof ServerLevel serverLevel) {
+                serverLevel.playSound(null, this.blockPosition(),
+                        net.minecraft.sounds.SoundEvents.ANVIL_LAND,
+                        net.minecraft.sounds.SoundSource.BLOCKS, 1.0F, 0.6F);
+            }
+        }
+
         // 速度が落ちたら止める
         if (velocity.lengthSqr() < 1.0E-6D) {
             this.setDeltaMovement(Vec3.ZERO);
@@ -439,8 +459,11 @@ public class ShipEntity extends Entity {
         return thinAir ? this.engine.vacuumThrust() : this.engine.thrust();
     }
 
-    /** 最大速度（ブロック/tick）。 */
+    /** 最大速度（ブロック/tick）。ノズル・羽根の構成で変わる。 */
     public double maxSpeed() {
+        if (!this.engine.isEmpty()) {
+            return this.engine.topSpeed();
+        }
         return 0.6D + this.thrustPower * 0.05D;
     }
 

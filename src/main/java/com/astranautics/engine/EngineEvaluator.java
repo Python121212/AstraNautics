@@ -27,6 +27,8 @@ import java.util.Set;
  *   発熱        = 燃焼室 × 0.55 ÷ (1 + 0.55 × 冷却フィン数)
  *   燃料容量    = 1.0 + 0.6 × 燃料タンク数
  *   宇宙推力    = 酸化剤タンク ≥ 1 なら大気と同じ、無ければ吸気分を失う
+ *   最高速度    = 0.45 + 0.18 × ノズル + 0.06 × 羽根 - 0.02 × 燃焼室
+ *   設計圧力    = 羽根数 ÷ (ノズル数 × 4)   （1.0 超で損傷リスク）
  * </pre>
  */
 public final class EngineEvaluator {
@@ -88,6 +90,7 @@ public final class EngineEvaluator {
         int coolingFins = 0;
         int oxidizer = 0;
         int fuelTanks = 0;
+        int vanes = 0;
         double mass = 0.0D;
 
         for (BlockPos pos : parts) {
@@ -104,10 +107,11 @@ public final class EngineEvaluator {
                 case COOLING_FIN -> coolingFins++;
                 case OXIDIZER_TANK -> oxidizer++;
                 case FUEL_TANK -> fuelTanks++;
+                case NOZZLE_VANE -> vanes++;
             }
         }
         return compute(chambers, nozzles, intakes, turbines, coolingFins, oxidizer, fuelTanks,
-                parts.size(), mass, airDensity);
+                vanes, parts.size(), mass, airDensity);
     }
 
     /** 船のようにワールドに存在しない部品リストから評価する（最大推力のエンジンを採用）。 */
@@ -116,6 +120,7 @@ public final class EngineEvaluator {
         for (EnginePartList engine : engines) {
             double mass = 0.0D;
             int chambers = 0, nozzles = 0, intakes = 0, turbines = 0, cooling = 0, oxi = 0, tanks = 0;
+            int vanes = 0;
             for (int i = 0; i < engine.size(); i++) {
                 EnginePart part = EnginePart.fromState(engine.state(i));
                 if (part == null) {
@@ -130,10 +135,11 @@ public final class EngineEvaluator {
                     case COOLING_FIN -> cooling++;
                     case OXIDIZER_TANK -> oxi++;
                     case FUEL_TANK -> tanks++;
+                    case NOZZLE_VANE -> vanes++;
                 }
             }
             EngineStats stats = compute(chambers, nozzles, intakes, turbines, cooling, oxi, tanks,
-                    engine.size(), mass, airDensity);
+                    vanes, engine.size(), mass, airDensity);
             if (stats.thrust() > best.thrust()) {
                 best = stats;
             }
@@ -144,18 +150,20 @@ public final class EngineEvaluator {
     /** 数値から性能を計算する（テストしやすいよう分離）。 */
     public static EngineStats compute(int chambers, int nozzles, int intakes, int turbines,
                                       int coolingFins, int oxidizer, int fuelTanks,
-                                      int totalParts, double mass, double airDensity) {
+                                      int vanes, int totalParts, double mass, double airDensity) {
         if (chambers == 0) {
             return new EngineStats(chambers, nozzles, intakes, turbines, coolingFins, oxidizer,
-                    fuelTanks, totalParts, 0.0D, 0.0D, 0.0D, 1.0D + 0.6D * fuelTanks, 0.0D, mass);
+                    fuelTanks, vanes, totalParts, 0.0D, 0.0D, 0.0D,
+                    1.0D + 0.6D * fuelTanks, 0.0D, mass, 0.45D, 0.0D);
         }
 
         double clampedAir = Math.max(0.0D, Math.min(1.0D, airDensity));
 
-        // ノズル効率：0.6 ～ 1.6
-        double nozzleEfficiency = Math.min(1.6D, 0.6D + 0.16D * nozzles);
-        // 燃費：タービンで改善（下限 0.25 倍）
-        double economy = Math.max(0.25D, 1.0D - 0.22D * turbines);
+        // ノズル効率：0.6 ～ 1.6。羽根で囲むとさらに伸びる（上限 2.0）
+        double nozzleEfficiency = Math.min(2.0D,
+                0.6D + 0.16D * nozzles + 0.05D * vanes);
+        // 燃費：タービンと羽根で改善（下限 0.25 倍）
+        double economy = Math.max(0.25D, 1.0D - 0.22D * turbines - 0.02D * vanes);
         // 冷却
         double cooling = 1.0D + 0.55D * coolingFins;
 
@@ -172,9 +180,16 @@ public final class EngineEvaluator {
         double fuelUse = chambers * 0.55D * economy * 0.01D;
         double heat = chambers * 0.55D / cooling;
 
+        // 最高速度：ノズルと羽根で伸び、重い燃焼室では鈍る
+        double topSpeed = Math.max(0.35D, Math.min(2.4D,
+                0.45D + 0.18D * nozzles + 0.06D * vanes - 0.02D * chambers));
+
+        // 設計圧力：羽根でノズルを囲みすぎると圧に耐えられない
+        double designPressure = nozzles > 0 ? (double) vanes / (nozzles * 4.0D) : 0.0D;
+
         return new EngineStats(chambers, nozzles, intakes, turbines, coolingFins, oxidizer,
-                fuelTanks, totalParts, thrust, vacuumThrust, fuelUse,
-                1.0D + 0.6D * fuelTanks, heat, mass);
+                fuelTanks, vanes, totalParts, thrust, vacuumThrust, fuelUse,
+                1.0D + 0.6D * fuelTanks, heat, mass, topSpeed, designPressure);
     }
 
     /** 大気密度（地表 = 1.0、宇宙 = 0.0）。ディメンションで変える布石。 */

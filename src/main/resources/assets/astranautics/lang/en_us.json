@@ -61,8 +61,8 @@
   "hud.astranautics.adhesive_select": "Right-click to select an area",
   "hud.astranautics.adhesive_size": "Area: %s (sneak+right-click to change)",
   "engine.astranautics.header": "Engine (%s parts)",
-  "engine.astranautics.summary": "Thrust air %s / space %s  Heat %s%%",
-  "engine.astranautics.parts": "Chambers %s Nozzles %s Intakes %s Turbines %s Cooling %s Oxidizer %s Fuel %s",
+  "engine.astranautics.summary": "Thrust air %s / space %s  Heat %s%%  Top speed %s",
+  "engine.astranautics.parts": "Chambers %s Nozzles %s Vanes %s Intakes %s Turbines %s Cooling %s Oxidizer %s Fuel %s",
   "engine.astranautics.advice.no_chamber": "No combustion chamber: no thrust",
   "engine.astranautics.advice.no_nozzle": "No nozzle: efficiency stays low",
   "engine.astranautics.advice.overheat": "It overheats. Add cooling fins",
@@ -121,5 +121,13 @@
   "tooltip.astranautics.nozzle_mold": "Insert a metal ingot and right-click to press a nozzle",
   "message.astranautics.nozzle_pressed": "Nozzle pressed",
   "message.astranautics.nozzle_mold_help": "Right-click with brass/copper/iron ingot (sneak to pick up)",
-  "ponder.astranautics.nozzle_mold.title": "Nozzle Mold"
+  "ponder.astranautics.nozzle_mold.title": "Nozzle Mold",
+  "block.astranautics.engine_nozzle_vane": "Nozzle Vane",
+  "tooltip.astranautics.engine_part.nozzle_vane": "Surround the nozzle to raise thrust and top speed (do not over-enclose)",
+  "ponder.astranautics.engine.nozzle_vane.title": "Nozzle Vane",
+  "ponder.astranautics.engine.nozzle_vane.1": "Place them to surround the nozzle",
+  "ponder.astranautics.engine.nozzle_vane.2": "Two or more vanes raise top speed. Over-enclosing breaks it",
+  "engine.astranautics.advice.over_stress": "Too many vanes around the nozzle (over design pressure, it will break)",
+  "engine.astranautics.advice.no_vane": "Surround the nozzle with vanes to raise top speed",
+  "hud.astranautics.engine_speed": "Top speed %s  Pressure %s%%"
 }

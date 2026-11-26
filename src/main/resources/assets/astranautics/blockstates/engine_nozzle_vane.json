@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "astranautics:block/engine_nozzle_vane"
+    },
+    "facing=east": {
+      "model": "astranautics:block/engine_nozzle_vane",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "astranautics:block/engine_nozzle_vane",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "astranautics:block/engine_nozzle_vane",
+      "y": 270
+    }
+  }
+}

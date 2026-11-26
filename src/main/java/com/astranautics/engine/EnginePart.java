@@ -14,6 +14,8 @@ public enum EnginePart {
     COMBUSTION_CHAMBER("combustion_chamber", 1.00D, 0.0D, 0.0D, 0.0D, 0.55D, 0.0D),
     /** ノズル：推力をまとめる。多いほど効率が上がる（上限あり）。 */
     NOZZLE("nozzle", 0.0D, 0.16D, 0.0D, 0.0D, 0.0D, 0.12D),
+    /** ノズルの羽根：ノズルの周りを囲むと推力が伸び、最高速度が上がる。 */
+    NOZZLE_VANE("nozzle_vane", 0.02D, 0.05D, 0.02D, 0.02D, 0.0D, 0.04D),
     /** 吸気口：大気中で推力を追加。宇宙（大気 0）では効果なし。 */
     INTAKE("intake", 0.12D, 0.0D, 0.0D, 0.0D, 0.0D, 0.10D),
     /** タービン：燃費を改善（推力は少し下がる）。 */
@@ -78,6 +80,7 @@ public enum EnginePart {
             case TURBINE -> 2.0D;
             case COOLING_FIN -> 1.0D;
             case INTAKE -> 1.2D;
+            case NOZZLE_VANE -> 0.8D;
         };
     }
 

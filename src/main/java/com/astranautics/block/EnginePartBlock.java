@@ -45,8 +45,9 @@ public class EnginePartBlock extends Block {
                 stats.totalParts()), false);
         player.displayClientMessage(stats.summary(), false);
         player.displayClientMessage(Component.translatable("engine.astranautics.parts",
-                stats.chambers(), stats.nozzles(), stats.intakes(), stats.turbines(),
-                stats.coolingFins(), stats.oxidizerTanks(), stats.fuelTanks()), false);
+                stats.chambers(), stats.nozzles(), stats.vanes(), stats.intakes(),
+                stats.turbines(), stats.coolingFins(), stats.oxidizerTanks(),
+                stats.fuelTanks()), false);
         player.displayClientMessage(stats.advice(), false);
         return InteractionResult.CONSUME;
     }

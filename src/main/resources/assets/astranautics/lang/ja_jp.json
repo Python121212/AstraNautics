@@ -61,8 +61,8 @@
   "hud.astranautics.adhesive_select": "右クリックで範囲を選択",
   "hud.astranautics.adhesive_size": "範囲: %s (スニーク+右クリックで変更)",
   "engine.astranautics.header": "エンジン（%s 部品）",
-  "engine.astranautics.summary": "推力 大気 %s / 宇宙 %s  発熱 %s%%",
-  "engine.astranautics.parts": "燃焼室%s ノズル%s 吸気%s タービン%s 冷却%s 酸化剤%s 燃料%s",
+  "engine.astranautics.summary": "推力 大気 %s / 宇宙 %s  発熱 %s%%  最高速度 %s",
+  "engine.astranautics.parts": "燃焼室%s ノズル%s 羽根%s 吸気%s タービン%s 冷却%s 酸化剤%s 燃料%s",
   "engine.astranautics.advice.no_chamber": "燃焼室がありません（推力が出ません）",
   "engine.astranautics.advice.no_nozzle": "ノズルがありません（効率が低いまま）",
   "engine.astranautics.advice.overheat": "過熱します。冷却フィンを足してください",
@@ -121,5 +121,13 @@
   "tooltip.astranautics.nozzle_mold": "金属インゴットを入れて右クリックでノズルを押し出し",
   "message.astranautics.nozzle_pressed": "ノズルを押し出しました",
   "message.astranautics.nozzle_mold_help": "金型に真鍮/銅/鉄インゴットを持って右クリック（スニークで回収）",
-  "ponder.astranautics.nozzle_mold.title": "ノズル金型"
+  "ponder.astranautics.nozzle_mold.title": "ノズル金型",
+  "block.astranautics.engine_nozzle_vane": "ノズルの羽根",
+  "tooltip.astranautics.engine_part.nozzle_vane": "ノズルの周りを囲むと推力と最高速度が上がる（囲みすぎ注意）",
+  "ponder.astranautics.engine.nozzle_vane.title": "ノズルの羽根",
+  "ponder.astranautics.engine.nozzle_vane.1": "ノズルの周りを囲むように設置します",
+  "ponder.astranautics.engine.nozzle_vane.2": "羽根2枚以上で最高速度が上がる。囲みすぎると壊れます",
+  "engine.astranautics.advice.over_stress": "羽根でノズルを囲みすぎです（設計圧力オーバーで壊れます）",
+  "engine.astranautics.advice.no_vane": "羽根でノズルを囲むと最高速度が上がります",
+  "hud.astranautics.engine_speed": "最高速度 %s  設計圧力 %s%%"
 }
