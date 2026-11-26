@@ -283,20 +283,39 @@ ATLAS_COLS = 4
 ATLAS_ROWS = 2
 
 
-def make_brass_plate():
+def make_wood_top():
+    """台座の上面用：ごく薄い木目だけ（点状の継ぎ目は入れない）。"""
     img = Image.new("RGBA", (SIZE, SIZE))
     for y in range(SIZE):
         for x in range(SIZE):
-            t = y / (SIZE - 1)
-            r = int(214 - 66 * t)
-            gg = int(172 - 62 * t)
-            b = int(96 - 46 * t)
-            img.putpixel((x, y), (r, gg, b, 255))
-    for (cx, cy) in ((3, 3), (12, 3), (3, 12), (12, 12)):
-        img.putpixel((cx, cy), (240, 214, 150, 255))
-        img.putpixel((cx + 1, cy + 1), (66, 44, 22, 255))
+            # ゆるやかな横方向の木目（最大 3 段階）
+            wave = ((y * 3 + (x // 5)) % 9) // 3
+            v = 176 - wave * 4 - int(y * 0.7)
+            r = min(255, v + 20)
+            g = min(255, int(v * 0.74))
+            b = min(255, int(v * 0.44))
+            img.putpixel((x, y), (r, g, b, 255))
+    return img
+
+
+def make_wood_side():
+    """台座の側面用：縦方向の木目（横縞を出さない）。"""
+    img = Image.new("RGBA", (SIZE, SIZE))
     for x in range(SIZE):
-        img.putpixel((x, 8), (120, 84, 40, 255))
+        # 縦の濃淡（ゆるやかな周期）
+        wave = ((x * 7) % 16) / 16.0
+        base = 150 + int(22 * wave) - int(6 * ((x // 2) % 3))
+        for y in range(SIZE):
+            v = base - int(y * 0.55)
+            r = min(255, v + 16)
+            g = min(255, int(v * 0.72))
+            b = min(255, int(v * 0.42))
+            img.putpixel((x, y), (r, g, b, 255))
+    # 下端を暗くして接地感を出す
+    for y in range(SIZE - 3, SIZE):
+        for x in range(SIZE):
+            r, g, b, a = img.getpixel((x, y))
+            img.putpixel((x, y), (int(r * 0.7), int(g * 0.7), int(b * 0.7), a))
     return img
 
 
@@ -320,7 +339,8 @@ def make_handle(color_main, color_hi, color_dark, accent=(245, 255, 255, 255)):
 def make_lever_atlas():
     """1 枚のアトラス PNG（64x32）に台座と持ち手をまとめる。"""
     atlas = Image.new("RGBA", (SIZE * ATLAS_COLS, SIZE * ATLAS_ROWS), (0, 0, 0, 0))
-    atlas.paste(make_brass_plate(), (0, 0))
+    atlas.paste(make_wood_top(), (0, 0))
+    atlas.paste(make_wood_side(), (SIZE * 3, 0))
     atlas.paste(make_handle((86, 214, 222), (186, 250, 252), (26, 96, 110)), (SIZE, 0))
     atlas.paste(make_handle((150, 156, 162), (200, 208, 214), (86, 92, 98),
                             accent=(230, 236, 240, 255)), (SIZE * 2, 0))
