@@ -1,0 +1,5 @@
+{
+  "variants": {
+    "": { "model": "astranautics:block/physics_core" }
+  }
+}
