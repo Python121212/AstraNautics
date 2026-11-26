@@ -365,6 +365,18 @@ def main():
                   "pearlescent_levitite.png"))
     render_block("airship_assembly", ("airship_assembly_top.png", "airship_assembly_side.png",
                                       "airship_assembly_front.png"))
+    render_block("ship_core", ("ship_core.png", "ship_core.png", "ship_core.png"))
+    render_block("ship_power_core",
+                 ("ship_power_core.png", "ship_power_core.png", "ship_power_core.png"))
+    render_block("ship_radar", ("ship_radar_top.png", "ship_radar_side.png",
+                                "ship_radar_side.png"))
+    render_block("ship_turret", ("ship_turret_top.png", "ship_turret_side.png",
+                                 "ship_turret_front.png"))
+    render_block("ship_throttle", ("ship_throttle_top.png", "ship_throttle_side.png",
+                                   "ship_throttle_front.png"))
+    for g in ("light", "standard", "heavy"):
+        render_block("hull_plate_" + g,
+                     (f"hull_plate_{g}.png", f"hull_plate_{g}.png", f"hull_plate_{g}.png"))
     render_engine_cluster()
     # 一時ファイルを残さない
 
