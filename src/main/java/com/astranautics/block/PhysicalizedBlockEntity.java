@@ -285,8 +285,8 @@ public class PhysicalizedBlockEntity extends BlockEntity {
             tag.put(TAG_ORIGINAL, this.originalStateTag);
         }
         tag.putBoolean(TAG_PHYSICS, this.physicsEnabled);
-        tag.putDoubleArray(TAG_OFFSET, new double[]{this.offX, this.offY, this.offZ});
-        tag.putDoubleArray(TAG_VELOCITY, new double[]{this.velX, this.velY, this.velZ});
+        tag.put(TAG_OFFSET, doubles(this.offX, this.offY, this.offZ));
+        tag.put(TAG_VELOCITY, doubles(this.velX, this.velY, this.velZ));
         tag.putInt(TAG_SLEEP, this.sleepTicks);
     }
 
@@ -298,13 +298,13 @@ public class PhysicalizedBlockEntity extends BlockEntity {
             this.cachedOriginal = null;
         }
         this.physicsEnabled = tag.getBoolean(TAG_PHYSICS);
-        double[] offset = tag.getDoubleArray(TAG_OFFSET);
+        double[] offset = toDoubles(tag.getList(TAG_OFFSET, net.minecraft.nbt.Tag.TAG_DOUBLE));
         if (offset.length == 3) {
             this.offX = offset[0];
             this.offY = offset[1];
             this.offZ = offset[2];
         }
-        double[] velocity = tag.getDoubleArray(TAG_VELOCITY);
+        double[] velocity = toDoubles(tag.getList(TAG_VELOCITY, net.minecraft.nbt.Tag.TAG_DOUBLE));
         if (velocity.length == 3) {
             this.velX = velocity[0];
             this.velY = velocity[1];
@@ -312,6 +312,23 @@ public class PhysicalizedBlockEntity extends BlockEntity {
         }
         this.sleepTicks = tag.getInt(TAG_SLEEP);
         this.lastSyncHash = computeSyncHash();
+    }
+
+    /** 3 つの double を ListTag に変換（CompoundTag に double 配列 API が無いため）。 */
+    private static net.minecraft.nbt.ListTag doubles(double a, double b, double c) {
+        net.minecraft.nbt.ListTag list = new net.minecraft.nbt.ListTag();
+        list.add(net.minecraft.nbt.DoubleTag.valueOf(a));
+        list.add(net.minecraft.nbt.DoubleTag.valueOf(b));
+        list.add(net.minecraft.nbt.DoubleTag.valueOf(c));
+        return list;
+    }
+
+    private static double[] toDoubles(net.minecraft.nbt.ListTag list) {
+        double[] values = new double[list.size()];
+        for (int i = 0; i < list.size(); i++) {
+            values[i] = ((net.minecraft.nbt.DoubleTag) list.get(i)).getAsDouble();
+        }
+        return values;
     }
 
     @Override

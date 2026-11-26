@@ -38,7 +38,7 @@ public class AstraNautics {
         ModCreativeTabs.TABS.register(modEventBus);
 
         modEventBus.addListener(this::commonSetup);
-        modEventBus.addListener(com.astranautics.network.ModNetwork::register);
+
         modEventBus.addListener(this::loadComplete);
 
         ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, Config.SPEC);
@@ -47,6 +47,7 @@ public class AstraNautics {
     }
 
     private void commonSetup(final FMLCommonSetupEvent event) {
+        event.enqueueWork(com.astranautics.network.ModNetwork::register);
         LOGGER.info("[{}] commonSetup 完了", MOD_ID);
     }
 
