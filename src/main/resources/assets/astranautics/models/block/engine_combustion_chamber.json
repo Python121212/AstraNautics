@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/orientable",
+  "textures": {
+    "top": "astranautics:block/engine_combustion_chamber_top",
+    "front": "astranautics:block/engine_combustion_chamber_side",
+    "side": "astranautics:block/engine_combustion_chamber_side"
+  }
+}

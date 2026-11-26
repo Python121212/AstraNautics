@@ -523,3 +523,145 @@ def make_thruster_textures():
 
 
 make_thruster_textures()
+
+
+# ----------------------------------------------------------------------
+# 自作エンジンの部品テクスチャ（7 種）
+#   top / side の 2 枚ずつ。金属ベースに部品ごとのモチーフを描く。
+# ----------------------------------------------------------------------
+def make_engine_part_textures():
+    metal = (96, 104, 112, 255)
+    metal_hi = (150, 160, 168, 255)
+    metal_dark = (46, 52, 58, 255)
+    brass = (208, 168, 96, 255)
+    copper = (186, 112, 66, 255)
+    cyan = (86, 214, 222, 255)
+    orange = (246, 152, 74, 255)
+    red = (228, 92, 76, 255)
+    white = (240, 250, 252, 255)
+
+    def base():
+        img = Image.new("RGBA", (SIZE, SIZE))
+        for y in range(SIZE):
+            for x in range(SIZE):
+                if x == 0 or y == 0:
+                    v = metal_hi
+                elif x == SIZE - 1 or y == SIZE - 1:
+                    v = metal_dark
+                else:
+                    v = metal if ((x * 5 + y * 3) % 11) else metal_dark
+                img.putpixel((x, y), v)
+        return img
+
+    def disc(img, cx, cy, r, color):
+        for y in range(SIZE):
+            for x in range(SIZE):
+                if ((x - cx) ** 2 + (y - cy) ** 2) ** 0.5 <= r:
+                    img.putpixel((x, y), color)
+
+    def ring(img, cx, cy, r0, r1, color):
+        for y in range(SIZE):
+            for x in range(SIZE):
+                d = ((x - cx) ** 2 + (y - cy) ** 2) ** 0.5
+                if r0 <= d <= r1:
+                    img.putpixel((x, y), color)
+
+    tex_dir = os.path.join(root, "src/main/resources/assets/astranautics/textures/block")
+
+    parts = {}
+
+    # 燃焼室：中央に赤熱した炉
+    top = base(); side = base()
+    disc(top, 7.5, 7.5, 3.2, metal_dark)
+    disc(top, 7.5, 7.5, 2.4, orange)
+    disc(top, 7.5, 7.5, 1.2, white)
+    for y in range(4, 12):
+        for x in range(6, 10):
+            side.putpixel((x, y), orange if (x + y) % 4 else red)
+    parts["combustion_chamber"] = (top, side)
+
+    # ノズル：末広がりの輪
+    top = base(); side = base()
+    ring(top, 7.5, 7.5, 2.0, 5.6, metal_dark)
+    ring(top, 7.5, 7.5, 3.0, 4.2, brass)
+    for y in range(SIZE):
+        for x in range(SIZE):
+            d = ((x - 7.5) ** 2 + (y - 7.5) ** 2) ** 0.5
+            if d <= 1.6:
+                top.putpixel((x, y), metal_dark)
+    for y in range(3, 13):
+        w = 2 + (y - 3) // 3
+        for x in range(8 - w, 8 + w):
+            side.putpixel((x, y), metal_dark if (x + y) % 3 else brass)
+    parts["nozzle"] = (top, side)
+
+    # 吸気口：格子＋ファン
+    top = base(); side = base()
+    for i in range(3, 13, 3):
+        for x in range(3, 13):
+            top.putpixel((x, i), metal_dark)
+        for y in range(3, 13):
+            top.putpixel((i, y), metal_dark)
+    disc(top, 7.5, 7.5, 1.6, cyan)
+    for y in range(4, 12):
+        for x in range(4, 12):
+            side.putpixel((x, y), cyan if ((x - 7) ** 2 + (y - 7) ** 2) <= 9 else metal_dark)
+    parts["intake"] = (top, side)
+
+    # タービン：羽根車
+    top = base(); side = base()
+    disc(top, 7.5, 7.5, 5.0, metal_dark)
+    for i in range(8):
+        ang = i * 3.14159 / 4
+        for r in range(1, 5):
+            x = int(7.5 + r * 0.866 * 1.0 * (1 if i % 2 == 0 else -1) * abs(__import__("math").cos(ang)))
+            y = int(7.5 + r * 0.5 * (1 if i % 4 < 2 else -1) * abs(__import__("math").sin(ang)) * 2)
+            if 0 <= x < SIZE and 0 <= y < SIZE:
+                top.putpixel((x, y), brass)
+    disc(top, 7.5, 7.5, 1.2, white)
+    for y in range(5, 11):
+        for x in range(5, 11):
+            side.putpixel((x, y), brass if (x + y) % 2 else copper)
+    parts["turbine"] = (top, side)
+
+    # 冷却フィン：放熱板
+    top = base(); side = base()
+    for i in range(2, 14, 2):
+        for x in range(2, 14):
+            top.putpixel((x, i), (120, 190, 220, 255) if i % 4 else (170, 226, 242, 255))
+    for y in range(2, 14):
+        for x in range(3, 13):
+            side.putpixel((x, y), (140, 206, 232, 255) if y % 3 else metal_dark)
+    parts["cooling_fin"] = (top, side)
+
+    # 酸化剤タンク：青い液体タンク
+    top = base(); side = base()
+    ring(top, 7.5, 7.5, 4.2, 5.4, brass)
+    disc(top, 7.5, 7.5, 4.0, (54, 132, 200, 255))
+    disc(top, 6.0, 6.0, 1.4, (140, 210, 250, 255))
+    for y in range(2, 14):
+        for x in range(3, 13):
+            side.putpixel((x, y), (54, 132, 200, 255) if 2 < y < 13 else brass)
+    for x in range(5, 11):
+        side.putpixel((x, 4), (140, 210, 250, 255))
+    parts["oxidizer_tank"] = (top, side)
+
+    # 燃料タンク：オレンジの液体タンク
+    top = base(); side = base()
+    ring(top, 7.5, 7.5, 4.2, 5.4, brass)
+    disc(top, 7.5, 7.5, 4.0, (196, 108, 48, 255))
+    disc(top, 6.0, 6.0, 1.4, (250, 200, 140, 255))
+    for y in range(2, 14):
+        for x in range(3, 13):
+            side.putpixel((x, y), (196, 108, 48, 255) if 2 < y < 13 else brass)
+    for x in range(5, 11):
+        side.putpixel((x, 4), (250, 200, 140, 255))
+    parts["fuel_tank"] = (top, side)
+
+    for name, (top_img, side_img) in parts.items():
+        top_img.save(os.path.join(tex_dir, f"engine_{name}_top.png"))
+        side_img.save(os.path.join(tex_dir, f"engine_{name}_side.png"))
+    print("generated: engine part textures (%d parts)" % len(parts))
+
+
+make_engine_part_textures()

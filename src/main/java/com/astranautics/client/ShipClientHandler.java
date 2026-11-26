@@ -81,6 +81,26 @@ public final class ShipClientHandler {
                         String.format("%.2f", ship.getDeltaMovement().length())),
                 x, y + 50, 0xFFCFEFFF, false);
 
+        // 自作エンジンの情報
+        var engine = ship.engine();
+        int ey = y + 64;
+        if (engine != null && !engine.isEmpty()) {
+            graphics.fill(x - 4, ey - 4, x + panelW + 4, ey + 46, 0xB0001018);
+            graphics.fill(x - 4, ey - 4, x + panelW + 4, ey - 3, 0xFFFFC46A);
+            graphics.drawString(minecraft.font, engine.summary(), x, ey, 0xFFFFE0A0, false);
+            graphics.drawString(minecraft.font, engine.advice(), x, ey + 11, 0xFFCFEFFF, false);
+
+            // 発熱バー
+            int heatW = (int) (panelW * Math.min(1.0D, ship.engineHeat()));
+            graphics.fill(x, ey + 24, x + panelW, ey + 29, 0xFF1B3340);
+            graphics.fill(x, ey + 24, x + heatW, ey + 29,
+                    ship.engineHeat() > 0.85D ? 0xFFFF6A5A : 0xFFFFC46A);
+            graphics.drawString(minecraft.font, Component.translatable(
+                            "hud.astranautics.engine_heat",
+                            String.format("%.0f", ship.engineHeat() * 100.0D)),
+                    x, ey + 32, 0xFFE8D0A0, false);
+        }
+
         // 操作方法（下部）
         net.minecraft.network.chat.Component help = Component.translatable(
                 "hud.astranautics.ship_controls");

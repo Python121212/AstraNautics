@@ -83,6 +83,12 @@ public class ShipEntity extends Entity {
     private float throttle;
     /** 燃料（0..1）。 */
     private float fuel = 1.0F;
+    /** 自作エンジンの評価結果（搭載していれば）。 */
+    private com.astranautics.engine.EngineStats engine = com.astranautics.engine.EngineStats.EMPTY;
+    /** エンジンの発熱（0..1、1 で過熱停止）。 */
+    private double engineHeat;
+    /** 燃料容量（＝燃料タンクの数で伸びる）。 */
+    private double fuelCapacity = 1.0D;
 
     /** 旋回の速さ。 */
     private static final double TURN_SPEED = 1.2D;
@@ -131,6 +137,9 @@ public class ShipEntity extends Entity {
         this.totalMass = Math.max(1.0D, mass);
         this.thrustPower = thrust;
 
+        // 自作エンジン（連結した部品）を評価して推力を上書き
+        evaluateEngine(level, anchor);
+
         // 搭乗者を集計する場合は ShipService が設定する
         this.setPos(anchor.getX() + 0.5D, anchor.getY() + 0.5D, anchor.getZ() + 0.5D);
         this.setBoundingBox(computeBoundingBox());
@@ -138,6 +147,39 @@ public class ShipEntity extends Entity {
         this.entityData.set(DATA_THRUST, (float) this.thrustPower);
         this.entityData.set(DATA_FUEL, this.fuel);
         this.setDeltaMovement(Vec3.ZERO);
+    }
+
+    /** 船体に含まれるエンジン部品を評価して推力・燃費・容量に反映する。 */
+    private void evaluateEngine(Level level, BlockPos anchor) {
+        com.astranautics.engine.EnginePartList list = new com.astranautics.engine.EnginePartList();
+        for (Cell cell : this.cells) {
+            if (com.astranautics.engine.EnginePart.fromState(cell.state) != null) {
+                list.add(cell.localOffset, cell.state);
+            }
+        }
+        if (list.size() == 0) {
+            return;
+        }
+        var stats = com.astranautics.engine.EngineEvaluator.evaluateBest(
+                list.splitIntoEngines(),
+                com.astranautics.engine.EngineEvaluator.airDensityOf(level));
+        if (stats.isEmpty()) {
+            return;
+        }
+        this.engine = stats;
+        this.thrustPower = stats.thrust();
+        this.fuelCapacity = stats.fuelCapacity();
+        this.fuel = 1.0F;
+    }
+
+    /** 自作エンジンの評価結果。 */
+    public com.astranautics.engine.EngineStats engine() {
+        return this.engine;
+    }
+
+    /** エンジンの発熱（0..1）。 */
+    public double engineHeat() {
+        return this.engineHeat;
     }
 
     /** 従来の書きかけ API との互換（1 セルぶん）。 */
@@ -203,14 +245,32 @@ public class ShipEntity extends Entity {
 
         Vec3 velocity = this.getDeltaMovement();
         // 推力（機首方向）× スロットル ÷ 質量
-        if (this.throttle > 0.001F && this.fuel > 0.0F) {
+        boolean overheated = this.engineHeat >= 1.0D;
+        if (this.throttle > 0.001F && this.fuel > 0.0F && !overheated) {
             Vec3 forward = Vec3.directionFromRotation(0.0F, this.getYRot()).normalize();
-            double accel = this.thrustPower * this.throttle / this.totalMass;
+            double thrustNow = this.engine.isEmpty()
+                    ? this.thrustPower
+                    : usableThrust();
+            double accel = thrustNow * this.throttle / this.totalMass;
             velocity = velocity.add(forward.scale(accel));
-            // 燃料消費（推力に比例）
-            this.fuel = Math.max(0.0F, this.fuel - this.throttle * 0.0006F
-                    * (float) Math.max(1.0D, this.thrustPower));
+
+            if (this.engine.isEmpty()) {
+                // 部品エンジンが無い場合はゆるやかに燃料を消費
+                this.fuel = Math.max(0.0F, this.fuel - this.throttle * 0.0006F
+                        * (float) Math.max(1.0D, this.thrustPower));
+            } else {
+                // 自作エンジン：燃費 × スロットル ÷ 燃料容量
+                double use = this.engine.fuelUse() * this.throttle / this.fuelCapacity;
+                this.fuel = (float) Math.max(0.0D, this.fuel - use);
+            }
             this.entityData.set(DATA_FUEL, this.fuel);
+        }
+
+        // エンジンの発熱（スロットルに比例して上がり、切ると冷える）
+        if (!this.engine.isEmpty()) {
+            double target = this.throttle * this.engine.heat();
+            this.engineHeat = Mth.approach((float) this.engineHeat,
+                    (float) Mth.clamp(target, 0.0D, 1.3D), 0.01F);
         }
 
         // 抵抗（水中はさらに強い）
@@ -367,6 +427,16 @@ public class ShipEntity extends Entity {
     public void setFuel(float fuel) {
         this.fuel = Mth.clamp(fuel, 0.0F, 1.0F);
         this.entityData.set(DATA_FUEL, this.fuel);
+    }
+
+    /** 現在の高さの大気密度を考えた実効推力。 */
+    public double usableThrust() {
+        if (this.engine.isEmpty()) {
+            return this.thrustPower;
+        }
+        // 高度 200 以上は大気がほぼ無い（宇宙に近い）
+        boolean thinAir = this.getY() > 200.0D;
+        return thinAir ? this.engine.vacuumThrust() : this.engine.thrust();
     }
 
     /** 最大速度（ブロック/tick）。 */

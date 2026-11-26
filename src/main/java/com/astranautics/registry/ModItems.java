@@ -39,6 +39,17 @@ public final class ModItems {
     public static final RegistryObject<Item> SHIP_HELM = ITEMS.register("ship_helm",
             () -> new BlockItem(ModBlocks.SHIP_HELM.get(), new Item.Properties()));
 
+    /** エンジン部品の BlockItem。 */
+    public static final java.util.Map<com.astranautics.engine.EnginePart, RegistryObject<Item>>
+            ENGINE_PARTS = new java.util.EnumMap<>(com.astranautics.engine.EnginePart.class);
+
+    static {
+        for (com.astranautics.engine.EnginePart part : com.astranautics.engine.EnginePart.values()) {
+            ENGINE_PARTS.put(part, ITEMS.register("engine_" + part.id,
+                    () -> new BlockItem(ModBlocks.enginePart(part), new Item.Properties())));
+        }
+    }
+
     private ModItems() {
     }
 }

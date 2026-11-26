@@ -2,6 +2,7 @@ package com.astranautics.registry;
 
 import com.astranautics.AstraNautics;
 import com.astranautics.block.PhysicalizedBlock;
+import com.astranautics.block.EnginePartBlock;
 import com.astranautics.block.ShipHelmBlock;
 import com.astranautics.block.ThrusterBlock;
 import net.minecraft.world.level.block.Block;
@@ -51,6 +52,30 @@ public final class ModBlocks {
                     .strength(2.0F, 4.0F)
                     .sound(SoundType.WOOD)
                     .noOcclusion()));
+
+    /* ------------------------------------------------------------------ */
+    /* 自作エンジンの部品                                                   */
+    /* ------------------------------------------------------------------ */
+
+    /** 部品ブロック（エンジンの構成要素）。 */
+    public static final java.util.Map<com.astranautics.engine.EnginePart, RegistryObject<Block>>
+            ENGINE_PARTS = new java.util.EnumMap<>(com.astranautics.engine.EnginePart.class);
+
+    static {
+        for (com.astranautics.engine.EnginePart part : com.astranautics.engine.EnginePart.values()) {
+            ENGINE_PARTS.put(part, BLOCKS.register("engine_" + part.id,
+                    () -> new EnginePartBlock(part, BlockBehaviour.Properties.of()
+                            .mapColor(MapColor.METAL)
+                            .strength(2.5F, 6.0F)
+                            .sound(SoundType.METAL))));
+        }
+    }
+
+    /** 部品のブロックを取得する。 */
+    public static Block enginePart(com.astranautics.engine.EnginePart part) {
+        RegistryObject<Block> block = ENGINE_PARTS.get(part);
+        return block == null ? null : block.get();
+    }
 
     private ModBlocks() {
     }

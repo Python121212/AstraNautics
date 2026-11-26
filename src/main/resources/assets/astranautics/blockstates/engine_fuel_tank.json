@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "astranautics:block/engine_fuel_tank"
+    },
+    "facing=east": {
+      "model": "astranautics:block/engine_fuel_tank",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "astranautics:block/engine_fuel_tank",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "astranautics:block/engine_fuel_tank",
+      "y": 270
+    }
+  }
+}
