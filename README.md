@@ -140,3 +140,23 @@ src/main/resources/
 ## ライセンス
 
 `gradle.properties` の `mod_license`（現在: All Rights Reserved）に従います。
+
+## images/ の画像一覧（追加時は必ず PNG を置く）
+
+| ファイル | 内容 |
+| --- | --- |
+| `images/physicalizer_block.png` | 物理化装置のブロックテクスチャ（原本 16x16） |
+| `images/lever_on.png` | レバー **ON（上）** の状態 |
+| `images/lever_off.png` | レバー **OFF（下）** の状態 |
+| `images/lever_on_off_preview.png` | ON / OFF の比較プレビュー |
+| `images/physicalized.png` | 物理化されたブロックのイメージ（ブロック＋レバー合成） |
+| `images/physics_core.png` | 物理コアのテクスチャ |
+
+- 各 PNG には 8 倍拡大の `*_preview.png` も生成されます。
+- すべて `tools/generate_textures.py` で再生成できます。
+- **新しいアイテム／ブロックを追加したら、必ず PNG を作って `images/` に保存する**（`AGENTS.md` にも記載）。
+
+### レバーの表示
+物理化されたブロックの上面に、状態に応じたレバー（ON=上 / OFF=下）が表示されます。
+テクスチャは `assets/astranautics/textures/block/lever_on.png` / `lever_off.png` を使用し、
+`LeverOverlayRenderer` が 2 枚の直交板として軽量に描画します。

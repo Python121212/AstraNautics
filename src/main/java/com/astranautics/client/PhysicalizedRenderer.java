@@ -54,5 +54,8 @@ public class PhysicalizedRenderer implements BlockEntityRenderer<PhysicalizedBlo
         }
 
         pose.popPose();
+
+        // 状態を示すレバー（ON: 上 / OFF: 下）をブロックの上に重ねて描画
+        LeverOverlayRenderer.render(be, partialTick, pose, buffers, packedLight);
     }
 }
