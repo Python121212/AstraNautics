@@ -175,6 +175,41 @@ def render_physicalizer():
 # ----------------------------------------------------------------------
 # 2. 接着剤（3 ブロック＋接着ライン＋範囲枠）
 # ----------------------------------------------------------------------
+def render_adhesive_3d():
+    """3D アイテムモデル（接着剤）の等角図。"""
+    global SCALE, ORIGIN_Y, W, H
+    SCALE, ORIGIN_Y, W, H = 210, 0.72, 360, 460
+    atlas = load(os.path.join(TEX_ITEM, "adhesive_atlas.png"))
+
+    def cell(index):
+        tile = atlas.crop((index * 16, 0, (index + 1) * 16, 16))
+        return tile.resize((16 * 8, 16 * 8), Image.NEAREST)
+
+    cap = cell(0)
+    band = cell(1)
+    bottle = cell(2)
+    nozzle = cell(3)
+
+    canvas = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+
+    # 本体（ボトル）：from 5.5..10.5 / y 2..8（帯より必ず内側）
+    draw_box(canvas, bottle, 0, 0.0, 0, 0.148, 0.18, 0.148, steps=70)
+    # 金属の帯 2 本（本体より少しだけ大きく）
+    draw_box(canvas, band, 0, -0.075, 0, 0.155, 0.030, 0.155, steps=70)
+    draw_box(canvas, band, 0, 0.030, 0, 0.155, 0.020, 0.155, steps=70)
+    # 首（spout）
+    draw_box(canvas, nozzle, 0, 0.245, 0, 0.075, 0.10, 0.075, steps=60)
+    # ノズル
+    draw_box(canvas, nozzle, 0, 0.345, 0, 0.062, 0.038, 0.062, steps=60)
+    # キャップ
+    draw_box(canvas, cap, 0, 0.405, 0, 0.115, 0.043, 0.115, steps=70)
+    # 滴り
+    draw_box(canvas, nozzle, 0, -0.255, 0, 0.038, 0.055, 0.038, steps=50)
+
+    canvas.save(os.path.join(OUT_DIR, "adhesive.png"))
+    print("generated:", os.path.join(OUT_DIR, "adhesive.png"))
+
+
 def render_adhesive():
     global SCALE, ORIGIN_Y, H
     SCALE, ORIGIN_Y, H = 126, 0.60, 400
@@ -266,7 +301,7 @@ def render_block(name, tex_names, scale=196, origin_y=0.58):
 def main():
     os.makedirs(OUT_DIR, exist_ok=True)
     render_physicalizer()
-    render_adhesive()
+    render_adhesive_3d()
     render_block("thruster", ("thruster_top.png", "thruster_side.png", "thruster_front.png"))
     render_block("ship_helm", ("ship_helm_top.png", "ship_helm_side.png",
                                "ship_helm_front.png"))

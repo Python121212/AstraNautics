@@ -761,3 +761,100 @@ make_engine_part_textures()
 
 
 
+
+
+# ----------------------------------------------------------------------
+# 接着剤（3D モデル用アトラス）
+#   1 枚の PNG（64x32）に 4 セルをまとめ、UV を切り替えて組み立てる
+#     (0,0) キャップ上面 / (1,0) 金属の帯 / (2,0) ボトル側面 / (3,0) 接着剤の帯
+# ----------------------------------------------------------------------
+def make_adhesive_atlas():
+    CELL = SIZE  # 16
+    atlas = Image.new("RGBA", (CELL * 4, CELL * 2), (0, 0, 0, 0))
+
+    # --- (0,0) 真鍮のキャップ上面 ---
+    cap = Image.new("RGBA", (CELL, CELL))
+    cap_hi = (246, 216, 150, 255)
+    cap_mid = (206, 166, 96, 255)
+    cap_low = (146, 108, 48, 255)
+    for y in range(CELL):
+        for x in range(CELL):
+            d = math.hypot(x - 7.5, y - 7.5)
+            if d > 6.6:
+                c = (60, 44, 20, 255)
+            elif d > 5.2:
+                c = cap_low
+            elif d > 2.6:
+                c = cap_mid
+            else:
+                c = cap_hi
+            cap.putpixel((x, y), c)
+    # 十字の溝
+    for i in range(3, 13):
+        cap.putpixel((i, 7), cap_low)
+        cap.putpixel((7, i), cap_low)
+    atlas.paste(cap, (0, 0))
+
+    # --- (1,0) 金属の帯（バンド） ---
+    band = Image.new("RGBA", (CELL, CELL))
+    for y in range(CELL):
+        for x in range(CELL):
+            v = (186, 148, 84, 255)
+            if y in (0, 1, 14, 15):
+                v = (120, 92, 44, 255)
+            elif y in (7, 8):
+                v = (238, 206, 140, 255)
+            elif (x * 3 + y) % 13 == 0:
+                v = (150, 118, 62, 255)
+            band.putpixel((x, y), v)
+    # ボルト
+    for bx in (3, 12):
+        band.putpixel((bx, 4), (222, 230, 236, 255))
+        band.putpixel((bx, 11), (84, 92, 100, 255))
+    atlas.paste(band, (CELL, 0))
+
+    # --- (2,0) ボトルの側面（樹脂＋シアンの窓） ---
+    bottle = Image.new("RGBA", (CELL, CELL))
+    resin_hi = (92, 118, 132, 255)
+    resin = (54, 74, 86, 255)
+    resin_low = (30, 44, 54, 255)
+    glow = (86, 214, 222, 255)
+    glow_hi = (200, 250, 255, 255)
+    for y in range(CELL):
+        for x in range(CELL):
+            # 円柱の陰影（左が明るい）
+            f = 1.0 - abs(x - 3.0) / 13.0
+            c = resin_hi if f > 0.82 else (resin if f > 0.5 else resin_low)
+            bottle.putpixel((x, y), c)
+    # 残量が見える小さなシアンの窓（縦長のスリット）
+    for y in range(7, 13):
+        for x in range(6, 10):
+            d = math.hypot(x - 7.5, y - 9.5)
+            bottle.putpixel((x, y), glow if d < 1.9 else (40, 104, 118, 255))
+    bottle.putpixel((7, 9), glow_hi)
+    bottle.putpixel((8, 8), glow_hi)
+    # ラベルの筋
+    for x in range(2, 14):
+        bottle.putpixel((x, 3), (214, 172, 96, 255))
+        bottle.putpixel((x, 4), (150, 108, 48, 255))
+    atlas.paste(bottle, (CELL * 2, 0))
+
+    # --- (3,0) 接着剤の帯（ノズル／滴り） ---
+    nozzle = Image.new("RGBA", (CELL, CELL))
+    for y in range(CELL):
+        for x in range(CELL):
+            v = (120, 232, 240, 255) if (x + y) % 5 else (200, 250, 255, 255)
+            nozzle.putpixel((x, y), v)
+    # 滴り
+    for y in range(4, 16):
+        w = 1 + (y // 6)
+        for x in range(8 - w, 8 + w):
+            nozzle.putpixel((x, y), (86, 214, 222, 255))
+    atlas.paste(nozzle, (CELL * 3, 0))
+
+    item_dir = os.path.join(root, "src/main/resources/assets/astranautics/textures/item")
+    atlas.save(os.path.join(item_dir, "adhesive_atlas.png"))
+    print("generated: adhesive_atlas.png (%dx%d)" % (atlas.width, atlas.height))
+
+
+make_adhesive_atlas()
