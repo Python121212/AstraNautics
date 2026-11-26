@@ -354,6 +354,17 @@ def main():
         render_block("engine_" + name, (f"engine_{name}_top.png",
                                         f"engine_{name}_side.png",
                                         f"engine_{name}_side.png"))
+    render_block("envelope", ("envelope.png", "envelope.png", "envelope.png"))
+    render_block("hot_air_burner", ("hot_air_burner_top.png", "hot_air_burner_side.png",
+                                    "hot_air_burner_front.png"))
+    render_block("steam_vent", ("steam_vent_top.png", "steam_vent_side.png",
+                                "steam_vent_front.png"))
+    render_block("levitite", ("levitite.png", "levitite.png", "levitite.png"))
+    render_block("pearlescent_levitite",
+                 ("pearlescent_levitite.png", "pearlescent_levitite.png",
+                  "pearlescent_levitite.png"))
+    render_block("airship_assembly", ("airship_assembly_top.png", "airship_assembly_side.png",
+                                      "airship_assembly_front.png"))
     render_engine_cluster()
     # 一時ファイルを残さない
 
