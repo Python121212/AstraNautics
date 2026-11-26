@@ -153,14 +153,15 @@ public class ShipEntity extends Entity {
     private void evaluateEngine(Level level, BlockPos anchor) {
         com.astranautics.engine.EnginePartList list = new com.astranautics.engine.EnginePartList();
         for (Cell cell : this.cells) {
-            if (com.astranautics.engine.EnginePart.fromState(cell.state) != null) {
+            if (com.astranautics.engine.EnginePartList.isEngineBlock(cell.state)) {
                 list.add(cell.localOffset, cell.state);
             }
         }
         if (list.size() == 0) {
             return;
         }
-        var stats = com.astranautics.engine.EngineEvaluator.evaluateBest(
+        // スラスターを複数積む大きな船を想定して全エンジンを合算する
+        var stats = com.astranautics.engine.EngineEvaluator.evaluateAll(
                 list.splitIntoEngines(),
                 com.astranautics.engine.EngineEvaluator.airDensityOf(level));
         if (stats.isEmpty()) {

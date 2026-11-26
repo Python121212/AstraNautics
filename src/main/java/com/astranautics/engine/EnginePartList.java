@@ -37,6 +37,15 @@ public final class EnginePartList {
     }
 
     /** 指定座標のブロックステート（無ければ null）。 */
+    /** エンジンとして評価する対象か（部品＋スラスター）。 */
+    public static boolean isEngineBlock(BlockState state) {
+        if (state == null) {
+            return false;
+        }
+        return EnginePart.fromState(state) != null
+                || state.getBlock() instanceof com.astranautics.block.ThrusterBlock;
+    }
+
     public BlockState at(BlockPos pos) {
         for (int i = 0; i < this.positions.size(); i++) {
             if (this.positions.get(i).equals(pos)) {
@@ -72,7 +81,7 @@ public final class EnginePartList {
                         continue;
                     }
                     BlockState neighbor = at(next);
-                    if (neighbor != null && EnginePart.fromState(neighbor) != null) {
+                    if (neighbor != null && isEngineBlock(neighbor)) {
                         visited.add(next);
                         queue.add(next);
                     }

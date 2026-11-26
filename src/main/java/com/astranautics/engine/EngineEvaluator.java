@@ -92,13 +92,28 @@ public final class EngineEvaluator {
         int fuelTanks = 0;
         int vanes = 0;
         double mass = 0.0D;
+        double thrustMul = 1.0D;
+        double efficiencyBonus = 0.0D;
+        double speedBonus = 0.0D;
+        double heatMul = 1.0D;
+        int shapeCount = 0;
 
         for (BlockPos pos : parts) {
             EnginePart part = EnginePart.fromState(level.getBlockState(pos));
             if (part == null) {
                 continue;
             }
+            BlockState state = level.getBlockState(pos);
             mass += part.mass();
+            if (part == EnginePart.NOZZLE) {
+                NozzleShape shape = NozzleShape.fromState(state);
+                thrustMul *= shape.thrustMul;
+                efficiencyBonus += shape.efficiencyBonus;
+                speedBonus += shape.speedBonus;
+                heatMul *= shape.heatMul;
+                mass = mass - part.mass() + part.mass() * shape.massMul;
+                shapeCount++;
+            }
             switch (part) {
                 case COMBUSTION_CHAMBER -> chambers++;
                 case NOZZLE -> nozzles++;
@@ -111,7 +126,84 @@ public final class EngineEvaluator {
             }
         }
         return compute(chambers, nozzles, intakes, turbines, coolingFins, oxidizer, fuelTanks,
-                vanes, parts.size(), mass, airDensity);
+                vanes, parts.size(), mass, airDensity,
+                shapeCount == 0 ? 1.0D : Math.pow(thrustMul, 1.0D / shapeCount),
+                efficiencyBonus, speedBonus,
+                shapeCount == 0 ? 1.0D : Math.pow(heatMul, 1.0D / shapeCount));
+    }
+
+    /** スラスターに接しているノズルか（＝スラスターの周りに置いたノズル）。 */
+    private static boolean isMountedNozzle(EnginePartList engine, int index) {
+        BlockPos pos = engine.pos(index);
+        for (net.minecraft.core.Direction dir : net.minecraft.core.Direction.values()) {
+            BlockState neighbor = engine.at(pos.relative(dir));
+            if (neighbor != null
+                    && neighbor.getBlock() instanceof com.astranautics.block.ThrusterBlock) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** 全エンジンを合算して評価する（大きな船でスラスターを複数積む想定）。 */
+    public static EngineStats evaluateAll(List<EnginePartList> engines, double airDensity) {
+        int chambers = 0, nozzles = 0, intakes = 0, turbines = 0, cooling = 0, oxi = 0, tanks = 0;
+        int vanes = 0, thrusters = 0, mounted = 0, totalParts = 0;
+        double mass = 0.0D;
+        double thrustMul = 1.0D;
+        double efficiencyBonus = 0.0D;
+        double speedBonus = 0.0D;
+        double heatMul = 1.0D;
+        int shapeCount = 0;
+        for (EnginePartList engine : engines) {
+            for (int i = 0; i < engine.size(); i++) {
+                BlockState state = engine.state(i);
+                EnginePart part = EnginePart.fromState(state);
+                if (part == null) {
+                    if (state != null
+                            && state.getBlock() instanceof com.astranautics.block.ThrusterBlock) {
+                        thrusters++;
+                        totalParts++;
+                    }
+                    continue;
+                }
+                totalParts++;
+                mass += part.mass();
+                if (part == EnginePart.NOZZLE) {
+                    NozzleShape shape = NozzleShape.fromState(state);
+                    NozzleSize size = NozzleSize.fromState(state);
+                    thrustMul *= shape.thrustMul * size.thrustMul;
+                    efficiencyBonus += shape.efficiencyBonus;
+                    speedBonus += shape.speedBonus + size.speedBonus;
+                    heatMul *= shape.heatMul * size.heatMul;
+                    mass = mass - part.mass()
+                            + part.mass() * shape.massMul * size.massMul;
+                    shapeCount++;
+                    if (isMountedNozzle(engine, i)) {
+                        mounted++;
+                    }
+                }
+                switch (part) {
+                    case COMBUSTION_CHAMBER -> chambers++;
+                    case NOZZLE -> nozzles++;
+                    case INTAKE -> intakes++;
+                    case TURBINE -> turbines++;
+                    case COOLING_FIN -> cooling++;
+                    case OXIDIZER_TANK -> oxi++;
+                    case FUEL_TANK -> tanks++;
+                    case NOZZLE_VANE -> vanes++;
+                }
+            }
+        }
+        if (totalParts == 0) {
+            return EngineStats.EMPTY;
+        }
+        return compute(chambers, nozzles, intakes, turbines, cooling, oxi, tanks,
+                vanes, totalParts, mass, airDensity,
+                shapeCount == 0 ? 1.0D : Math.pow(thrustMul, 1.0D / shapeCount),
+                efficiencyBonus, speedBonus,
+                shapeCount == 0 ? 1.0D : Math.pow(heatMul, 1.0D / shapeCount),
+                thrusters, mounted);
     }
 
     /** 船のようにワールドに存在しない部品リストから評価する（最大推力のエンジンを採用）。 */
@@ -121,12 +213,26 @@ public final class EngineEvaluator {
             double mass = 0.0D;
             int chambers = 0, nozzles = 0, intakes = 0, turbines = 0, cooling = 0, oxi = 0, tanks = 0;
             int vanes = 0;
+            double thrustMul = 1.0D;
+            double efficiencyBonus = 0.0D;
+            double speedBonus = 0.0D;
+            double heatMul = 1.0D;
+            int shapeCount = 0;
             for (int i = 0; i < engine.size(); i++) {
                 EnginePart part = EnginePart.fromState(engine.state(i));
                 if (part == null) {
                     continue;
                 }
                 mass += part.mass();
+                if (part == EnginePart.NOZZLE) {
+                    NozzleShape shape = NozzleShape.fromState(engine.state(i));
+                    thrustMul *= shape.thrustMul;
+                    efficiencyBonus += shape.efficiencyBonus;
+                    speedBonus += shape.speedBonus;
+                    heatMul *= shape.heatMul;
+                    mass = mass - part.mass() + part.mass() * shape.massMul;
+                    shapeCount++;
+                }
                 switch (part) {
                     case COMBUSTION_CHAMBER -> chambers++;
                     case NOZZLE -> nozzles++;
@@ -139,7 +245,10 @@ public final class EngineEvaluator {
                 }
             }
             EngineStats stats = compute(chambers, nozzles, intakes, turbines, cooling, oxi, tanks,
-                    vanes, engine.size(), mass, airDensity);
+                    vanes, engine.size(), mass, airDensity,
+                    shapeCount == 0 ? 1.0D : Math.pow(thrustMul, 1.0D / shapeCount),
+                    efficiencyBonus, speedBonus,
+                    shapeCount == 0 ? 1.0D : Math.pow(heatMul, 1.0D / shapeCount));
             if (stats.thrust() > best.thrust()) {
                 best = stats;
             }
@@ -147,49 +256,85 @@ public final class EngineEvaluator {
         return best;
     }
 
-    /** 数値から性能を計算する（テストしやすいよう分離）。 */
+    /** 形状指定なしの計算（テスト・互換用）。 */
     public static EngineStats compute(int chambers, int nozzles, int intakes, int turbines,
                                       int coolingFins, int oxidizer, int fuelTanks,
                                       int vanes, int totalParts, double mass, double airDensity) {
+        return compute(chambers, nozzles, intakes, turbines, coolingFins, oxidizer, fuelTanks,
+                vanes, totalParts, mass, airDensity, 1.0D, 0.0D, 0.0D, 1.0D);
+    }
+
+    /** 形状補正つき（スラスターなし）。 */
+    public static EngineStats compute(int chambers, int nozzles, int intakes, int turbines,
+                                      int coolingFins, int oxidizer, int fuelTanks,
+                                      int vanes, int totalParts, double mass, double airDensity,
+                                      double thrustMul, double efficiencyBonus,
+                                      double speedBonus, double heatMul) {
+        return compute(chambers, nozzles, intakes, turbines, coolingFins, oxidizer, fuelTanks,
+                vanes, totalParts, mass, airDensity, thrustMul, efficiencyBonus, speedBonus,
+                heatMul, 0, 0);
+    }
+
+    /**
+     * 数値から性能を計算する（形状補正＋スラスター対応）。
+     *
+     * @param thrusters      スラスターの数（大きな船は複数積む）
+     * @param mountedNozzles スラスターの周りに置いたノズルの数
+     */
+    public static EngineStats compute(int chambers, int nozzles, int intakes, int turbines,
+                                      int coolingFins, int oxidizer, int fuelTanks,
+                                      int vanes, int totalParts, double mass, double airDensity,
+                                      double thrustMul, double efficiencyBonus,
+                                      double speedBonus, double heatMul,
+                                      int thrusters, int mountedNozzles) {
+        double capacity = 1.0D + 0.6D * fuelTanks;
+        double hullMass = mass + thrusters * 1.0D;
         if (chambers == 0) {
             return new EngineStats(chambers, nozzles, intakes, turbines, coolingFins, oxidizer,
                     fuelTanks, vanes, totalParts, 0.0D, 0.0D, 0.0D,
-                    1.0D + 0.6D * fuelTanks, 0.0D, mass, 0.45D, 0.0D);
+                    capacity, 0.0D, hullMass, 0.45D, 0.0D);
         }
 
         double clampedAir = Math.max(0.0D, Math.min(1.0D, airDensity));
 
-        // ノズル効率：0.6 ～ 1.6。羽根で囲むとさらに伸びる（上限 2.0）
+        // ノズル効率：0.6 ～ 2.0。羽根・装着ノズルで伸びる
         double nozzleEfficiency = Math.min(2.0D,
-                0.6D + 0.16D * nozzles + 0.05D * vanes);
+                0.6D + 0.16D * nozzles + 0.05D * vanes + 0.06D * mountedNozzles
+                        + efficiencyBonus);
         // 燃費：タービンと羽根で改善（下限 0.25 倍）
         double economy = Math.max(0.25D, 1.0D - 0.22D * turbines - 0.02D * vanes);
         // 冷却
         double cooling = 1.0D + 0.55D * coolingFins;
 
         // 燃焼室ぶんの推力
-        double baseThrust = chambers * 1.00D * nozzleEfficiency;
+        double baseThrust = chambers * 1.00D * nozzleEfficiency * thrustMul;
+        // スラスターぶんの推力（装着ノズルで 1 基あたりが伸びる）
+        double thrusterUnit = 0.30D * (1.0D + 0.10D * mountedNozzles);
+        double thrusterThrust = thrusters * thrusterUnit * thrustMul;
         // 吸気は大気があるときだけ効く
         double intakeThrust = intakes * 0.12D * clampedAir;
-        double thrust = baseThrust + intakeThrust;
+        double thrust = baseThrust + thrusterThrust + intakeThrust;
 
         // 酸化剤があれば宇宙でも同じ推力、無ければ吸気分と 20% を失う
-        double vacuumThrust = oxidizer > 0 ? thrust : baseThrust * 0.8D;
+        double vacuumThrust = oxidizer > 0
+                ? thrust
+                : (baseThrust + thrusterThrust) * 0.8D;
 
         // 燃費（1 tick あたり）
         double fuelUse = chambers * 0.55D * economy * 0.01D;
-        double heat = chambers * 0.55D / cooling;
+        double heat = (chambers * 0.55D + thrusters * 0.10D) * heatMul / cooling;
 
-        // 最高速度：ノズルと羽根で伸び、重い燃焼室では鈍る
-        double topSpeed = Math.max(0.35D, Math.min(2.4D,
-                0.45D + 0.18D * nozzles + 0.06D * vanes - 0.02D * chambers));
+        // 最高速度：ノズル・装着ノズル・羽根で伸びる。スラスターを増やすと頭打ちが緩む
+        double topSpeed = Math.max(0.35D, Math.min(3.2D,
+                0.45D + 0.18D * nozzles + 0.10D * mountedNozzles + 0.06D * vanes
+                        + 0.08D * thrusters - 0.02D * chambers + speedBonus));
 
         // 設計圧力：羽根でノズルを囲みすぎると圧に耐えられない
         double designPressure = nozzles > 0 ? (double) vanes / (nozzles * 4.0D) : 0.0D;
 
         return new EngineStats(chambers, nozzles, intakes, turbines, coolingFins, oxidizer,
                 fuelTanks, vanes, totalParts, thrust, vacuumThrust, fuelUse,
-                1.0D + 0.6D * fuelTanks, heat, mass, topSpeed, designPressure);
+                capacity, heat, hullMass, topSpeed, designPressure);
     }
 
     /** 大気密度（地表 = 1.0、宇宙 = 0.0）。ディメンションで変える布石。 */

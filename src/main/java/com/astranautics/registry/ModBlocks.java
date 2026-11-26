@@ -71,6 +71,16 @@ public final class ModBlocks {
 
     static {
         for (com.astranautics.engine.EnginePart part : com.astranautics.engine.EnginePart.values()) {
+            if (part == com.astranautics.engine.EnginePart.NOZZLE) {
+                // ノズルだけ「形状」を持てる専用ブロック
+                ENGINE_PARTS.put(part, BLOCKS.register("engine_" + part.id,
+                        () -> new com.astranautics.block.NozzleBlock(
+                                BlockBehaviour.Properties.of()
+                                        .mapColor(MapColor.METAL)
+                                        .strength(2.5F, 6.0F)
+                                        .sound(SoundType.METAL))));
+                continue;
+            }
             ENGINE_PARTS.put(part, BLOCKS.register("engine_" + part.id,
                     () -> new EnginePartBlock(part, BlockBehaviour.Properties.of()
                             .mapColor(MapColor.METAL)

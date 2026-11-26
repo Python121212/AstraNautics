@@ -30,6 +30,13 @@ public class EnginePartBlock extends Block {
         return this.part;
     }
 
+    /** サブクラス（ノズルなど）がプロパティを足せるようにする。 */
+    @Override
+    protected void createBlockStateDefinition(
+            net.minecraft.world.level.block.state.StateDefinition.Builder<Block, BlockState> builder) {
+        // 既定では追加プロパティなし
+    }
+
     @Override
     public InteractionResult use(BlockState state, Level level, BlockPos pos, Player player,
                                  InteractionHand hand, BlockHitResult hit) {

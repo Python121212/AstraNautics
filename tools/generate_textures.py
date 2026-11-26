@@ -958,3 +958,57 @@ def make_nozzle_vane_textures():
 
 
 make_nozzle_vane_textures()
+
+
+# ----------------------------------------------------------------------
+# ノズルの形状バリエーション用テクスチャ（コーン／スパイク／ベクター）
+# ----------------------------------------------------------------------
+def make_nozzle_shape_textures():
+    tex_dir = os.path.join(root, "src/main/resources/assets/astranautics/textures/block")
+
+    def cone():
+        img = _metal_base()
+        for y in range(SIZE):
+            # 末広がりのリング
+            for x in range(SIZE):
+                d = abs(x - 7.5) + abs(y - 7.5)
+                if 6.2 < d < 7.2:
+                    img.putpixel((x, y), (228, 148, 96, 255))
+                elif 4.4 < d < 5.4:
+                    img.putpixel((x, y), (172, 100, 58, 255))
+                elif 2.0 < d < 2.8:
+                    img.putpixel((x, y), (86, 96, 106, 255))
+        return img
+
+    def spike():
+        img = _metal_base()
+        for y in range(SIZE):
+            for x in range(SIZE):
+                if x + y < 8:
+                    img.putpixel((x, y), (196, 210, 222, 255))
+                elif x + y < 10:
+                    img.putpixel((x, y), (128, 142, 154, 255))
+                elif 7 <= x <= 9 or 7 <= y <= 9:
+                    img.putpixel((x, y), (232, 180, 110, 255))
+        return img
+
+    def vector():
+        img = _metal_base()
+        for y in range(SIZE):
+            for x in range(SIZE):
+                if x in (2, 13) or y in (2, 13):
+                    img.putpixel((x, y), (214, 176, 104, 255))
+                if 5 <= x <= 10 and 5 <= y <= 10:
+                    img.putpixel((x, y), (96, 112, 128, 255))
+        for x in range(3, 13):
+            img.putpixel((x, 6), (238, 206, 140, 255))
+            img.putpixel((x, 9), (156, 122, 66, 255))
+        return img
+
+    cone().save(os.path.join(tex_dir, "nozzle_cone_side.png"))
+    spike().save(os.path.join(tex_dir, "nozzle_spike_side.png"))
+    vector().save(os.path.join(tex_dir, "nozzle_vector_side.png"))
+    print("generated: nozzle shape textures")
+
+
+make_nozzle_shape_textures()
