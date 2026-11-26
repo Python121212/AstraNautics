@@ -30,6 +30,14 @@ public final class ModCreativeTabs {
                         output.accept(ModItems.LEVITITE.get());
                         output.accept(ModItems.PEARLESCENT_LEVITITE.get());
                         output.accept(ModItems.AIRSHIP_ASSEMBLY.get());
+                        output.accept(ModItems.SHIP_CORE.get());
+                        output.accept(ModItems.SHIP_POWER_CORE.get());
+                        output.accept(ModItems.SHIP_THROTTLE.get());
+                        output.accept(ModItems.SHIP_RADAR.get());
+                        output.accept(ModItems.SHIP_TURRET.get());
+                        for (var plate : ModItems.HULL_PLATES.values()) {
+                            output.accept(plate.get());
+                        }
                         for (var item : ModItems.ENGINE_PARTS.values()) {
                             output.accept(item.get());
                         }

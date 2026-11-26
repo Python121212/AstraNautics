@@ -1,0 +1,107 @@
+{
+ "textures": {
+  "top": "astranautics:block/ship_throttle_top",
+  "front": "astranautics:block/ship_throttle_front",
+  "side": "astranautics:block/ship_throttle_side",
+  "lever": "astranautics:block/hull_plate_light",
+  "knob": "astranautics:block/ship_power_core"
+ },
+ "elements": [
+  {
+   "from": [
+    2,
+    0,
+    2
+   ],
+   "to": [
+    14,
+    2.5,
+    14
+   ],
+   "faces": {
+    "down": {
+     "texture": "#side"
+    },
+    "up": {
+     "texture": "#side"
+    },
+    "north": {
+     "texture": "#side"
+    },
+    "south": {
+     "texture": "#side"
+    },
+    "west": {
+     "texture": "#side"
+    },
+    "east": {
+     "texture": "#side"
+    }
+   }
+  },
+  {
+   "from": [
+    7.4,
+    2.5,
+    7.4
+   ],
+   "to": [
+    8.6,
+    2.5,
+    11.0
+   ],
+   "faces": {
+    "down": {
+     "texture": "#lever"
+    },
+    "up": {
+     "texture": "#lever"
+    },
+    "north": {
+     "texture": "#lever"
+    },
+    "south": {
+     "texture": "#lever"
+    },
+    "west": {
+     "texture": "#lever"
+    },
+    "east": {
+     "texture": "#lever"
+    }
+   }
+  },
+  {
+   "from": [
+    7.0,
+    2.6,
+    6.5
+   ],
+   "to": [
+    9.0,
+    3.4,
+    7.9
+   ],
+   "faces": {
+    "down": {
+     "texture": "#knob"
+    },
+    "up": {
+     "texture": "#knob"
+    },
+    "north": {
+     "texture": "#knob"
+    },
+    "south": {
+     "texture": "#knob"
+    },
+    "west": {
+     "texture": "#knob"
+    },
+    "east": {
+     "texture": "#knob"
+    }
+   }
+  }
+ ]
+}

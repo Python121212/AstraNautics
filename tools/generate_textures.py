@@ -1174,3 +1174,141 @@ def make_aero_textures():
 
 
 make_aero_textures()
+
+
+# ----------------------------------------------------------------------
+# 宇宙船・宇宙戦艦の艦載システム
+# ----------------------------------------------------------------------
+def make_starship_textures():
+    tex_dir = os.path.join(root, "src/main/resources/assets/astranautics/textures/block")
+
+    # --- 艦橋：青いホログラムの窓 ---
+    core = _metal_base()
+    for y in range(3, 13):
+        for x in range(2, 14):
+            core.putpixel((x, y), (26, 44, 58, 255))
+    for x in range(3, 13):
+        core.putpixel((x, 7), (86, 226, 246, 255))
+        core.putpixel((x, 8), (56, 170, 196, 255))
+    for y in range(4, 12):
+        core.putpixel((4, y), (56, 170, 196, 255))
+        core.putpixel((11, y), (56, 170, 196, 255))
+    for (bx, by) in ((1, 1), (14, 1), (1, 14), (14, 14)):
+        core.putpixel((bx, by), (206, 212, 220, 255))
+    core.save(os.path.join(tex_dir, "ship_core.png"))
+
+    # --- 動力炉：コアが光る ---
+    power = _metal_base()
+    for y in range(SIZE):
+        for x in range(SIZE):
+            d = max(abs(x - 7.5), abs(y - 7.5))
+            if d < 2.2:
+                power.putpixel((x, y), (196, 252, 255, 255))
+            elif d < 3.6:
+                power.putpixel((x, y), (66, 210, 236, 255))
+            elif d < 5.0:
+                power.putpixel((x, y), (32, 118, 148, 255))
+    for x in range(1, 15):
+        power.putpixel((x, 1), (240, 250, 255, 255))
+        power.putpixel((x, 14), (24, 32, 40, 255))
+    power.save(os.path.join(tex_dir, "ship_power_core.png"))
+
+    # --- レーダー ---
+    radar_top = _metal_base()
+    for y in range(SIZE):
+        for x in range(SIZE):
+            d = ((x - 7.5) ** 2 + (y - 7.5) ** 2) ** 0.5
+            if 5.4 < d < 6.4:
+                radar_top.putpixel((x, y), (128, 246, 200, 255))
+            elif 2.6 < d < 3.2:
+                radar_top.putpixel((x, y), (72, 190, 156, 255))
+    radar_top.putpixel((7, 7), (220, 255, 240, 255))
+    radar_top.putpixel((8, 8), (220, 255, 240, 255))
+    radar_top.save(os.path.join(tex_dir, "ship_radar_top.png"))
+
+    radar_side = _metal_base()
+    for x in range(1, 15, 2):
+        for y in range(3, 13):
+            radar_side.putpixel((x, y), (72, 190, 156, 255) if y % 4 == 3
+                                else (44, 108, 96, 255))
+    radar_side.save(os.path.join(tex_dir, "ship_radar_side.png"))
+
+    # --- 砲塔 ---
+    turret_top = _metal_base()
+    for y in range(4, 12):
+        for x in range(4, 12):
+            turret_top.putpixel((x, y), (58, 64, 72, 255))
+    for x in range(7, 9):
+        for y in range(1, 15):
+            turret_top.putpixel((x, y), (176, 184, 194, 255))
+    for (bx, by) in ((2, 2), (13, 2), (2, 13), (13, 13)):
+        turret_top.putpixel((bx, by), (206, 132, 72, 255))
+    turret_top.save(os.path.join(tex_dir, "ship_turret_top.png"))
+
+    turret_side = _metal_base()
+    for y in range(SIZE):
+        turret_side.putpixel((7, y), (104, 112, 122, 255))
+        turret_side.putpixel((8, y), (72, 80, 90, 255))
+    turret_side.save(os.path.join(tex_dir, "ship_turret_side.png"))
+
+    turret_front = _metal_base()
+    for y in range(5, 11):
+        for x in range(5, 11):
+            turret_front.putpixel((x, y), (30, 32, 38, 255))
+    for y in range(6, 10):
+        turret_front.putpixel((8, y), (238, 96, 64, 255))
+        turret_front.putpixel((9, y), (186, 60, 40, 255))
+    turret_front.save(os.path.join(tex_dir, "ship_turret_front.png"))
+
+    # --- 推力レバー ---
+    thr_top = _metal_base()
+    for x in range(1, 15):
+        for y in range(1, 4):
+            thr_top.putpixel((x, y), (218, 158, 74, 255) if y == 2 else (160, 112, 50, 255))
+    thr_top.save(os.path.join(tex_dir, "ship_throttle_top.png"))
+    thr_side = _metal_base()
+    for x in range(1, 15, 3):
+        for y in range(4, 14):
+            thr_side.putpixel((x, y), (86, 96, 104, 255))
+    thr_side.save(os.path.join(tex_dir, "ship_throttle_side.png"))
+    thr_front = _metal_base()
+    for y in range(2, 14):
+        for x in range(6, 10):
+            thr_front.putpixel((x, y), (24, 28, 34, 255))
+    thr_front.save(os.path.join(tex_dir, "ship_throttle_front.png"))
+
+    # --- 装甲板 3 段階 ---
+    def plate(grade):
+        if grade == "light":
+            base_c, dark, hi, rivet = (150, 158, 168, 255), (104, 112, 122, 255), \
+                (206, 214, 224, 255), (176, 184, 194, 255)
+        elif grade == "standard":
+            base_c, dark, hi, rivet = (112, 120, 132, 255), (74, 82, 92, 255), \
+                (168, 178, 190, 255), (198, 150, 90, 255)
+        else:
+            base_c, dark, hi, rivet = (74, 66, 70, 255), (44, 38, 42, 255), \
+                (128, 116, 122, 255), (226, 164, 96, 255)
+        img = Image.new("RGBA", (SIZE, SIZE), base_c)
+        for y in range(SIZE):
+            for x in range(SIZE):
+                if x in (0, 15) or y in (0, 15):
+                    img.putpixel((x, y), dark)
+                elif x == 1 or y == 1:
+                    img.putpixel((x, y), hi)
+                elif x == 14 or y == 14:
+                    img.putpixel((x, y), dark)
+        # 継ぎ目
+        for x in range(2, 14):
+            img.putpixel((x, 7), dark)
+            img.putpixel((x, 8), hi)
+        for (bx, by) in ((3, 3), (12, 3), (3, 12), (12, 12)):
+            img.putpixel((bx, by), rivet)
+        return img
+
+    for grade in ("light", "standard", "heavy"):
+        plate(grade).save(os.path.join(tex_dir, f"hull_plate_{grade}.png"))
+
+    print("generated: starship textures")
+
+
+make_starship_textures()

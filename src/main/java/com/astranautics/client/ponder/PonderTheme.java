@@ -57,6 +57,31 @@ public record PonderTheme(
             0xFFC79AFF, 0xFF2A1B3C, 0xFF170F22,
             0xFF130C1C, 0xFF2B1D42, 0xFFF2E9FF, 0xFFD9C0FF, 0xFFBE93FF);
 
+    /** 艦橋：宇宙の紺／シアン。 */
+    public static final PonderTheme STARSHIP = new PonderTheme(
+            0xFF56E2F6, 0xFF0E1C26, 0xFF08121A,
+            0xFF050C12, 0xFF132430, 0xFFE6F8FD, 0xFFA8E8F8, 0xFF56E2F6);
+
+    /** 動力炉：コアの水色。 */
+    public static final PonderTheme STARSHIP_POWER = new PonderTheme(
+            0xFF7FF4FF, 0xFF0B2028, 0xFF07141A,
+            0xFF041016, 0xFF102A34, 0xFFE8FEFF, 0xFFA6F4FF, 0xFF7FF4FF);
+
+    /** レーダー：緑のスキャン。 */
+    public static final PonderTheme STARSHIP_SCAN = new PonderTheme(
+            0xFF80F6C8, 0xFF0C231C, 0xFF061512,
+            0xFF04110E, 0xFF0F2A22, 0xFFE9FFF6, 0xFFA8F6DC, 0xFF80F6C8);
+
+    /** 砲塔：警戒の赤。 */
+    public static final PonderTheme STARSHIP_WEAPON = new PonderTheme(
+            0xFFFF6A50, 0xFF2A1110, 0xFF1A0A0A,
+            0xFF120707, 0xFF301312, 0xFFFFEDE9, 0xFFFFB0A2, 0xFFFF8A72);
+
+    /** 装甲：無骨な鋼。 */
+    public static final PonderTheme STARSHIP_ARMOR = new PonderTheme(
+            0xFFB0BAC6, 0xFF1C2026, 0xFF11151A,
+            0xFF0D1116, 0xFF232A32, 0xFFF2F6FA, 0xFFCBD4DE, 0xFFB0BAC6);
+
     /** エンジン部品：金属の鋼色／冷却の青。 */
     public static final PonderTheme ENGINE = new PonderTheme(
             0xFF9AB6C8, 0xFF1B2730, 0xFF121A20,

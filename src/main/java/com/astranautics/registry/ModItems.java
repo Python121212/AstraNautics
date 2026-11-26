@@ -75,9 +75,48 @@ public final class ModItems {
     public static final RegistryObject<Item> AIRSHIP_ASSEMBLY = ITEMS.register("airship_assembly",
             () -> new BlockItem(ModBlocks.AIRSHIP_ASSEMBLY.get(), new Item.Properties()));
 
+    /** 艦橋の BlockItem。 */
+    public static final RegistryObject<Item> SHIP_CORE = ITEMS.register("ship_core",
+            () -> new BlockItem(ModBlocks.SHIP_CORE.get(), new Item.Properties()));
+
+    /** 動力炉の BlockItem。 */
+    public static final RegistryObject<Item> SHIP_POWER_CORE = ITEMS.register("ship_power_core",
+            () -> new BlockItem(ModBlocks.SHIP_POWER_CORE.get(), new Item.Properties()));
+
+    /** レーダーの BlockItem。 */
+    public static final RegistryObject<Item> SHIP_RADAR = ITEMS.register("ship_radar",
+            () -> new BlockItem(ModBlocks.SHIP_RADAR.get(), new Item.Properties()));
+
+    /** 砲塔の BlockItem。 */
+    public static final RegistryObject<Item> SHIP_TURRET = ITEMS.register("ship_turret",
+            () -> new BlockItem(ModBlocks.SHIP_TURRET.get(), new Item.Properties()));
+
+    /** 推力レバーの BlockItem。 */
+    public static final RegistryObject<Item> SHIP_THROTTLE = ITEMS.register("ship_throttle",
+            () -> new BlockItem(ModBlocks.SHIP_THROTTLE.get(), new Item.Properties()));
+
+    /** 装甲板の BlockItem。 */
+    public static final java.util.Map<com.astranautics.block.HullPlateBlock.Grade,
+            RegistryObject<Item>> HULL_PLATES =
+            new java.util.EnumMap<>(com.astranautics.block.HullPlateBlock.Grade.class);
+
+    static {
+        for (com.astranautics.block.HullPlateBlock.Grade grade
+                : com.astranautics.block.HullPlateBlock.Grade.values()) {
+            HULL_PLATES.put(grade, ITEMS.register("hull_plate_" + grade.id,
+                    () -> new BlockItem(ModBlocks.hullPlate(grade), new Item.Properties())));
+        }
+    }
+
     /** ノズル金型の BlockItem。 */
     public static final RegistryObject<Item> NOZZLE_MOLD = ITEMS.register("nozzle_mold",
             () -> new BlockItem(ModBlocks.NOZZLE_MOLD.get(), new Item.Properties()));
+
+    /** 装甲板のアイテム。 */
+    public static Item hullPlate(com.astranautics.block.HullPlateBlock.Grade grade) {
+        RegistryObject<Item> item = HULL_PLATES.get(grade);
+        return item == null ? null : item.get();
+    }
 
     /** 部品のアイテムを取得する。 */
     public static Item enginePart(com.astranautics.engine.EnginePart part) {

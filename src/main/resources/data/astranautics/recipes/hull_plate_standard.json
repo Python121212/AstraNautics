@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "LL",
+    "LL"
+  ],
+  "key": {
+    "L": {
+      "item": "astranautics:hull_plate_light"
+    }
+  },
+  "result": {
+    "item": "astranautics:hull_plate_standard",
+    "count": 4
+  }
+}

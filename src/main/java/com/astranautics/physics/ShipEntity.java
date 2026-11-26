@@ -109,6 +109,10 @@ public class ShipEntity extends Entity {
     private int levititeCount;
     /** 上昇入力（+1 上昇 / -1 下降）。 */
     private double liftInput;
+    /** 動力炉の数。 */
+    private int powerCores;
+    /** 装甲の合計硬度。 */
+    private double armorValue;
 
     /** 旋回の速さ（ラジアン/tick）。 */
     private static final double TURN_SPEED = 0.05D;
@@ -170,6 +174,8 @@ public class ShipEntity extends Entity {
         evaluateEngine(level, anchor);
         // 浮力（気密外皮の熱気 + レビタイト）
         evaluateBuoyancy(level);
+        // 艦内システム（電力・装甲）
+        evaluateSystems();
 
         // 搭乗者を集計する場合は ShipService が設定する
         this.setPos(anchor.getX() + 0.5D, anchor.getY() + 0.5D, anchor.getZ() + 0.5D);
@@ -224,6 +230,32 @@ public class ShipEntity extends Entity {
         this.entityData.set(DATA_LIFT, (float) this.liftPower());
         this.entityData.set(DATA_LEVITITE, this.levititeCount);
         this.entityData.set(DATA_ENVELOPE, this.envelopeCells);
+    }
+
+    /** 艦内システム（動力炉・レーダー・砲塔・装甲）を数えておく。 */
+    private void evaluateSystems() {
+        int cores = 0;
+        double armor = 0.0D;
+        for (Cell cell : this.cells) {
+            if (cell.state.getBlock() instanceof com.astranautics.block.ShipPowerCoreBlock) {
+                cores++;
+            } else if (cell.state.getBlock()
+                    instanceof com.astranautics.block.HullPlateBlock hull) {
+                armor += hull.grade().hardness;
+            }
+        }
+        this.powerCores = cores;
+        this.armorValue = armor;
+    }
+
+    /** 動力炉の数。 */
+    public int powerCores() {
+        return this.powerCores;
+    }
+
+    /** 装甲の合計硬度。 */
+    public double armorValue() {
+        return this.armorValue;
     }
 
     /** 浮力の合計（kpg）。 */
@@ -363,7 +395,9 @@ public class ShipEntity extends Entity {
         }
 
         // 浮力（気密外皮の熱気 + レビタイト）と重力
-        double lift = liftPower();
+        // 宇宙空間では気嚢の浮力は無効（レビタイトは重力を打ち消すので有効）
+        boolean vacuum = com.astranautics.aero.Space.isVacuum(this.level(), this.getY());
+        double lift = vacuum ? this.levititeLift : liftPower();
         if (lift > 0.0D) {
             // 浮力が重さを上回るぶんだけ上昇。足りなければゆっくり沈む
             double net = lift - this.totalMass * 0.5D;
@@ -381,8 +415,9 @@ public class ShipEntity extends Entity {
             velocity = velocity.add(0.0D, this.liftInput * LIFT_GAIN * 0.4D, 0.0D);
         }
 
-        // 抵抗（水中はさらに強い）
-        double drag = this.isInWater() ? 0.90D : DRAG;
+        // 抵抗（水中はさらに強い／宇宙はほぼ無抵抗）
+        double drag = this.isInWater() ? 0.90D
+                : com.astranautics.aero.Space.drag(this.level(), this.getY());
         // レビタイトは低速だと抵抗が増える（Create Aeronautics と同じ挙動）
         if (this.levititeCount > 0) {
             drag *= com.astranautics.aero.Levitite.dragFor(velocity.length(),

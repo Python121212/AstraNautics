@@ -22,6 +22,18 @@ public final class ModEntities {
                     .updateInterval(1)
                     .build("astranautics:ship"));
 
+    /** 艦載砲の弾。 */
+    public static final RegistryObject<EntityType<com.astranautics.physics.TurretShotEntity>>
+            TURRET_SHOT = ENTITIES.register("turret_shot",
+                    () -> EntityType.Builder
+                            .<com.astranautics.physics.TurretShotEntity>of(
+                                    com.astranautics.physics.TurretShotEntity::new,
+                                    MobCategory.MISC)
+                            .sized(0.4F, 0.4F)
+                            .clientTrackingRange(6)
+                            .updateInterval(1)
+                            .build("astranautics:turret_shot"));
+
     private ModEntities() {
     }
 }

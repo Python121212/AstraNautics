@@ -1,6 +1,7 @@
 package com.astranautics.client.ponder;
 
 import com.astranautics.client.ponder.step.AeroSteps;
+import com.astranautics.client.ponder.step.StarshipSteps;
 import com.astranautics.client.ponder.step.EnginePartSteps;
 import com.astranautics.client.ponder.step.HelmSteps;
 import com.astranautics.client.ponder.step.ThrusterSteps;
@@ -63,6 +64,14 @@ public final class PonderCatalog {
 
         // --- 舵輪 ---
         register("ship_helm", HelmSteps.create());
+
+        // --- 宇宙船・宇宙戦艦の艦載システム ---
+        register("ship_core", StarshipSteps.shipCore());
+        register("ship_power_core", StarshipSteps.powerCore());
+        register("ship_throttle", StarshipSteps.throttle());
+        register("ship_radar", StarshipSteps.radar());
+        register("ship_turret", StarshipSteps.turret());
+        register("hull_plate_standard", StarshipSteps.hullPlate());
 
         // --- 航空（気密外皮・熱気・レビタイト） ---
         register("envelope", AeroSteps.envelope());

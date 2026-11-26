@@ -1,0 +1,20 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "SSS",
+    "SNS",
+    "SSS"
+  ],
+  "key": {
+    "S": {
+      "item": "astranautics:hull_plate_standard"
+    },
+    "N": {
+      "item": "minecraft:netherite_ingot"
+    }
+  },
+  "result": {
+    "item": "astranautics:hull_plate_heavy",
+    "count": 8
+  }
+}

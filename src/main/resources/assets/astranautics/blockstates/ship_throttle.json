@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "throttle=0": {
+      "model": "astranautics:block/ship_throttle_0"
+    },
+    "throttle=1": {
+      "model": "astranautics:block/ship_throttle_1"
+    },
+    "throttle=2": {
+      "model": "astranautics:block/ship_throttle_2"
+    },
+    "throttle=3": {
+      "model": "astranautics:block/ship_throttle_3"
+    },
+    "throttle=4": {
+      "model": "astranautics:block/ship_throttle_4"
+    }
+  }
+}

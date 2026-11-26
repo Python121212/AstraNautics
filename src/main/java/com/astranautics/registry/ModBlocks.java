@@ -106,6 +106,67 @@ public final class ModBlocks {
                     .sound(SoundType.METAL)));
 
     /* ------------------------------------------------------------------ */
+    /* 宇宙船・宇宙戦艦（艦載システム）                                     */
+    /* ------------------------------------------------------------------ */
+
+    /** 艦橋（1 隻に 1 基）。 */
+    public static final RegistryObject<Block> SHIP_CORE = BLOCKS.register("ship_core",
+            () -> new com.astranautics.block.ShipCoreBlock(BlockBehaviour.Properties.of()
+                    .mapColor(MapColor.METAL)
+                    .strength(4.0F, 10.0F)
+                    .sound(SoundType.METAL)
+                    .lightLevel(state -> 5)));
+
+    /** 動力炉。 */
+    public static final RegistryObject<Block> SHIP_POWER_CORE = BLOCKS.register("ship_power_core",
+            () -> new com.astranautics.block.ShipPowerCoreBlock(BlockBehaviour.Properties.of()
+                    .mapColor(MapColor.COLOR_CYAN)
+                    .strength(4.0F, 10.0F)
+                    .sound(SoundType.AMETHYST)
+                    .lightLevel(state -> 12)));
+
+    /** 艦載レーダー。 */
+    public static final RegistryObject<Block> SHIP_RADAR = BLOCKS.register("ship_radar",
+            () -> new com.astranautics.block.ShipRadarBlock(BlockBehaviour.Properties.of()
+                    .mapColor(MapColor.METAL)
+                    .strength(3.0F, 8.0F)
+                    .sound(SoundType.METAL)));
+
+    /** 艦載砲塔。 */
+    public static final RegistryObject<Block> SHIP_TURRET = BLOCKS.register("ship_turret",
+            () -> new com.astranautics.block.ShipTurretBlock(BlockBehaviour.Properties.of()
+                    .mapColor(MapColor.METAL)
+                    .strength(4.0F, 12.0F)
+                    .sound(SoundType.METAL)
+                    .lightLevel(state -> state.getValue(
+                            com.astranautics.block.ShipTurretBlock.READY) ? 3 : 0)));
+
+    /** 推力レバー。 */
+    public static final RegistryObject<Block> SHIP_THROTTLE = BLOCKS.register("ship_throttle",
+            () -> new com.astranautics.block.ShipThrottleBlock(BlockBehaviour.Properties.of()
+                    .mapColor(MapColor.METAL)
+                    .strength(2.5F, 6.0F)
+                    .sound(SoundType.METAL)));
+
+    /** 装甲板（軽合金・標準・重装甲）。 */
+    public static final java.util.Map<com.astranautics.block.HullPlateBlock.Grade,
+            RegistryObject<Block>> HULL_PLATES =
+            new java.util.EnumMap<>(com.astranautics.block.HullPlateBlock.Grade.class);
+
+    static {
+        for (com.astranautics.block.HullPlateBlock.Grade grade
+                : com.astranautics.block.HullPlateBlock.Grade.values()) {
+            HULL_PLATES.put(grade, BLOCKS.register("hull_plate_" + grade.id,
+                    () -> new com.astranautics.block.HullPlateBlock(grade,
+                            BlockBehaviour.Properties.of()
+                                    .mapColor(MapColor.METAL)
+                                    .strength(6.0F, 14.0F)
+                                    .sound(SoundType.NETHERITE_BLOCK)
+                                    .requiresCorrectToolForDrops())));
+        }
+    }
+
+    /* ------------------------------------------------------------------ */
     /* 自作エンジンの部品                                                   */
     /* ------------------------------------------------------------------ */
 
@@ -134,6 +195,12 @@ public final class ModBlocks {
     }
 
     /** 部品のブロックを取得する。 */
+    /** 装甲板のブロック。 */
+    public static Block hullPlate(com.astranautics.block.HullPlateBlock.Grade grade) {
+        RegistryObject<Block> block = HULL_PLATES.get(grade);
+        return block == null ? null : block.get();
+    }
+
     public static Block enginePart(com.astranautics.engine.EnginePart part) {
         RegistryObject<Block> block = ENGINE_PARTS.get(part);
         return block == null ? null : block.get();

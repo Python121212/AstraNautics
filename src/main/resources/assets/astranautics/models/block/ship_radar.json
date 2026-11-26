@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/orientable",
+  "textures": {
+    "top": "astranautics:block/ship_radar_top",
+    "front": "astranautics:block/ship_radar_side",
+    "side": "astranautics:block/ship_radar_side"
+  }
+}

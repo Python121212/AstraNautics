@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "astranautics:block/ship_radar"
+    },
+    "facing=east": {
+      "model": "astranautics:block/ship_radar",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "astranautics:block/ship_radar",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "astranautics:block/ship_radar",
+      "y": 270
+    }
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/orientable",
+  "textures": {
+    "top": "astranautics:block/ship_throttle_top",
+    "front": "astranautics:block/ship_throttle_front",
+    "side": "astranautics:block/ship_throttle_side"
+  }
+}
