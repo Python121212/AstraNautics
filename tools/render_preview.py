@@ -298,6 +298,45 @@ def render_block(name, tex_names, scale=196, origin_y=0.58):
     print("generated:", os.path.join(OUT_DIR, name + ".png"))
 
 
+def draw_nozzle(canvas, cx, cz, base_y, height, top_r, bot_r, top_tex, side_tex, steps=4):
+    """下向きノズル（末広がりの筒）を段状の箱で描く。"""
+    for i in range(steps):
+        t0 = i / steps
+        t1 = (i + 1) / steps
+        r0 = top_r + (bot_r - top_r) * t0
+        r1 = top_r + (bot_r - top_r) * t1
+        y0 = base_y - height * t0
+        y1 = base_y - height * t1
+        draw_box(canvas, top_tex, cx, (y0 + y1) / 2.0, cz, r1, (y0 - y1) / 2.0, r1,
+                 side_tex=side_tex, steps=70)
+
+
+def render_engine_cluster():
+    """スラスター＋周囲のノズル（形・大きさの違い）の配置イメージ。"""
+    global SCALE, ORIGIN_Y, W, H
+    SCALE, ORIGIN_Y, W, H = 108, 0.54, 520, 470
+    canvas = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    t_top = load(os.path.join(TEX_BLOCK, "thruster_top.png"))
+    t_side = load(os.path.join(TEX_BLOCK, "thruster_side.png"))
+    n_top = load(os.path.join(TEX_BLOCK, "engine_nozzle_top.png"))
+    n_side = load(os.path.join(TEX_BLOCK, "engine_nozzle_side.png"))
+    cone = load(os.path.join(TEX_BLOCK, "nozzle_cone_side.png"))
+    spike = load(os.path.join(TEX_BLOCK, "nozzle_spike_side.png"))
+    vector = load(os.path.join(TEX_BLOCK, "nozzle_vector_side.png"))
+
+    # 中央のスラスター（燃焼室）を高く積む
+    draw_box(canvas, t_top, 0.0, 1.5, 0.0, 0.5, 0.5, 0.5, side_tex=t_side, steps=90)
+    draw_box(canvas, t_top, 0.0, 0.9, 0.0, 0.5, 0.5, 0.5, side_tex=t_side, steps=90)
+
+    # 周囲 4 基のノズル（ベル／コーン／スパイク／ベクター）
+    draw_nozzle(canvas, -0.95, -0.95, 0.85, 0.80, 0.22, 0.44, n_top, n_side)
+    draw_nozzle(canvas, 0.95, -0.95, 0.85, 0.78, 0.20, 0.46, n_top, cone)
+    draw_nozzle(canvas, -0.95, 0.95, 0.85, 0.76, 0.22, 0.40, n_top, spike)
+    draw_nozzle(canvas, 0.95, 0.95, 0.85, 0.70, 0.20, 0.42, n_top, vector)
+    canvas.save(os.path.join(OUT_DIR, "engine_nozzle.png"))
+    print("generated:", os.path.join(OUT_DIR, "engine_nozzle.png"))
+
+
 def main():
     os.makedirs(OUT_DIR, exist_ok=True)
     render_physicalizer()
@@ -313,6 +352,7 @@ def main():
         render_block("engine_" + name, (f"engine_{name}_top.png",
                                         f"engine_{name}_side.png",
                                         f"engine_{name}_side.png"))
+    render_engine_cluster()
     # 一時ファイルを残さない
 
 
