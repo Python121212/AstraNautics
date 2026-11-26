@@ -51,5 +51,13 @@
   "message.astranautics.land_failed": "No room to land",
   "message.astranautics.ship_info": "Ship: cells=%s mass=%s thrust=%s fuel=%s throttle=%s",
   "message.astranautics.ship_hud": "W/S forward-back  A/D turn  Space/Shift up-down  right-click to leave",
-  "tooltip.astranautics.ponder_hint2": "Hold W for a tutorial"
+  "tooltip.astranautics.ponder_hint2": "Hold W for a tutorial",
+  "hud.astranautics.ship_cells": "Cells %s / Mass %s",
+  "hud.astranautics.ship_fuel": "Fuel %s%%",
+  "hud.astranautics.ship_speed": "Speed %s",
+  "hud.astranautics.ship_controls": "W/S forward  A/D turn  Space/Shift up-down  sneak+right-click to land",
+  "hud.astranautics.adhesive_confirm": "Left-click to confirm (%s blocks)",
+  "hud.astranautics.adhesive_apply": "Physicalizer ON to apply to %s blocks",
+  "hud.astranautics.adhesive_select": "Right-click to select an area",
+  "hud.astranautics.adhesive_size": "Area: %s (sneak+right-click to change)"
 }

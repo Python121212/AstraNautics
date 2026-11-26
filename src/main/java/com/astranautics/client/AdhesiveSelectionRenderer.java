@@ -150,18 +150,21 @@ public final class AdhesiveSelectionRenderer {
 
         String line1;
         if (selected > 0) {
-            line1 = "左クリックで確定 (" + selected + " ブロック)";
+            line1 = net.minecraft.network.chat.Component.translatable(
+                    "hud.astranautics.adhesive_confirm", selected).getString();
             drawMouse(graphics, cx - 96, cy - 2, MouseButton.LEFT, true);
         } else if (glued > 0) {
-            line1 = "物理化装置を ON でまとめて物理化 (" + glued + " ブロック)";
+            line1 = net.minecraft.network.chat.Component.translatable(
+                    "hud.astranautics.adhesive_apply", glued).getString();
             drawMouse(graphics, cx - 96, cy - 2, MouseButton.LEFT, false);
         } else {
-            line1 = "右クリックで範囲を選択";
+            line1 = net.minecraft.network.chat.Component.translatable(
+                    "hud.astranautics.adhesive_select").getString();
             drawMouse(graphics, cx - 96, cy - 2, MouseButton.RIGHT, true);
         }
         graphics.drawString(minecraft.font, line1, cx - 72, cy - 8, 0xFFDFF8FA, false);
-        graphics.drawString(minecraft.font,
-                "範囲: " + AdhesiveItem.radiusName(stack) + " (スニーク+右クリックで変更)",
+        graphics.drawString(minecraft.font, net.minecraft.network.chat.Component.translatable(
+                        "hud.astranautics.adhesive_size", AdhesiveItem.radiusName(stack)),
                 cx - 72, cy + 3, 0xFF7FD9E0, false);
     }
 

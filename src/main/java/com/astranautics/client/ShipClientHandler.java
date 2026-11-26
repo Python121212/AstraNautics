@@ -58,26 +58,32 @@ public final class ShipClientHandler {
 
         graphics.drawString(minecraft.font, Component.translatable("block.astranautics.ship_helm"),
                 x, y, 0xFFDFF8FA, false);
-        graphics.drawString(minecraft.font, String.format("セル %d / 質量 %.1f",
-                        ship.cellCount(), ship.totalMass()),
+        graphics.drawString(minecraft.font, Component.translatable(
+                        "hud.astranautics.ship_cells", ship.cellCount(),
+                        String.format("%.1f", ship.totalMass())),
                 x, y + 12, 0xFF9FD8E0, false);
 
         // 燃料バー
         int fuelW = (int) (panelW * ship.getFuel());
         graphics.fill(x, y + 24, x + panelW, y + 30, 0xFF1B3340);
         graphics.fill(x, y + 24, x + fuelW, y + 30, 0xFF5FE0EA);
-        graphics.drawString(minecraft.font, String.format("燃料 %.0f%%", ship.getFuel() * 100.0F),
+        graphics.drawString(minecraft.font, Component.translatable(
+                        "hud.astranautics.ship_fuel",
+                        String.format("%.0f", ship.getFuel() * 100.0F)),
                 x, y + 32, 0xFF7FD9E0, false);
 
         // スロットルバー
         int throttleW = (int) (panelW * Math.abs(ship.getThrottle()));
         graphics.fill(x, y + 42, x + panelW, y + 47, 0xFF1B3340);
         graphics.fill(x, y + 42, x + throttleW, y + 47, 0xFFFFC46A);
-        graphics.drawString(minecraft.font, String.format("速度 %.2f", ship.getDeltaMovement().length()),
+        graphics.drawString(minecraft.font, Component.translatable(
+                        "hud.astranautics.ship_speed",
+                        String.format("%.2f", ship.getDeltaMovement().length())),
                 x, y + 50, 0xFFCFEFFF, false);
 
         // 操作方法（下部）
-        String help = "W/S 前進  A/D 旋回  Space/Shift 上下  スニーク+右クリックで降りる";
+        net.minecraft.network.chat.Component help = Component.translatable(
+                "hud.astranautics.ship_controls");
         int hw = minecraft.font.width(help);
         graphics.fill(width / 2 - hw / 2 - 5, height - 30, width / 2 + hw / 2 + 5, height - 16, 0x90001018);
         graphics.drawString(minecraft.font, help, width / 2 - hw / 2, height - 26, 0xFF9FD8E0, false);

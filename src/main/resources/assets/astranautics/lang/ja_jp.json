@@ -51,5 +51,13 @@
   "message.astranautics.land_failed": "着地できる場所がありません",
   "message.astranautics.ship_info": "船: セル=%s 質量=%s 推力=%s 燃料=%s スロットル=%s",
   "message.astranautics.ship_hud": "W/S 前進・後退  A/D 旋回  Space/Shift 上下  右クリックで降りる",
-  "tooltip.astranautics.ponder_hint2": "W 長押しで使い方を見る"
+  "tooltip.astranautics.ponder_hint2": "W 長押しで使い方を見る",
+  "hud.astranautics.ship_cells": "セル %s / 質量 %s",
+  "hud.astranautics.ship_fuel": "燃料 %s%%",
+  "hud.astranautics.ship_speed": "速度 %s",
+  "hud.astranautics.ship_controls": "W/S 前進  A/D 旋回  Space/Shift 上下  スニーク+右クリックで降りる",
+  "hud.astranautics.adhesive_confirm": "左クリックで確定 (%s ブロック)",
+  "hud.astranautics.adhesive_apply": "物理化装置をONでまとめて物理化 (%s ブロック)",
+  "hud.astranautics.adhesive_select": "右クリックで範囲を選択",
+  "hud.astranautics.adhesive_size": "範囲: %s (スニーク+右クリックで変更)"
 }
