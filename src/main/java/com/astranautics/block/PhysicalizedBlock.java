@@ -170,13 +170,29 @@ public class PhysicalizedBlock extends BaseEntityBlock {
         if (target.is(ModBlocks.PHYSICALIZED.get()) || target.is(Blocks.BEDROCK)) {
             return false;
         }
-        if (!airborne && target.getBlock() instanceof BaseEntityBlock) {
-            // 既に BlockEntity を持つブロックは中身を失うため対象外
+        // 流体・特殊ブロックは対象外（それ以外の全ブロックに対応）
+        if (!airborne && isUnsupported(target)) {
             return false;
         }
 
         if (level.isClientSide) {
             return true;
+        }
+
+        // 全ブロック対応：BlockEntity を持つブロック（チェスト・かまど等）も中身ごと物理化する
+        CompoundTag originalBlockEntityTag = null;
+        if (!airborne && level.getBlockEntity(pos) != null
+                && !(level.getBlockEntity(pos) instanceof PhysicalizedBlockEntity)) {
+            try {
+                BlockEntity existing = level.getBlockEntity(pos);
+                CompoundTag data = existing.saveWithoutMetadata();
+                if (!data.isEmpty()) {
+                    originalBlockEntityTag = data;
+                }
+            } catch (Exception exception) {
+                com.astranautics.AstraNautics.LOGGER.debug(
+                        "[AstraNautics] BlockEntity の退避に失敗（中身は失われます）", exception);
+            }
         }
 
         BlockState physicalized = ModBlocks.PHYSICALIZED.get().defaultBlockState()
@@ -190,6 +206,9 @@ public class PhysicalizedBlock extends BaseEntityBlock {
             BlockState original = airborne ? com.astranautics.registry.ModBlocks.PHYSICS_CORE.get()
                     .defaultBlockState() : target;
             be.setOriginalState(original);
+            if (originalBlockEntityTag != null) {
+                be.setOriginalBlockEntityTag(originalBlockEntityTag);
+            }
             be.enablePhysics();
             be.setChanged();
             // 連結クラスタ（将来の「船 = 1 剛体」）を再構築
@@ -204,16 +223,50 @@ public class PhysicalizedBlock extends BaseEntityBlock {
         return true;
     }
 
+    /** 物理化できない特殊ブロックかどうか。 */
+    public static boolean isUnsupported(BlockState state) {
+        if (!state.getFluidState().isEmpty()) {
+            return true;
+        }
+        return state.is(Blocks.BEDROCK) || state.is(Blocks.END_PORTAL)
+                || state.is(Blocks.END_GATEWAY) || state.is(Blocks.NETHER_PORTAL)
+                || state.is(Blocks.END_PORTAL_FRAME) || state.is(Blocks.BARRIER)
+                || state.is(Blocks.COMMAND_BLOCK) || state.is(Blocks.CHAIN_COMMAND_BLOCK)
+                || state.is(Blocks.REPEATING_COMMAND_BLOCK) || state.is(Blocks.STRUCTURE_BLOCK)
+                || state.is(Blocks.STRUCTURE_VOID) || state.is(Blocks.JIGSAW)
+                || state.is(Blocks.LIGHT) || state.is(Blocks.MOVING_PISTON)
+                || state.is(com.astranautics.registry.ModBlocks.PHYSICS_CORE.get());
+    }
+
     /** 物理化を解除して元のブロックへ戻す。 */
     public static boolean restore(Level level, BlockPos pos) {
         if (!level.getBlockState(pos).is(ModBlocks.PHYSICALIZED.get())) {
             return false;
         }
         BlockState original = Blocks.AIR.defaultBlockState();
+        CompoundTag blockEntityTag = null;
         if (level.getBlockEntity(pos) instanceof PhysicalizedBlockEntity be) {
             original = be.getOriginalState();
+            blockEntityTag = be.getOriginalBlockEntityTag();
         }
-        return level.setBlock(pos, original, Block.UPDATE_ALL);
+        boolean placed = level.setBlock(pos, original, Block.UPDATE_ALL);
+        // BlockEntity の中身（チェストのアイテム等）を書き戻す
+        if (placed && blockEntityTag != null && level.getBlockEntity(pos) != null
+                && !(level.getBlockEntity(pos) instanceof PhysicalizedBlockEntity)) {
+            try {
+                CompoundTag data = blockEntityTag.copy();
+                data.remove("x");
+                data.remove("y");
+                data.remove("z");
+                data.remove("id");
+                level.getBlockEntity(pos).load(data);
+                level.getBlockEntity(pos).setChanged();
+            } catch (Exception exception) {
+                com.astranautics.AstraNautics.LOGGER.debug(
+                        "[AstraNautics] BlockEntity の復元に失敗", exception);
+            }
+        }
+        return placed;
     }
 
     /* ------------------------------------------------------------------ */

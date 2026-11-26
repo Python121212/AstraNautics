@@ -48,6 +48,26 @@ public final class AstraCommands {
                                     + " / クラスタ: " + stats.get("clusters")), false);
                     return 1;
                 }))
+                .then(Commands.literal("material").executes(ctx -> {
+                    var source = ctx.getSource();
+                    BlockPos pos = lookedAtPos(source);
+                    if (pos == null) {
+                        source.sendFailure(Component.literal("ブロックを見てください"));
+                        return 0;
+                    }
+                    var state = source.getLevel().getBlockState(pos);
+                    var profile = com.astranautics.physics.MaterialProfile.of(state);
+                    var id = net.minecraftforge.registries.ForgeRegistries.BLOCKS.getKey(state.getBlock());
+                    source.sendSuccess(() -> Component.literal(String.format(
+                            "%s → 質量=%.2f 摩擦=%.2f 反発=%.2f 抵抗=%.3f 浮きやすい=%s",
+                            id, profile.mass(), profile.friction(), profile.restitution(),
+                            profile.drag(), profile.buoyant())), false);
+                    source.sendSuccess(() -> Component.literal(
+                            "物性ルール読み込み数: " + com.astranautics.physics.MaterialRules.loadedRuleCount()
+                                    + " / 対応ブロック数: "
+                                    + com.astranautics.physics.MaterialRules.supportedBlockCount()), false);
+                    return 1;
+                }))
                 .then(Commands.literal("cluster").executes(ctx -> {
                     BlockPos pos = lookedAtPos(ctx.getSource());
                     if (pos == null) {
@@ -102,6 +122,19 @@ public final class AstraCommands {
                                                                     "押しました: power=" + power), false);
                                                             return 1;
                                                         }))))))
+                .then(Commands.literal("physicalize").executes(ctx -> {
+                    BlockPos pos = lookedAtPos(ctx.getSource());
+                    if (pos == null) {
+                        ctx.getSource().sendFailure(Component.literal("ブロックを見てください"));
+                        return 0;
+                    }
+                    if (!com.astranautics.block.PhysicalizedBlock.physicalize(ctx.getSource().getLevel(), pos)) {
+                        ctx.getSource().sendFailure(Component.literal("このブロックは物理化できません"));
+                        return 0;
+                    }
+                    ctx.getSource().sendSuccess(() -> Component.literal("物理化しました"), false);
+                    return 1;
+                }))
                 .then(Commands.literal("boom")
                         .then(Commands.argument("radius",
                                         com.mojang.brigadier.arguments.DoubleArgumentType.doubleArg(1.0D, 32.0D))

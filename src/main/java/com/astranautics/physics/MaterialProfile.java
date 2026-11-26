@@ -1,6 +1,8 @@
 package com.astranautics.physics;
 
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.BlockTags;
+import net.minecraft.tags.TagKey;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.SoundType;
@@ -28,8 +30,39 @@ public record MaterialProfile(
     public static final MaterialProfile DEFAULT =
             new MaterialProfile(1.0D, 0.75D, 0.30D, 0.01D, false);
 
-    /** ブロックから物性を推定する（毎 tick 呼ばないよう、BlockEntity 側でキャッシュする）。 */
+    /** Forge の共通タグ（他 MOD のブロックもここに載っていることが多い）。 */
+    private static final TagKey<Block> FORGE_STONE = forgeTag("stone");
+    private static final TagKey<Block> FORGE_COBBLESTONE = forgeTag("cobblestone");
+    private static final TagKey<Block> FORGE_GLASS = forgeTag("glass");
+    private static final TagKey<Block> FORGE_GLASS_BLOCKS = forgeTag("glass_blocks");
+    private static final TagKey<Block> FORGE_ORES = forgeTag("ores");
+    private static final TagKey<Block> FORGE_ORES_IN_GROUND = forgeTag("ores_in_ground");
+    private static final TagKey<Block> FORGE_STORAGE_BLOCKS = forgeTag("storage_blocks");
+    private static final TagKey<Block> FORGE_WOOL = forgeTag("wool");
+    private static final TagKey<Block> FORGE_LOGS = forgeTag("logs");
+    private static final TagKey<Block> FORGE_SAND = forgeTag("sand");
+    private static final TagKey<Block> FORGE_GRAVEL = forgeTag("gravel");
+    private static final TagKey<Block> FORGE_DIRT = forgeTag("dirt");
+    private static final TagKey<Block> FORGE_PLANKS = forgeTag("planks");
+    private static final TagKey<Block> FORGE_CHESTS = forgeTag("chests");
+    private static final TagKey<Block> FORGE_END_STONES = forgeTag("end_stones");
+    private static final TagKey<Block> FORGE_NETHERRACK = forgeTag("netherrack");
+
+    private static TagKey<Block> forgeTag(String path) {
+        return TagKey.create(net.minecraft.core.registries.Registries.BLOCK,
+                new ResourceLocation("forge", path));
+    }
+
+    /** すべてのブロックに対応：まずこれを呼ぶ（MaterialRules が上書きを適用する）。 */
     public static MaterialProfile of(BlockState state) {
+        return MaterialRules.profile(state);
+    }
+
+    /**
+     * ブロックの見た目・音・タグから物性を推定する（フォールバック）。
+     * 他 MOD のブロックでも SoundType とタグである程度は判別できます。
+     */
+    public static MaterialProfile estimate(BlockState state) {
         if (state == null || state.isAir()) {
             return DEFAULT;
         }
@@ -88,7 +121,7 @@ public record MaterialProfile(
                 || sound == SoundType.TUFF || sound == SoundType.CALCITE
                 || sound == SoundType.BASALT || sound == SoundType.POLISHED_DEEPSLATE
                 || sound == SoundType.NETHER_BRICKS || sound == SoundType.BONE_BLOCK) {
-            return new MaterialProfile(2.0D, 0.80D, 0.10D, 0.01D, false);
+            return new MaterialProfile(1.6D, 0.80D, 0.10D, 0.01D, false);
         }
         // --- 雪・粉雪：とても軽い ---
         if (sound == SoundType.SNOW || sound == SoundType.POWDER_SNOW) {
@@ -107,6 +140,41 @@ public record MaterialProfile(
         }
         if (state.is(BlockTags.SAND)) {
             return new MaterialProfile(0.9D, 0.85D, 0.12D, 0.03D, false);
+        }
+
+        // --- Forge 共通タグ（他 MOD のブロックもここに載っていることが多い） ---
+        if (state.is(FORGE_LOGS) || state.is(FORGE_PLANKS)) {
+            return new MaterialProfile(0.6D, 0.65D, 0.28D, 0.015D, true);
+        }
+        if (state.is(FORGE_WOOL)) {
+            return new MaterialProfile(0.35D, 0.95D, 0.02D, 0.10D, false);
+        }
+        if (state.is(FORGE_GLASS) || state.is(FORGE_GLASS_BLOCKS)) {
+            return new MaterialProfile(0.7D, 0.35D, 0.20D, 0.006D, false);
+        }
+        if (state.is(FORGE_STORAGE_BLOCKS)) {
+            // 鉄・銅などの金属ブロック
+            return new MaterialProfile(2.2D, 0.45D, 0.12D, 0.008D, false);
+        }
+        if (state.is(FORGE_ORES) || state.is(FORGE_ORES_IN_GROUND) || state.is(FORGE_NETHERRACK)) {
+            return new MaterialProfile(2.0D, 0.80D, 0.10D, 0.01D, false);
+        }
+        if (state.is(FORGE_STONE) || state.is(FORGE_COBBLESTONE) || state.is(FORGE_END_STONES)) {
+            return new MaterialProfile(1.6D, 0.80D, 0.10D, 0.01D, false);
+        }
+        if (state.is(FORGE_SAND) || state.is(FORGE_GRAVEL) || state.is(FORGE_DIRT)) {
+            return new MaterialProfile(0.9D, 0.85D, 0.13D, 0.03D, false);
+        }
+        if (state.is(FORGE_CHESTS)) {
+            return new MaterialProfile(0.8D, 0.70D, 0.20D, 0.02D, true);
+        }
+
+        // 破壊不可能・流体・置換不能のブロックは「重い岩」扱い
+        if (state.getDestroySpeed(null, null) < 0.0F) {
+            return new MaterialProfile(4.0D, 0.90D, 0.05D, 0.01D, false);
+        }
+        if (!state.getFluidState().isEmpty()) {
+            return new MaterialProfile(1.0D, 0.50D, 0.05D, 0.30D, false);
         }
 
         return DEFAULT;

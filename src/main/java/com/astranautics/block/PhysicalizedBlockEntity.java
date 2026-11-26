@@ -27,6 +27,9 @@ public class PhysicalizedBlockEntity extends BlockEntity {
     private static final String TAG_OFFSET = "Offset";
     private static final String TAG_VELOCITY = "Velocity";
     private static final String TAG_SLEEP = "SleepTicks";
+    private static final String TAG_ORIGINAL_BE = "OriginalBlockEntity";
+    /** 移設時に中身（チェストのアイテム等）を引き継ぐためのタグ。 */
+    private CompoundTag originalBlockEntityTag;
 
     /** クライアント側のアニメーション用：出現したゲーム時間。 */
     public long spawnTime = -1L;
@@ -77,6 +80,17 @@ public class PhysicalizedBlockEntity extends BlockEntity {
         this.originalStateTag = NbtUtils.writeBlockState(state);
         this.cachedOriginal = state;
         this.material = null;   // 素材が変わったら物性を再計算
+        setChanged();
+    }
+
+    /** 元ブロックの BlockEntity データ（チェストの中身など）。無ければ null。 */
+    public CompoundTag getOriginalBlockEntityTag() {
+        return this.originalBlockEntityTag;
+    }
+
+    public void setOriginalBlockEntityTag(CompoundTag tag) {
+        this.originalBlockEntityTag = tag == null || tag.isEmpty() ? null : tag.copy();
+        this.material = null;
         setChanged();
     }
 
@@ -137,6 +151,19 @@ public class PhysicalizedBlockEntity extends BlockEntity {
             this.originalStateTag = tag.getCompound(TAG_ORIGINAL);
             this.cachedOriginal = null;
             setChanged();
+        }
+        if (tag.contains(TAG_ORIGINAL_BE)) {
+            this.originalBlockEntityTag = tag.getCompound(TAG_ORIGINAL_BE).copy();
+        }
+    }
+
+    /** 持ち運び（アイテム）用に、元ブロック情報をまとめて書き出す。 */
+    public void saveToItem(CompoundTag tag) {
+        if (!this.originalStateTag.isEmpty()) {
+            tag.put(TAG_ORIGINAL, this.originalStateTag);
+        }
+        if (this.originalBlockEntityTag != null) {
+            tag.put(TAG_ORIGINAL_BE, this.originalBlockEntityTag.copy());
         }
     }
 
@@ -368,6 +395,9 @@ public class PhysicalizedBlockEntity extends BlockEntity {
         tag.put(TAG_OFFSET, doubles(this.offX, this.offY, this.offZ));
         tag.put(TAG_VELOCITY, doubles(this.velX, this.velY, this.velZ));
         tag.putInt(TAG_SLEEP, this.sleepTicks);
+        if (this.originalBlockEntityTag != null) {
+            tag.put(TAG_ORIGINAL_BE, this.originalBlockEntityTag.copy());
+        }
     }
 
     @Override
@@ -391,6 +421,9 @@ public class PhysicalizedBlockEntity extends BlockEntity {
             this.velZ = velocity[2];
         }
         this.sleepTicks = tag.getInt(TAG_SLEEP);
+        if (tag.contains(TAG_ORIGINAL_BE)) {
+            this.originalBlockEntityTag = tag.getCompound(TAG_ORIGINAL_BE).copy();
+        }
         this.lastSyncHash = computeSyncHash();
     }
 
@@ -409,6 +442,24 @@ public class PhysicalizedBlockEntity extends BlockEntity {
             values[i] = ((net.minecraft.nbt.DoubleTag) list.get(i)).getAsDouble();
         }
         return values;
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* ケイパビリティ（他 MOD のパイプ・ホッパー等との互換）                 */
+    /* ------------------------------------------------------------------ */
+
+    /**
+     * 物理化中は空のハンドラを返す。
+     *
+     * <p>これが無いと他 MOD のホッパー・パイプが {@code null} を受け取って
+     * クラッシュする可能性があります（互換性のための安全弁）。</p>
+     */
+    public static void registerCapabilities(net.minecraftforge.event.AttachCapabilitiesEvent<BlockEntity> event) {
+        if (!(event.getObject() instanceof PhysicalizedBlockEntity)) {
+            return;
+        }
+        // 何も登録しない＝Capability は null のまま。呼び出し側は null チェックで回避する
+        // （Forge の標準 Capability は null セーフに扱われる）
     }
 
     @Override

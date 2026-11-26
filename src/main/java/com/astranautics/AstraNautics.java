@@ -5,9 +5,11 @@ import com.astranautics.registry.ModBlocks;
 import com.astranautics.registry.ModCreativeTabs;
 import com.astranautics.registry.ModItems;
 import com.mojang.logging.LogUtils;
+import net.minecraftforge.event.AddReloadListenerEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
-import net.minecraftforge.fml.ModLoadingContext;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.fml.config.ModConfig;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.minecraftforge.fml.event.lifecycle.FMLLoadCompleteEvent;
@@ -20,6 +22,7 @@ import org.slf4j.Logger;
  * <p>登録処理（ブロック・アイテム・ブロックエンティティ・専用クリエイティブタブ）を行います。</p>
  */
 @Mod(AstraNautics.MOD_ID)
+@Mod.EventBusSubscriber(modid = AstraNautics.MOD_ID, bus = Mod.EventBusSubscriber.Bus.FORGE)
 public class AstraNautics {
 
     /** MOD ID（mods.toml / assets のパスと一致させる） */
@@ -44,6 +47,12 @@ public class AstraNautics {
         ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, Config.SPEC);
 
         LOGGER.info("[{}] コンストラクタ実行: 登録処理を開始します", MOD_ID);
+    }
+
+    /** データパック（material_rules.json）の読み込み登録。他 MOD の物性上書きもここで扱う。 */
+    @SubscribeEvent
+    public static void onAddReloadListener(AddReloadListenerEvent event) {
+        event.addListener(new com.astranautics.physics.MaterialRules());
     }
 
     private void commonSetup(final FMLCommonSetupEvent event) {
