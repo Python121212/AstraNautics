@@ -6,8 +6,6 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
-import net.minecraft.network.protocol.Packet;
-import net.minecraft.network.protocol.game.ClientboundAddEntityPacket;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
@@ -275,12 +273,14 @@ public class ShipEntity extends Entity {
         this.throttle = Mth.approach(this.throttle, Mth.clamp(forward, 0.0F, 1.0F), 0.06F);
         this.setYRot(this.getYRot() - turn * (float) TURN_SPEED);
 
-        // 上下（ジャンプ／スニーク）
+        // 上下（スペース／スニーク）。搭乗中はジャンプ入力がサーバーへ届かないため、
+        // プレイヤーの視線ではなく「スニークで下降、前進で上昇」のシンプル操作にする
         double lift = 0.0D;
-        if (this.pilot.jumping) {
-            lift = 0.05D;
-        } else if (this.pilot.isShiftKeyDown()) {
-            lift = -0.05D;
+        if (this.pilot.isShiftKeyDown()) {
+            lift = -0.045D;
+        } else if (forward > 0.0F && this.pilot.level().getBlockState(
+                this.pilot.blockPosition().below()).isAir()) {
+            lift = 0.02D;
         }
         if (lift != 0.0D) {
             this.setDeltaMovement(this.getDeltaMovement().add(0.0D, lift, 0.0D));
