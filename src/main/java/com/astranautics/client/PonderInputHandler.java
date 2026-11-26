@@ -79,12 +79,23 @@ public final class PonderInputHandler {
         if (stack.isEmpty()) {
             return false;
         }
-        return stack.is(ModItems.PHYSICALIZER.get()) || stack.is(ModItems.ADHESIVE.get());
+        if (stack.is(ModItems.PHYSICALIZER.get()) || stack.is(ModItems.ADHESIVE.get())) {
+            return true;
+        }
+        var id = net.minecraftforge.registries.ForgeRegistries.ITEMS.getKey(stack.getItem());
+        return id != null && com.astranautics.client.ponder.PonderCatalog.forItem(id) != null;
     }
 
     /** そのアイテムの Ponder シーン開始インデックス。 */
-    private static int sceneIndexFor(ItemStack stack) {
-        return stack.is(ModItems.ADHESIVE.get()) ? 1 : 0;
+    public static int sceneIndexFor(ItemStack stack) {
+        if (stack.is(ModItems.ADHESIVE.get())) {
+            return 1;
+        }
+        var id = net.minecraftforge.registries.ForgeRegistries.ITEMS.getKey(stack.getItem());
+        if (id != null && com.astranautics.client.ponder.PonderCatalog.forItem(id) != null) {
+            return com.astranautics.client.ponder.PonderCatalog.firstIndex(id);
+        }
+        return 0;
     }
 
     /* ------------------------------------------------------------------ */

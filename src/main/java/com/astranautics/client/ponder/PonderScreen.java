@@ -96,20 +96,21 @@ public class PonderScreen extends Screen {
         graphics.pose().scale(scale, scale, 1.0F);
         graphics.pose().translate(-(x0 + panelW / 2.0F), -(y0 + panelH / 2.0F), 0.0F);
 
-        // 外枠（Ponder 風の角ばったパネル）
-        graphics.fill(x0 - 4, y0 - 4, x0 + panelW + 4, y0 + panelH + 4, 0xFF2AC8D2);
-        graphics.fill(x0, y0, x0 + panelW, y0 + panelH, 0xFF0F1C25);
+        PonderTheme theme = this.scene.theme;
+        // 外枠（Ponder 風の角ばったパネル。ブロックごとに配色が変わる）
+        graphics.fill(x0 - 4, y0 - 4, x0 + panelW + 4, y0 + panelH + 4, theme.accent());
+        graphics.fill(x0, y0, x0 + panelW, y0 + panelH, theme.panel());
         // ヘッダー
-        graphics.fill(x0, y0, x0 + panelW, y0 + 22, 0xFF16303C);
-        graphics.fill(x0, y0 + 22, x0 + panelW, y0 + 23, 0xFF2AC8D2);
+        graphics.fill(x0, y0, x0 + panelW, y0 + 22, theme.header());
+        graphics.fill(x0, y0 + 22, x0 + panelW, y0 + 23, theme.accent());
 
         // アイコン＋タイトル
         if (this.scene.icon != null) {
             graphics.blit(this.scene.icon, x0 + 6, y0 + 3, 0, 0, 16, 16, 16, 16);
         }
-        graphics.drawString(this.font, this.scene.title, x0 + 28, y0 + 7, 0xFFDFF8FA, false);
+        graphics.drawString(this.font, this.scene.title, x0 + 28, y0 + 7, theme.text(), false);
         graphics.drawString(this.font, (this.index + 1) + "/" + PonderScene.count(),
-                x0 + panelW - 30, y0 + 7, 0xFF7FD9E0, false);
+                x0 + panelW - 30, y0 + 7, theme.title(), false);
 
         // シーン
         int sx = x0 + (panelW - CANVAS_W) / 2;
@@ -118,24 +119,25 @@ public class PonderScreen extends Screen {
         graphics.blit(this.textureId, sx, sy, 0, 0, CANVAS_W, CANVAS_H, CANVAS_W, CANVAS_H);
         RenderSystem.disableBlend();
         // シーンの縁
-        graphics.fill(sx, sy + CANVAS_H, sx + CANVAS_W, sy + CANVAS_H + 1, 0xFF1E4050);
+        graphics.fill(sx, sy + CANVAS_H, sx + CANVAS_W, sy + CANVAS_H + 1, theme.accent());
 
         // 説明テキスト（順番に切り替わる）
         int textIndex = this.scene.textIndexAt(this.tick);
         if (textIndex >= 0 && textIndex < this.scene.texts.size()) {
             Component line = this.scene.texts.get(textIndex);
-            graphics.drawString(this.font, line, x0 + 12, y0 + CANVAS_H + 42, 0xFFDFF8FA, false);
+            graphics.drawString(this.font, line, x0 + 12, y0 + CANVAS_H + 42, theme.text(), false);
         }
 
         // タイムライン
         int barY = y0 + panelH - 8;
-        graphics.fill(x0 + 12, barY, x0 + panelW - 12, barY + 3, 0xFF1B3340);
+        graphics.fill(x0 + 12, barY, x0 + panelW - 12, barY + 3, theme.header());
         double progress = Math.min(1.0D, (double) this.tick / Math.max(1, this.scene.durationTicks));
-        graphics.fill(x0 + 12, barY, x0 + 12 + (int) ((panelW - 24) * progress), barY + 3, 0xFF5FE0EA);
+        graphics.fill(x0 + 12, barY, x0 + 12 + (int) ((panelW - 24) * progress), barY + 3, theme.progress());
 
         // カーソルのガイド
-        graphics.drawString(this.font, "← → シーン切替   ESC 閉じる  R 再生",
-                x0 + 12, y0 + panelH - 18, 0xFF4E7C88, false);
+        graphics.drawString(this.font, net.minecraft.network.chat.Component.translatable(
+                        "ponder.astranautics.controls"),
+                x0 + 12, y0 + panelH - 18, theme.title(), false);
 
         graphics.pose().popPose();
     }

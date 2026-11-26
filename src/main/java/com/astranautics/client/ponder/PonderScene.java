@@ -29,14 +29,25 @@ public final class PonderScene {
     /** シーン開始時のアイテムスロット（物理化装置 or 接着剤）。 */
     public final PonderContext.ItemKind itemOnHotbar;
 
+    /** このシーンの配色テーマ（ブロックごとに UI が変わる）。 */
+    public final PonderTheme theme;
+
     public PonderScene(Component title, ResourceLocation icon, int durationTicks,
                        PonderContext.ItemKind itemOnHotbar,
                        BiConsumer<PonderContext, IsoCanvas> renderer) {
+        this(title, icon, durationTicks, itemOnHotbar, renderer, PonderTheme.DEFAULT);
+    }
+
+    public PonderScene(Component title, ResourceLocation icon, int durationTicks,
+                       PonderContext.ItemKind itemOnHotbar,
+                       BiConsumer<PonderContext, IsoCanvas> renderer,
+                       PonderTheme theme) {
         this.title = title;
         this.icon = icon;
         this.durationTicks = durationTicks;
         this.itemOnHotbar = itemOnHotbar;
         this.renderer = renderer;
+        this.theme = theme == null ? PonderTheme.DEFAULT : theme;
     }
 
     /** テキストを追加（順番に表示される）。 */
@@ -74,6 +85,8 @@ public final class PonderScene {
         // 接着剤：3 ブロック → 右クリックで選択 → 左クリック確定 → 装置 ON → 3 つとも落ちる
         SCENES.add(AdhesiveSteps.create());
         SCENES.add(AdhesiveSteps.createCombineScene());
+        // 各ブロック（スラスター・舵輪・エンジン部品 7 種）
+        SCENES.addAll(PonderCatalog.blockScenes());
     }
 
     public static List<PonderScene> scenes() {
@@ -91,5 +104,10 @@ public final class PonderScene {
 
     public static int count() {
         return scenes().size();
+    }
+
+    /** カタログから引く（アイテム → 最初のシーン）。 */
+    public static int indexOf(ResourceLocation itemId) {
+        return PonderCatalog.firstIndex(itemId);
     }
 }
