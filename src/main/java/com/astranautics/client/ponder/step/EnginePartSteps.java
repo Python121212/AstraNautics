@@ -65,8 +65,16 @@ public final class EnginePartSteps {
     /** その部品を含む代表的なエンジン配置（見せるためのサンプル）。 */
     private static List<ResourceLocation> layoutFor(EnginePart part) {
         List<ResourceLocation> list = new ArrayList<>();
-        // 燃焼室 → ノズル（最小構成のエンジン）
         list.add(texture(part));
+        if (part == EnginePart.NOZZLE_VANE) {
+            // 羽根はノズルを囲む形で見せる
+            list.add(texture(EnginePart.NOZZLE_VANE));
+            list.add(texture(EnginePart.NOZZLE));
+            list.add(texture(EnginePart.NOZZLE_VANE));
+            list.add(texture(EnginePart.NOZZLE_VANE));
+            return list;
+        }
+        // 燃焼室 → ノズル（最小構成のエンジン）
         list.add(texture(EnginePart.NOZZLE));
         list.add(texture(EnginePart.COMBUSTION_CHAMBER));
         list.add(texture(EnginePart.COOLING_FIN));
@@ -86,19 +94,20 @@ public final class EnginePartSteps {
         int cooling = 0;
         int oxi = 0;
         int tanks = 0;
-        double mass = 0.0D;
+        int vanes = 0;
         switch (part) {
             case COMBUSTION_CHAMBER -> chambers = 2;
             case NOZZLE -> nozzles = 2;
+            case NOZZLE_VANE -> vanes = 4;
             case INTAKE -> intakes = 2;
             case TURBINE -> turbines = 2;
             case COOLING_FIN -> cooling = 2;
             case OXIDIZER_TANK -> oxi = 1;
             case FUEL_TANK -> tanks = 2;
         }
-        mass = part.mass() * 2;
+        double mass = part.mass() * 2;
         return EngineEvaluator.compute(chambers, nozzles, intakes, turbines, cooling, oxi, tanks,
-                4, mass, 1.0D);
+                vanes, 4, mass, 1.0D);
     }
 
     private static void render(PonderContext context, IsoCanvas canvas, EnginePart part,
@@ -191,6 +200,15 @@ public final class EnginePartSteps {
                         canvas.line(new double[]{cx - 0.4D, y + Math.sin(tick * 0.2D + i) * 0.04D, 0.5D},
                                 new double[]{cx + 0.4D, y + Math.cos(tick * 0.2D + i) * 0.04D, 0.5D},
                                 ((int) (160 * (1.0D - pulse)) << 24) | 0xA8CCF0);
+                    }
+                }
+                case NOZZLE_VANE -> {
+                    // 噴射を整える整流の光
+                    for (int i = 0; i < 6; i++) {
+                        double y = 1.1D + i * 0.14D;
+                        canvas.line(new double[]{cx - 0.55D, y, 0.0D},
+                                new double[]{cx + 0.55D, y, 0.0D},
+                                ((int) (170 * (1.0D - pulse)) << 24) | 0xC8E8F0);
                     }
                 }
                 case FUEL_TANK -> {
