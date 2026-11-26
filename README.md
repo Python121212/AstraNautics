@@ -64,6 +64,68 @@ Minecraft **Forge 1.20.1** 用の MOD プロジェクトです。
 - **回転はしません**。姿勢を保持したまま、平行移動だけで物理挙動を表現します。
 - 落下・バウンス・接地摩擦・スリープ・物理化ブロック同士の接触インパルスに対応。
 
+## 浮力（アルキメデス／排水量ベース）v0.5.0
+
+素材の重さではなく **押しのけた水の量** で浮力が決まります。
+
+```
+浮力 = 排水セル数 × 水の密度(=1.0)
+重さ = セルの質量の合計
+浮く ⇔ 浮力 > 重さ
+```
+
+- **石の桶・中空の船体でも浮く**：外壁の内側の空洞（空気＋水）を排水量として数えるため、石（質量1.6）でも 2×2×2 の桶なら浮きます
+- **木材・羊毛・雪は素材単体でも浮く**（`buoyant`）
+- 浮いている間は水面でわずかに波打ち、沈むものはゆっくり沈みます（`Buoyancy.java`）
+- `/astranautics cluster` で「排水セル数・質量・浮力比・浮く/沈む」を確認できます
+
+### 浮く・沈むの目安
+| 形 | 質量 | 排水 | 結果 |
+| --- | --- | --- | --- |
+| 石 1 個 | 1.6 | 1 | 沈む |
+| 石の桶（2×2×2 中空） | 6.4 | 8 | **浮く** |
+| 石の箱（3×3×3 中空） | 14.4 | 27 | **浮く** |
+| 鉄の桶（2×2×2） | 9.6 | 8 | 沈む（鉄は重い） |
+| 木の板 16 枚 | 9.6 | 16 | **浮く** |
+
+## 全ブロック対応・他 MOD 互換（v0.5.0）
+
+### すべてのブロックを物理化できる
+- **BlockEntity を持つブロックも物理化可能**（チェスト・かまど・他 MOD のマシン等）。中身は NBT ごと退避し、**復元時に書き戻します**
+- 対象外はごく一部のみ（岩盤・ポータル・バリア・コマンド/ストラクチャーブロック・流体など）
+
+### 物性の上書き（データパック）
+`data/<namespace>/astranautics/material_rules.json` を置くだけで、**他 MOD のブロックにも質量・摩擦・反発・浮力を指定できます**。
+
+```json
+{
+  "rules": [
+    { "match": { "tag": "forge:storage_blocks" }, "mass": 2.4, "friction": 0.45 },
+    { "match": { "namespace": "create" }, "mass": 1.8 },
+    { "match": { "id": "create:mechanical_bearing" }, "mass": 2.0, "restitution": 0.05 }
+  ]
+}
+```
+条件は `id`（完全一致）／`tag`（タグ）／`namespace`（MOD 単位）。上から順に評価し、最初に一致したものを採用します。当 MOD も `forge:*` タグを使った既定ルールを同梱しています。
+
+### Forge 共通タグによる自動判別
+`forge:stone` / `forge:logs` / `forge:storage_blocks` / `forge:ores` / `forge:glass` / `forge:wool` / `forge:sand` / `forge:gravel` / `forge:dirt` / `forge:chests` / `forge:planks` などに対応。**タグを持っている MOD のブロックは自動でそれらしい物性になります。**
+
+### コンフィグ（`config/astranautics-common.toml`）
+```toml
+[compatibility]
+  blockBlacklist = ["create:mechanical_bearing"]
+  modBlacklist   = ["some_heavy_mod"]
+  maxClusterSize = 512      # 宇宙船を作るなら 1024〜2048 まで
+  enableBuoyancy = true
+```
+
+### コマンド
+```
+/astranautics material      # 見ているブロックの物性を表示（他 MOD ブロックの確認用）
+/astranautics physicalize   # 見ているブロックをその場で物理化
+```
+
 ## 物理演算の強化（v0.4.0〜）
 
 ### 素材別の物性（`MaterialProfile`）
