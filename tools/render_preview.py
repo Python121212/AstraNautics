@@ -247,10 +247,29 @@ def make_planks():
     return img
 
 
+def render_block(name, tex_names, scale=196, origin_y=0.58):
+    """1 ブロックの等角図（上面・側面のテクスチャを指定）。"""
+    global SCALE, ORIGIN_Y, W, H
+    SCALE, ORIGIN_Y, W, H = scale, origin_y, 400, 420
+    top = load(os.path.join(TEX_BLOCK, tex_names[0]))
+    side = load(os.path.join(TEX_BLOCK, tex_names[1]))
+    front = load(os.path.join(TEX_BLOCK, tex_names[2]))
+    canvas = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    draw_box(canvas, top, 0, 0.5, 0, 0.5, 0.5, 0.5, side_tex=side, steps=90)
+    # 正面（z+）だけ別テクスチャに差し替え
+    draw_face(canvas, front, ((-0.5, 1.0, 0.5), (1.0, 0, 0), (0, -1.0, 0)), "front",
+              steps=90)
+    canvas.save(os.path.join(OUT_DIR, name + ".png"))
+    print("generated:", os.path.join(OUT_DIR, name + ".png"))
+
+
 def main():
     os.makedirs(OUT_DIR, exist_ok=True)
     render_physicalizer()
     render_adhesive()
+    render_block("thruster", ("thruster_top.png", "thruster_side.png", "thruster_front.png"))
+    render_block("ship_helm", ("ship_helm_top.png", "ship_helm_side.png",
+                               "ship_helm_front.png"))
     # 一時ファイルを残さない
 
 
