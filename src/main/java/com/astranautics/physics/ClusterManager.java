@@ -59,7 +59,7 @@ public final class ClusterManager {
 
         PhysicsCluster cluster = new PhysicsCluster();
 
-        while (!queue.isEmpty() && found.size() < MAX_CLUSTER_SIZE) {
+        while (!queue.isEmpty() && found.size() < Compat.maxClusterSize()) {
             BlockPos pos = queue.poll();
             if (!(level.getBlockEntity(pos) instanceof PhysicalizedBlockEntity be)) {
                 continue;
@@ -74,7 +74,7 @@ public final class ClusterManager {
                 if (level.getBlockEntity(next) instanceof PhysicalizedBlockEntity) {
                     queue.add(next);
                 }
-                if (visited.size() > MAX_CLUSTER_SIZE) {
+                if (visited.size() > Compat.maxClusterSize()) {
                     break;
                 }
             }

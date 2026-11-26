@@ -174,6 +174,10 @@ public class PhysicalizedBlock extends BaseEntityBlock {
         if (!airborne && isUnsupported(target)) {
             return false;
         }
+        // 他 MOD の特殊ブロックはコンフィグで除外できる
+        if (!airborne && com.astranautics.physics.Compat.isBlocked(target)) {
+            return false;
+        }
 
         if (level.isClientSide) {
             return true;

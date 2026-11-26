@@ -348,7 +348,7 @@ public class PhysicalizedBlockEntity extends BlockEntity {
         be.dirty = false;
 
         // 排水量ベースの浮力（石の桶でも中が空洞なら浮く）はクラスタ単位で計算
-        if (be.getCluster() != null) {
+        if (be.getCluster() != null && com.astranautics.physics.Compat.buoyancyEnabled()) {
             com.astranautics.physics.Buoyancy.apply(level, be.getCluster());
         }
 
