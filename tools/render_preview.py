@@ -309,7 +309,7 @@ def main():
                                  "nozzle_mold_front.png"))
     # 自作エンジンの部品（1 部品 1 枚）
     for name in ("combustion_chamber", "nozzle", "intake", "turbine",
-                 "cooling_fin", "oxidizer_tank", "fuel_tank"):
+                 "cooling_fin", "oxidizer_tank", "fuel_tank", "nozzle_vane"):
         render_block("engine_" + name, (f"engine_{name}_top.png",
                                         f"engine_{name}_side.png",
                                         f"engine_{name}_side.png"))
