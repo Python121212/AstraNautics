@@ -37,6 +37,15 @@ Minecraft **Forge 1.20.1** 用の MOD プロジェクトです。
 
 ビルドされた jar は Actions の実行結果ページ下部 **Artifacts → `astranautics-jar`** からダウンロードできます。
 
+### リリース（jar 配布）
+
+`.github/workflows/release.yml` により、jar が GitHub Releases に添付されます。
+
+- **手動実行**: Actions タブ → **Release** → Run workflow（`version` を空にすると `gradle.properties` の `mod_version` を使用）
+- **タグ push**: `v0.1.0` のようなタグを push すると自動でそのバージョンのリリースを作成
+
+作成されるリリース: `https://github.com/Python121212/AstraNautics/releases`
+
 ## 開発環境での実行
 
 ```bash
