@@ -1,0 +1,23 @@
+# Gradle
+.gradle/
+build/
+out/
+run/
+run-data/
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.settings/
+.classpath
+.project
+bin/
+eclipse/
+
+# その他
+*.log
+logs/
+.DS_Store
