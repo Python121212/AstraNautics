@@ -270,6 +270,12 @@ def main():
     render_block("thruster", ("thruster_top.png", "thruster_side.png", "thruster_front.png"))
     render_block("ship_helm", ("ship_helm_top.png", "ship_helm_side.png",
                                "ship_helm_front.png"))
+    # 自作エンジンの部品（1 部品 1 枚）
+    for name in ("combustion_chamber", "nozzle", "intake", "turbine",
+                 "cooling_fin", "oxidizer_tank", "fuel_tank"):
+        render_block("engine_" + name, (f"engine_{name}_top.png",
+                                        f"engine_{name}_side.png",
+                                        f"engine_{name}_side.png"))
     # 一時ファイルを残さない
 
 
