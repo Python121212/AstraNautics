@@ -21,7 +21,7 @@ Minecraft **Forge 1.20.1** 用の MOD プロジェクトです。
 ./gradlew build
 ```
 
-生成物: `build/libs/astranautics-0.2.1-mc1.20.1.jar`
+生成物: `build/libs/astranautics-0.3.0-mc1.20.1.jar`
 
 > `build/libs` には `-sources` などの追加 jar が出力されることがあります。
 > ゲームに導入するのは **`astranautics-<version>-mc1.20.1.jar`** です。
@@ -51,24 +51,47 @@ Minecraft **Forge 1.20.1** 用の MOD プロジェクトです。
 クリエイティブ表示時に左側のタブに専用タブが追加されます（アイコンは物理化装置）。
 
 ### 物理化装置（Physicalizer）— `astranautics:physicalizer`
-ブロックに使用すると、そのブロックに**物理演算（浮遊・回転アニメーション）**を追加します。
+レバーのように**物理演算を ON / OFF** するアイテムです。
 
-- ブロックに**右クリック** → 対象ブロックが「物理化されたブロック」に変化し、元ブロックの見た目を保ったまま宙に浮いてゆっくり回転します
-  - 通常のブロックをそのまま置き換えるため、向き（階段・原木など）や種類もそのまま反映されます
-- 物理化されたブロックに**右クリック** → 元のブロックに戻ります
-- **スニーク＋右クリック** → 使い方のヘルプを表示
-- 設置時に任意位置（`/setblock` など）でも動作します
+| 操作 | 動作 |
+| --- | --- |
+| ブロックに右クリック | **レバー ON（上）**: そのブロックに物理演算を追加（元の見た目のまま落下・滑走） |
+| **空気**（空中）に右クリック | **空中にブロック化**: その場に物理コアが出現し、そのまま落下 |
+| 物理化ブロックに右クリック | **レバー OFF（下）**: 物理演算を停止して元の位置に固定 |
+| レバー OFF のブロックに右クリック | 再びレバー ON（物理演算を再開） |
+| 物理化ブロックに**スニーク＋右クリック** | 元のブロックへ復元 |
 
-> 実装メモ: 物理化されたブロックは `astranautics:physicalized`（BlockEntity + カスタムレンダラー）。
-> 元ブロックの `BlockState` は NBT に保存され、描画は `PhysicalizedRenderer` が浮遊・回転・拡縮を加えて行います。
-> サーバー側では軽量（見た目のみ）で動作するため、ラグの原因になりにくい設計です。
-> 物理化されたブロックを破壊すると、物理化装置が 1 個ドロップします（ルートテーブル）。
+- **回転はしません**。姿勢を保持したまま、平行移動だけで物理挙動を表現します。
+- 落下・バウンス・接地摩擦・スリープ・物理化ブロック同士の接触インパルスに対応。
+
+## 独自の物理エンジン「AstraLite」
+
+Create: Aeronautics 系の重量級シミュレーションとは別系統の、**超軽量オリジナルエンジン**です。
+
+| 設計 | 内容 |
+| --- | --- |
+| グリッド非移動 | ブロックはその場に置いたまま、**描画オフセットだけ**を動かす（チャンク再メッシュ・ブロック更新なし） |
+| 軸分離 + サブステップ | 1 tick あたり最大 4 サブステップの判定のみ。X/Y/Z を個別に解決 |
+| スリープ | 接地して静止したら 20 tick で計算停止。静止中のコストは実質ゼロ |
+| 低速同期 | 専用パケット（`SyncPhysicsPacket`）で 1/512 ブロック精度・**近くのプレイヤーのみ**に送信 |
+| 回転なし | 姿勢を保持（要望どおり）。行列計算もブロックモデル再構築も不要 |
+| 接触インパルス | ぶつかった物理化ブロックへ力を伝播（物理強化） |
+
+```
+src/main/java/com/astranautics/physics/LightPhysicsEngine.java   # エンジン本体
+src/main/java/com/astranautics/network/SyncPhysicsPacket.java    # 軽量同期
+```
+
+### 物理コア — `astranautics:physics_core`
+空中で物理化したときに出現するブロックです（テクスチャ: `images/physics_core.png`）。
 
 ### テクスチャ
 | ファイル | 内容 |
 | --- | --- |
 | `images/physicalizer_block.png` | 物理化装置のブロックテクスチャ（16x16 原本） |
 | `images/physicalizer_block_preview.png` | 8 倍拡大プレビュー |
+| `images/physics_core.png` | 物理コアのテクスチャ（16x16 原本） |
+| `images/physics_core_preview.png` | 物理コアの 8 倍拡大プレビュー |
 | `src/main/resources/assets/astranautics/textures/block/physicalizer.png` | MOD 側で使用するテクスチャ |
 
 `tools/generate_textures.py`（Pillow 使用）で再生成できます。
@@ -95,6 +118,8 @@ src/main/java/com/astranautics/
 ├── registry/                  # レジストリ登録（Blocks / Items / BlockEntities / CreativeTabs）
 ├── block/                     # 物理化ブロックと BlockEntity
 ├── item/                      # 物理化装置
+├── physics/                   # 独自軽量物理エンジン AstraLite
+├── network/                   # 軽量同期パケット
 └── client/                    # クライアント専用（レンダラー・セットアップ）
 src/main/resources/
 ├── META-INF/mods.toml    # MOD メタデータ
@@ -106,6 +131,8 @@ src/main/resources/
 
 - [x] 専用クリエイティブタブの追加
 - [x] 物理化装置（ブロックに物理演算を追加）
+- [x] 物理演算の ON/OFF（レバー式）・空中ブロック化
+- [x] 独自軽量物理エンジン「AstraLite」
 - [ ] 宇宙船・帆船系のアイテム／ブロック
 - [ ] ディメンション（宇宙）の追加
 - [ ] カスタム GUI・進捗
