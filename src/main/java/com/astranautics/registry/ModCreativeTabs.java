@@ -20,6 +20,7 @@ public final class ModCreativeTabs {
                     .icon(() -> new ItemStack(ModItems.PHYSICALIZER.get()))
                     .displayItems((parameters, output) -> {
                         output.accept(ModItems.PHYSICALIZER.get());
+                        output.accept(ModItems.ADHESIVE.get());
                         output.accept(ModItems.PHYSICALIZED.get());
                         output.accept(ModItems.PHYSICS_CORE.get());
                     })

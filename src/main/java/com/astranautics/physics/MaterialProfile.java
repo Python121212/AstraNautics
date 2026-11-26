@@ -169,9 +169,13 @@ public record MaterialProfile(
             return new MaterialProfile(0.8D, 0.70D, 0.20D, 0.02D, true);
         }
 
-        // 破壊不可能・流体・置換不能のブロックは「重い岩」扱い
-        if (state.getDestroySpeed(null, null) < 0.0F) {
-            return new MaterialProfile(4.0D, 0.90D, 0.05D, 0.01D, false);
+        // 破壊不可能なブロック（岩盤など）は「重い岩」扱い
+        try {
+            if (state.getBlock().getExplosionResistance() >= 1000.0F) {
+                return new MaterialProfile(4.0D, 0.90D, 0.05D, 0.01D, false);
+            }
+        } catch (RuntimeException exception) {
+            // 判定できないブロックは既定値へ
         }
         if (!state.getFluidState().isEmpty()) {
             return new MaterialProfile(1.0D, 0.50D, 0.05D, 0.30D, false);

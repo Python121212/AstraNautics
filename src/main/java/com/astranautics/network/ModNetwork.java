@@ -26,6 +26,29 @@ public final class ModNetwork {
         int id = 0;
         CHANNEL.registerMessage(id++, SyncPhysicsPacket.class,
                 SyncPhysicsPacket::encode, SyncPhysicsPacket::decode, SyncPhysicsPacket::handle);
+        CHANNEL.registerMessage(id++, AdhesiveConfirmPacket.class,
+                AdhesiveConfirmPacket::encode, AdhesiveConfirmPacket::decode,
+                AdhesiveConfirmPacket::handle);
+    }
+
+    /** 接着剤の「左クリック確定」をサーバーへ送る。 */
+    public static void sendConfirmSelection() {
+        var player = net.minecraft.client.Minecraft.getInstance().player;
+        if (player == null) {
+            return;
+        }
+        net.minecraft.world.item.ItemStack stack = player.getMainHandItem();
+        if (!(stack.getItem() instanceof com.astranautics.item.AdhesiveItem)) {
+            stack = player.getOffhandItem();
+        }
+        if (!(stack.getItem() instanceof com.astranautics.item.AdhesiveItem)) {
+            return;
+        }
+        var selection = com.astranautics.item.AdhesiveItem.getSelection(stack);
+        if (selection.isEmpty()) {
+            return;
+        }
+        CHANNEL.sendToServer(AdhesiveConfirmPacket.of(selection));
     }
 
     /** 近くのプレイヤーだけにオフセットを送る（チャンク再送信を一切起こさない）。 */

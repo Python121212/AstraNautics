@@ -79,6 +79,24 @@ public class PhysicalizerItem extends Item {
             return InteractionResult.sidedSuccess(level.isClientSide);
         }
 
+        // --- 接着剤のグループがあれば「まとめて物理化」 ---
+        if (!level.isClientSide && player != null) {
+            for (ItemStack candidate : player.getInventory().items) {
+                if (candidate.getItem() instanceof AdhesiveItem && AdhesiveItem.totalGluedBlocks(candidate) > 0) {
+                    int count = AdhesiveItem.physicalizeGluedGroup(level, candidate, pos);
+                    if (count > 0) {
+                        level.playSound(null, pos, SoundEvents.LEVER_CLICK, SoundSource.BLOCKS, 0.8F, 1.2F);
+                        level.playSound(null, pos, SoundEvents.AMETHYST_BLOCK_CHIME,
+                                SoundSource.BLOCKS, 0.9F, 0.6F);
+                        player.displayClientMessage(Component.translatable(
+                                        "message.astranautics.adhesive_batch", count)
+                                .withStyle(ChatFormatting.AQUA), true);
+                        return InteractionResult.sidedSuccess(false);
+                    }
+                }
+            }
+        }
+
         // --- 新規に物理化（対象が空気なら空中にブロック化） ---
         boolean airborne = level.getBlockState(pos).isAir();
         if (!PhysicalizedBlock.physicalize(level, pos)) {

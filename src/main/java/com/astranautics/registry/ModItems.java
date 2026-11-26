@@ -1,6 +1,7 @@
 package com.astranautics.registry;
 
 import com.astranautics.AstraNautics;
+import com.astranautics.item.AdhesiveItem;
 import com.astranautics.item.PhysicalizerItem;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
@@ -17,6 +18,10 @@ public final class ModItems {
     /** 物理化装置（元のブロックに物理演算を追加するアイテム）。 */
     public static final RegistryObject<Item> PHYSICALIZER = ITEMS.register("physicalizer",
             () -> new PhysicalizerItem(new Item.Properties().stacksTo(16)));
+
+    /** 接着剤（範囲を選んでまとめて物理化）。 */
+    public static final RegistryObject<Item> ADHESIVE = ITEMS.register("adhesive",
+            () -> new AdhesiveItem(new Item.Properties().stacksTo(1)));
 
     /** 物理化ブロックの BlockItem。 */
     public static final RegistryObject<Item> PHYSICALIZED = ITEMS.register("physicalized",

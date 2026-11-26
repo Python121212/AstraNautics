@@ -351,3 +351,64 @@ atlas = make_lever_atlas()
 atlas.save(os.path.join(block_dir, "lever_atlas.png"))
 print("generated:", os.path.join(block_dir, "lever_atlas.png"),
       f"({atlas.width}x{atlas.height})")
+
+
+# ----------------------------------------------------------------------
+# 接着剤（Adhesive）のアイテムテクスチャ
+#   ボンドのような「滴る接着剤の筒」＋光るシアンの帯
+# ----------------------------------------------------------------------
+def make_adhesive_item():
+    px = [[(0, 0, 0, 0) for _ in range(SIZE)] for _ in range(SIZE)]
+
+    def p(x, y, c):
+        if 0 <= x < SIZE and 0 <= y < SIZE:
+            px[y][x] = c
+
+    tube = (46, 60, 70, 255)
+    tube_hi = (92, 112, 124, 255)
+    tube_dark = (26, 36, 44, 255)
+    cap = (214, 172, 96, 255)
+    glow = (86, 214, 222, 255)
+    glow_hi = (186, 250, 252, 255)
+    drop = (140, 232, 240, 255)
+
+    # 筒（やや斜めのボトル）
+    for y in range(3, 11):
+        for x in range(5, 11):
+            p(x, y, tube)
+    # ハイライト（左）
+    for y in range(3, 11):
+        p(5, y, tube_hi)
+    # 影（右）
+    for y in range(3, 11):
+        p(10, y, tube_dark)
+    # 上端のキャップ（真鍮）
+    for x in range(5, 11):
+        p(x, 2, cap)
+    for x in range(6, 10):
+        p(x, 1, cap)
+    # シアンの帯（光る接着剤の中身が見える窓）
+    for y in range(5, 7):
+        for x in range(7, 10):
+            p(x, y, glow)
+    p(7, 5, glow_hi)
+    # 注ぎ口
+    for x in range(7, 10):
+        p(x, 11, tube_dark)
+    p(8, 12, tube)
+    p(8, 13, tube_dark)
+    # 滴り落ちる接着剤
+    p(8, 14, drop)
+    p(8, 15, drop)
+    p(7, 14, glow)
+
+    img = Image.new("RGBA", (SIZE, SIZE))
+    for y in range(SIZE):
+        for x in range(SIZE):
+            img.putpixel((x, y), px[y][x])
+    return img
+
+
+adhesive = make_adhesive_item()
+adhesive.save(os.path.join(item_dir, "adhesive.png"))
+print("generated:", os.path.join(item_dir, "adhesive.png"))
