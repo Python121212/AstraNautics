@@ -157,5 +157,7 @@
   "tooltip.astranautics.nozzle_size.half": "Half a block. Compact builds",
   "tooltip.astranautics.nozzle_size.normal": "Standard one block",
   "tooltip.astranautics.nozzle_size.large": "2x2. Medium to large ships",
-  "tooltip.astranautics.nozzle_size.huge": "Huge. Main propulsion for capital ships"
+  "tooltip.astranautics.nozzle_size.huge": "Huge. Main propulsion for capital ships",
+  "block.astranautics.nozzle.size.half_wide": "Half Width",
+  "tooltip.astranautics.nozzle_size.half_wide": "Half width/depth. Two fit in one block space"
 }

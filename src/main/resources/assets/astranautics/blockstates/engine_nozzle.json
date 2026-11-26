@@ -26,6 +26,32 @@
    "x": 90,
    "y": 270
   },
+  "facing=down,shape=bell,size=half_wide": {
+   "model": "astranautics:block/nozzle_bell_half_wide"
+  },
+  "facing=up,shape=bell,size=half_wide": {
+   "model": "astranautics:block/nozzle_bell_half_wide",
+   "x": 180
+  },
+  "facing=north,shape=bell,size=half_wide": {
+   "model": "astranautics:block/nozzle_bell_half_wide",
+   "x": 90
+  },
+  "facing=south,shape=bell,size=half_wide": {
+   "model": "astranautics:block/nozzle_bell_half_wide",
+   "x": 90,
+   "y": 180
+  },
+  "facing=east,shape=bell,size=half_wide": {
+   "model": "astranautics:block/nozzle_bell_half_wide",
+   "x": 90,
+   "y": 90
+  },
+  "facing=west,shape=bell,size=half_wide": {
+   "model": "astranautics:block/nozzle_bell_half_wide",
+   "x": 90,
+   "y": 270
+  },
   "facing=down,shape=bell,size=normal": {
    "model": "astranautics:block/nozzle_bell_normal"
   },
@@ -127,6 +153,32 @@
   },
   "facing=west,shape=long_bell,size=half": {
    "model": "astranautics:block/nozzle_long_bell_half",
+   "x": 90,
+   "y": 270
+  },
+  "facing=down,shape=long_bell,size=half_wide": {
+   "model": "astranautics:block/nozzle_long_bell_half_wide"
+  },
+  "facing=up,shape=long_bell,size=half_wide": {
+   "model": "astranautics:block/nozzle_long_bell_half_wide",
+   "x": 180
+  },
+  "facing=north,shape=long_bell,size=half_wide": {
+   "model": "astranautics:block/nozzle_long_bell_half_wide",
+   "x": 90
+  },
+  "facing=south,shape=long_bell,size=half_wide": {
+   "model": "astranautics:block/nozzle_long_bell_half_wide",
+   "x": 90,
+   "y": 180
+  },
+  "facing=east,shape=long_bell,size=half_wide": {
+   "model": "astranautics:block/nozzle_long_bell_half_wide",
+   "x": 90,
+   "y": 90
+  },
+  "facing=west,shape=long_bell,size=half_wide": {
+   "model": "astranautics:block/nozzle_long_bell_half_wide",
    "x": 90,
    "y": 270
   },
@@ -234,6 +286,32 @@
    "x": 90,
    "y": 270
   },
+  "facing=down,shape=cone,size=half_wide": {
+   "model": "astranautics:block/nozzle_cone_half_wide"
+  },
+  "facing=up,shape=cone,size=half_wide": {
+   "model": "astranautics:block/nozzle_cone_half_wide",
+   "x": 180
+  },
+  "facing=north,shape=cone,size=half_wide": {
+   "model": "astranautics:block/nozzle_cone_half_wide",
+   "x": 90
+  },
+  "facing=south,shape=cone,size=half_wide": {
+   "model": "astranautics:block/nozzle_cone_half_wide",
+   "x": 90,
+   "y": 180
+  },
+  "facing=east,shape=cone,size=half_wide": {
+   "model": "astranautics:block/nozzle_cone_half_wide",
+   "x": 90,
+   "y": 90
+  },
+  "facing=west,shape=cone,size=half_wide": {
+   "model": "astranautics:block/nozzle_cone_half_wide",
+   "x": 90,
+   "y": 270
+  },
   "facing=down,shape=cone,size=normal": {
    "model": "astranautics:block/nozzle_cone_normal"
   },
@@ -335,6 +413,32 @@
   },
   "facing=west,shape=aerospike,size=half": {
    "model": "astranautics:block/nozzle_aerospike_half",
+   "x": 90,
+   "y": 270
+  },
+  "facing=down,shape=aerospike,size=half_wide": {
+   "model": "astranautics:block/nozzle_aerospike_half_wide"
+  },
+  "facing=up,shape=aerospike,size=half_wide": {
+   "model": "astranautics:block/nozzle_aerospike_half_wide",
+   "x": 180
+  },
+  "facing=north,shape=aerospike,size=half_wide": {
+   "model": "astranautics:block/nozzle_aerospike_half_wide",
+   "x": 90
+  },
+  "facing=south,shape=aerospike,size=half_wide": {
+   "model": "astranautics:block/nozzle_aerospike_half_wide",
+   "x": 90,
+   "y": 180
+  },
+  "facing=east,shape=aerospike,size=half_wide": {
+   "model": "astranautics:block/nozzle_aerospike_half_wide",
+   "x": 90,
+   "y": 90
+  },
+  "facing=west,shape=aerospike,size=half_wide": {
+   "model": "astranautics:block/nozzle_aerospike_half_wide",
    "x": 90,
    "y": 270
   },
@@ -442,6 +546,32 @@
    "x": 90,
    "y": 270
   },
+  "facing=down,shape=vector,size=half_wide": {
+   "model": "astranautics:block/nozzle_vector_half_wide"
+  },
+  "facing=up,shape=vector,size=half_wide": {
+   "model": "astranautics:block/nozzle_vector_half_wide",
+   "x": 180
+  },
+  "facing=north,shape=vector,size=half_wide": {
+   "model": "astranautics:block/nozzle_vector_half_wide",
+   "x": 90
+  },
+  "facing=south,shape=vector,size=half_wide": {
+   "model": "astranautics:block/nozzle_vector_half_wide",
+   "x": 90,
+   "y": 180
+  },
+  "facing=east,shape=vector,size=half_wide": {
+   "model": "astranautics:block/nozzle_vector_half_wide",
+   "x": 90,
+   "y": 90
+  },
+  "facing=west,shape=vector,size=half_wide": {
+   "model": "astranautics:block/nozzle_vector_half_wide",
+   "x": 90,
+   "y": 270
+  },
   "facing=down,shape=vector,size=normal": {
    "model": "astranautics:block/nozzle_vector_normal"
   },
@@ -543,6 +673,32 @@
   },
   "facing=west,shape=angled,size=half": {
    "model": "astranautics:block/nozzle_angled_half",
+   "x": 90,
+   "y": 270
+  },
+  "facing=down,shape=angled,size=half_wide": {
+   "model": "astranautics:block/nozzle_angled_half_wide"
+  },
+  "facing=up,shape=angled,size=half_wide": {
+   "model": "astranautics:block/nozzle_angled_half_wide",
+   "x": 180
+  },
+  "facing=north,shape=angled,size=half_wide": {
+   "model": "astranautics:block/nozzle_angled_half_wide",
+   "x": 90
+  },
+  "facing=south,shape=angled,size=half_wide": {
+   "model": "astranautics:block/nozzle_angled_half_wide",
+   "x": 90,
+   "y": 180
+  },
+  "facing=east,shape=angled,size=half_wide": {
+   "model": "astranautics:block/nozzle_angled_half_wide",
+   "x": 90,
+   "y": 90
+  },
+  "facing=west,shape=angled,size=half_wide": {
+   "model": "astranautics:block/nozzle_angled_half_wide",
    "x": 90,
    "y": 270
   },
@@ -650,6 +806,32 @@
    "x": 90,
    "y": 270
   },
+  "facing=down,shape=angled_long,size=half_wide": {
+   "model": "astranautics:block/nozzle_angled_long_half_wide"
+  },
+  "facing=up,shape=angled_long,size=half_wide": {
+   "model": "astranautics:block/nozzle_angled_long_half_wide",
+   "x": 180
+  },
+  "facing=north,shape=angled_long,size=half_wide": {
+   "model": "astranautics:block/nozzle_angled_long_half_wide",
+   "x": 90
+  },
+  "facing=south,shape=angled_long,size=half_wide": {
+   "model": "astranautics:block/nozzle_angled_long_half_wide",
+   "x": 90,
+   "y": 180
+  },
+  "facing=east,shape=angled_long,size=half_wide": {
+   "model": "astranautics:block/nozzle_angled_long_half_wide",
+   "x": 90,
+   "y": 90
+  },
+  "facing=west,shape=angled_long,size=half_wide": {
+   "model": "astranautics:block/nozzle_angled_long_half_wide",
+   "x": 90,
+   "y": 270
+  },
   "facing=down,shape=angled_long,size=normal": {
    "model": "astranautics:block/nozzle_angled_long_normal"
   },
@@ -751,6 +933,32 @@
   },
   "facing=west,shape=angled_cone,size=half": {
    "model": "astranautics:block/nozzle_angled_cone_half",
+   "x": 90,
+   "y": 270
+  },
+  "facing=down,shape=angled_cone,size=half_wide": {
+   "model": "astranautics:block/nozzle_angled_cone_half_wide"
+  },
+  "facing=up,shape=angled_cone,size=half_wide": {
+   "model": "astranautics:block/nozzle_angled_cone_half_wide",
+   "x": 180
+  },
+  "facing=north,shape=angled_cone,size=half_wide": {
+   "model": "astranautics:block/nozzle_angled_cone_half_wide",
+   "x": 90
+  },
+  "facing=south,shape=angled_cone,size=half_wide": {
+   "model": "astranautics:block/nozzle_angled_cone_half_wide",
+   "x": 90,
+   "y": 180
+  },
+  "facing=east,shape=angled_cone,size=half_wide": {
+   "model": "astranautics:block/nozzle_angled_cone_half_wide",
+   "x": 90,
+   "y": 90
+  },
+  "facing=west,shape=angled_cone,size=half_wide": {
+   "model": "astranautics:block/nozzle_angled_cone_half_wide",
    "x": 90,
    "y": 270
   },

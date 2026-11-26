@@ -1,0 +1,170 @@
+{
+ "textures": {
+  "top": "astranautics:block/engine_nozzle_top",
+  "side": "astranautics:block/engine_nozzle_side",
+  "metal": "astranautics:block/engine_turbine_side",
+  "brass": "astranautics:block/engine_oxidizer_side"
+ },
+ "elements": [
+  {
+   "from": [
+    2.9,
+    13.75,
+    2.9
+   ],
+   "to": [
+    5.1,
+    16.0,
+    5.1
+   ],
+   "faces": {
+    "down": {
+     "texture": "#side"
+    },
+    "up": {
+     "texture": "#side"
+    },
+    "north": {
+     "texture": "#side"
+    },
+    "south": {
+     "texture": "#side"
+    },
+    "west": {
+     "texture": "#side"
+    },
+    "east": {
+     "texture": "#side"
+    }
+   }
+  },
+  {
+   "from": [
+    2.55,
+    11.5,
+    2.55
+   ],
+   "to": [
+    5.45,
+    13.75,
+    5.45
+   ],
+   "faces": {
+    "down": {
+     "texture": "#side"
+    },
+    "up": {
+     "texture": "#side"
+    },
+    "north": {
+     "texture": "#side"
+    },
+    "south": {
+     "texture": "#side"
+    },
+    "west": {
+     "texture": "#side"
+    },
+    "east": {
+     "texture": "#side"
+    }
+   }
+  },
+  {
+   "from": [
+    2.2,
+    9.25,
+    2.2
+   ],
+   "to": [
+    5.8,
+    11.5,
+    5.8
+   ],
+   "faces": {
+    "down": {
+     "texture": "#side"
+    },
+    "up": {
+     "texture": "#side"
+    },
+    "north": {
+     "texture": "#side"
+    },
+    "south": {
+     "texture": "#side"
+    },
+    "west": {
+     "texture": "#side"
+    },
+    "east": {
+     "texture": "#side"
+    }
+   }
+  },
+  {
+   "from": [
+    1.85,
+    7.0,
+    1.85
+   ],
+   "to": [
+    6.15,
+    9.25,
+    6.15
+   ],
+   "faces": {
+    "down": {
+     "texture": "#side"
+    },
+    "up": {
+     "texture": "#side"
+    },
+    "north": {
+     "texture": "#side"
+    },
+    "south": {
+     "texture": "#side"
+    },
+    "west": {
+     "texture": "#side"
+    },
+    "east": {
+     "texture": "#side"
+    }
+   }
+  },
+  {
+   "from": [
+    2.8,
+    15.55,
+    2.8
+   ],
+   "to": [
+    5.2,
+    16.0,
+    5.2
+   ],
+   "faces": {
+    "down": {
+     "texture": "#top"
+    },
+    "up": {
+     "texture": "#top"
+    },
+    "north": {
+     "texture": "#top"
+    },
+    "south": {
+     "texture": "#top"
+    },
+    "west": {
+     "texture": "#top"
+    },
+    "east": {
+     "texture": "#top"
+    }
+   }
+  }
+ ]
+}

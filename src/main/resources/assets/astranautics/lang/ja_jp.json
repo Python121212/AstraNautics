@@ -157,5 +157,7 @@
   "tooltip.astranautics.nozzle_size.half": "1 マスの半分。省スペース・小型船向け",
   "tooltip.astranautics.nozzle_size.normal": "標準 1 マス",
   "tooltip.astranautics.nozzle_size.large": "2×2。中〜大型船向け",
-  "tooltip.astranautics.nozzle_size.huge": "超でかい。超大型宇宙船の主推進"
+  "tooltip.astranautics.nozzle_size.huge": "超でかい。超大型宇宙船の主推進",
+  "block.astranautics.nozzle.size.half_wide": "横ハーフ",
+  "tooltip.astranautics.nozzle_size.half_wide": "幅・奥行きが半分。1 マスに 2 基並べられる"
 }

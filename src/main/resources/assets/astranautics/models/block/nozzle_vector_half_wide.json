@@ -1,0 +1,202 @@
+{
+ "textures": {
+  "top": "astranautics:block/engine_nozzle_top",
+  "side": "astranautics:block/nozzle_vector_side",
+  "metal": "astranautics:block/engine_turbine_side",
+  "brass": "astranautics:block/engine_oxidizer_side"
+ },
+ "elements": [
+  {
+   "from": [
+    1.8,
+    13.0,
+    1.8
+   ],
+   "to": [
+    6.2,
+    16.0,
+    6.2
+   ],
+   "faces": {
+    "down": {
+     "texture": "#side"
+    },
+    "up": {
+     "texture": "#side"
+    },
+    "north": {
+     "texture": "#side"
+    },
+    "south": {
+     "texture": "#side"
+    },
+    "west": {
+     "texture": "#side"
+    },
+    "east": {
+     "texture": "#side"
+    }
+   }
+  },
+  {
+   "from": [
+    1.43,
+    10.0,
+    1.43
+   ],
+   "to": [
+    6.57,
+    13.0,
+    6.57
+   ],
+   "faces": {
+    "down": {
+     "texture": "#side"
+    },
+    "up": {
+     "texture": "#side"
+    },
+    "north": {
+     "texture": "#side"
+    },
+    "south": {
+     "texture": "#side"
+    },
+    "west": {
+     "texture": "#side"
+    },
+    "east": {
+     "texture": "#side"
+    }
+   }
+  },
+  {
+   "from": [
+    1.07,
+    7.0,
+    1.07
+   ],
+   "to": [
+    6.93,
+    10.0,
+    6.93
+   ],
+   "faces": {
+    "down": {
+     "texture": "#side"
+    },
+    "up": {
+     "texture": "#side"
+    },
+    "north": {
+     "texture": "#side"
+    },
+    "south": {
+     "texture": "#side"
+    },
+    "west": {
+     "texture": "#side"
+    },
+    "east": {
+     "texture": "#side"
+    }
+   }
+  },
+  {
+   "from": [
+    1.53,
+    12.76,
+    1.53
+   ],
+   "to": [
+    6.47,
+    14.02,
+    6.47
+   ],
+   "faces": {
+    "down": {
+     "texture": "#brass"
+    },
+    "up": {
+     "texture": "#brass"
+    },
+    "north": {
+     "texture": "#brass"
+    },
+    "south": {
+     "texture": "#brass"
+    },
+    "west": {
+     "texture": "#brass"
+    },
+    "east": {
+     "texture": "#brass"
+    }
+   }
+  },
+  {
+   "from": [
+    2.35,
+    11.32,
+    2.35
+   ],
+   "to": [
+    5.65,
+    12.76,
+    5.65
+   ],
+   "faces": {
+    "down": {
+     "texture": "#brass"
+    },
+    "up": {
+     "texture": "#brass"
+    },
+    "north": {
+     "texture": "#brass"
+    },
+    "south": {
+     "texture": "#brass"
+    },
+    "west": {
+     "texture": "#brass"
+    },
+    "east": {
+     "texture": "#brass"
+    }
+   }
+  },
+  {
+   "from": [
+    2.8,
+    15.46,
+    2.8
+   ],
+   "to": [
+    5.2,
+    16.0,
+    5.2
+   ],
+   "faces": {
+    "down": {
+     "texture": "#top"
+    },
+    "up": {
+     "texture": "#top"
+    },
+    "north": {
+     "texture": "#top"
+    },
+    "south": {
+     "texture": "#top"
+    },
+    "west": {
+     "texture": "#top"
+    },
+    "east": {
+     "texture": "#top"
+    }
+   }
+  }
+ ]
+}

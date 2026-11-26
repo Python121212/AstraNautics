@@ -1,0 +1,138 @@
+{
+ "textures": {
+  "top": "astranautics:block/engine_nozzle_top",
+  "side": "astranautics:block/nozzle_cone_side",
+  "metal": "astranautics:block/engine_turbine_side",
+  "brass": "astranautics:block/engine_oxidizer_side"
+ },
+ "elements": [
+  {
+   "from": [
+    3.0,
+    14.94,
+    3.0
+   ],
+   "to": [
+    6.83,
+    16.0,
+    5.0
+   ],
+   "faces": {
+    "down": {
+     "texture": "#side"
+    },
+    "up": {
+     "texture": "#side"
+    },
+    "north": {
+     "texture": "#side"
+    },
+    "south": {
+     "texture": "#side"
+    },
+    "west": {
+     "texture": "#side"
+    },
+    "east": {
+     "texture": "#side"
+    }
+   }
+  },
+  {
+   "from": [
+    3.29,
+    13.88,
+    2.23
+   ],
+   "to": [
+    8.65,
+    14.94,
+    5.77
+   ],
+   "faces": {
+    "down": {
+     "texture": "#side"
+    },
+    "up": {
+     "texture": "#side"
+    },
+    "north": {
+     "texture": "#side"
+    },
+    "south": {
+     "texture": "#side"
+    },
+    "west": {
+     "texture": "#side"
+    },
+    "east": {
+     "texture": "#side"
+    }
+   }
+  },
+  {
+   "from": [
+    3.59,
+    12.82,
+    1.47
+   ],
+   "to": [
+    10.48,
+    13.88,
+    6.53
+   ],
+   "faces": {
+    "down": {
+     "texture": "#side"
+    },
+    "up": {
+     "texture": "#side"
+    },
+    "north": {
+     "texture": "#side"
+    },
+    "south": {
+     "texture": "#side"
+    },
+    "west": {
+     "texture": "#side"
+    },
+    "east": {
+     "texture": "#side"
+    }
+   }
+  },
+  {
+   "from": [
+    2.8,
+    15.55,
+    2.8
+   ],
+   "to": [
+    5.2,
+    16.0,
+    5.2
+   ],
+   "faces": {
+    "down": {
+     "texture": "#top"
+    },
+    "up": {
+     "texture": "#top"
+    },
+    "north": {
+     "texture": "#top"
+    },
+    "south": {
+     "texture": "#top"
+    },
+    "west": {
+     "texture": "#top"
+    },
+    "east": {
+     "texture": "#top"
+    }
+   }
+  }
+ ]
+}

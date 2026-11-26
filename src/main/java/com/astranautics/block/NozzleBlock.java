@@ -55,6 +55,9 @@ public class NozzleBlock extends EnginePartBlock {
             Direction.UP, Direction.DOWN);
 
     private static final VoxelShape SHAPE_HALF = Block.box(0.0D, 0.0D, 0.0D, 16.0D, 8.0D, 16.0D);
+    /** 横ハーフ：幅・奥行きが半分（当たり判定は外形を維持。2 基並べても干渉しない）。 */
+    private static final VoxelShape SHAPE_HALF_WIDE =
+            Block.box(0.0D, 0.0D, 0.0D, 8.0D, 16.0D, 8.0D);
     private static final VoxelShape SHAPE_FULL = Block.box(0.0D, 0.0D, 0.0D, 16.0D, 16.0D, 16.0D);
 
     public NozzleBlock(Properties properties) {
@@ -94,8 +97,15 @@ public class NozzleBlock extends EnginePartBlock {
     @Override
     public VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos,
                                CollisionContext context) {
-        // 縦ハーフは下半分だけ。大きなノズルは通常の立方体。
-        return state.getValue(SIZE) == NozzleSize.HALF ? SHAPE_HALF : SHAPE_FULL;
+        // 縦ハーフは下半分、横ハーフは幅・奥行き半分。大きなノズルは通常の立方体。
+        NozzleSize size = state.getValue(SIZE);
+        if (size == NozzleSize.HALF) {
+            return SHAPE_HALF;
+        }
+        if (size == NozzleSize.HALF_WIDE) {
+            return SHAPE_HALF_WIDE;
+        }
+        return SHAPE_FULL;
     }
 
     @Override

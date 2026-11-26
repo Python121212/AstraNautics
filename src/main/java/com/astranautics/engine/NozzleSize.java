@@ -16,6 +16,9 @@ public enum NozzleSize implements StringRepresentable {
     /** 標準 1 マス。 */
     NORMAL("normal", 1.00D, 1.00D, 1.00D, 1.00D,
             "tooltip.astranautics.nozzle_size.normal"),
+    /** 横ハーフ（幅・奥行きが半分。1 マスに 2 基並べられる）。 */
+    HALF_WIDE("half_wide", 0.55D, 0.55D, 0.90D, 0.85D,
+            "tooltip.astranautics.nozzle_size.half_wide"),
     /** 2×2（大きな船向け）。 */
     LARGE("large", 2.10D, 1.70D, 1.80D, 1.35D,
             "tooltip.astranautics.nozzle_size.large"),
@@ -59,10 +62,16 @@ public enum NozzleSize implements StringRepresentable {
     public double visualScale() {
         return switch (this) {
             case HALF -> 0.55D;
+            case HALF_WIDE -> 0.55D;
             case NORMAL -> 1.0D;
             case LARGE -> 1.85D;
             case HUGE -> 3.6D;
         };
+    }
+
+    /** 幅・奥行き方向だけ縮む（横ハーフ）。 */
+    public boolean wideHalf() {
+        return this == HALF_WIDE;
     }
 
     public static NozzleSize fromState(net.minecraft.world.level.block.state.BlockState state) {

@@ -331,7 +331,9 @@ def render_engine_cluster():
     # 周囲 4 基のノズル（ベル／コーン／スパイク／ベクター）
     draw_nozzle(canvas, -0.95, -0.95, 0.85, 0.80, 0.22, 0.44, n_top, n_side)
     draw_nozzle(canvas, 0.95, -0.95, 0.85, 0.78, 0.20, 0.46, n_top, cone)
-    draw_nozzle(canvas, -0.95, 0.95, 0.85, 0.76, 0.22, 0.40, n_top, spike)
+    # 手前は横ハーフのノズルを 2 基並べる
+    draw_nozzle(canvas, -0.72, 0.95, 0.85, 0.62, 0.12, 0.24, n_top, spike)
+    draw_nozzle(canvas, -1.18, 0.95, 0.85, 0.62, 0.12, 0.24, n_top, spike)
     draw_nozzle(canvas, 0.95, 0.95, 0.85, 0.70, 0.20, 0.42, n_top, vector)
     canvas.save(os.path.join(OUT_DIR, "engine_nozzle.png"))
     print("generated:", os.path.join(OUT_DIR, "engine_nozzle.png"))
