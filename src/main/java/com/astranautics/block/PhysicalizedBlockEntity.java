@@ -80,6 +80,12 @@ public class PhysicalizedBlockEntity extends BlockEntity {
         setChanged();
     }
 
+    /** このセルが属するクラスタ（未登録なら null）。 */
+    public com.astranautics.physics.PhysicsCluster getCluster() {
+        return this.level == null ? null
+                : com.astranautics.physics.ClusterManager.at(this.level, this.worldPosition);
+    }
+
     /** 素材別の物性値（キャッシュ付き）。 */
     public MaterialProfile getMaterial() {
         if (this.material == null) {
@@ -313,6 +319,11 @@ public class PhysicalizedBlockEntity extends BlockEntity {
             return;
         }
         be.dirty = false;
+
+        // 排水量ベースの浮力（石の桶でも中が空洞なら浮く）はクラスタ単位で計算
+        if (be.getCluster() != null) {
+            com.astranautics.physics.Buoyancy.apply(level, be.getCluster());
+        }
 
         LightPhysicsEngine.tick(level, pos, be);
 

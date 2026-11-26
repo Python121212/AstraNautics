@@ -59,6 +59,9 @@ public final class AstraCommands {
                         ctx.getSource().sendFailure(Component.literal("クラスタが見つかりません"));
                         return 0;
                     }
+                    var buoy = com.astranautics.physics.Buoyancy.evaluate(ctx.getSource().getLevel(), cluster);
+                    ctx.getSource().sendSuccess(() -> Component.literal(
+                            com.astranautics.physics.Buoyancy.describe(buoy)), false);
                     double[] v = cluster.massWeightedVelocity();
                     ctx.getSource().sendSuccess(() -> Component.literal(String.format(
                             "%s / 摩擦=%.2f 反発=%.2f / 代表速度=(%.3f, %.3f, %.3f)",

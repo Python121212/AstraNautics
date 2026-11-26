@@ -12,13 +12,17 @@ import net.minecraft.world.level.block.state.BlockState;
  * <p>鉄は重く弾まない、氷は滑る、スライムはよく跳ねる、羊毛は軽い…といった差を
  * ブロックの種類から推定します。将来クラスタ剛体へ拡張するときは、
  * この値をセルごとに合算して「構造体の質量・摩擦・反発」を決めます。</p>
+ *
+ * <p>{@code buoyant} は「素材そのものが水より軽いか」です。石の桶のように
+ * 中の空洞で水を排水する形状は、クラスタ単位の排水量計算
+ * （{@link Buoyancy}）で浮きます。</p>
  */
 public record MaterialProfile(
-        double mass,
-        double friction,     // 0 = つるつる, 1 = よく止まる
-        double restitution,  // 反発係数
-        double drag,         // 空気抵抗の強さ（1 = 普通）
-        boolean buoyant      // 浮きやすい（水中で上に押される）
+        double mass,          // 重さ（1 ブロックあたりの相対質量）
+        double friction,      // 0 = つるつる, 1 = よく止まる
+        double restitution,   // 反発係数
+        double drag,          // 空気抵抗の強さ
+        boolean buoyant       // 素材そのものが水より軽い（木材・羊毛・雪など）
 ) {
 
     public static final MaterialProfile DEFAULT =

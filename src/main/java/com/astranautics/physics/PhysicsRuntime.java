@@ -84,11 +84,7 @@ public final class PhysicsRuntime {
             if (flow.lengthSqr() > 1.0E-6D) {
                 be.addImpulse(flow.x * 0.05D, flow.y * 0.05D, flow.z * 0.05D);
             }
-            if (fluid.is(net.minecraft.tags.FluidTags.WATER)) {
-                // 浮力：軽い素材ほど強く浮く
-                double lift = be.getMaterial().buoyant() ? 0.09D : 0.045D;
-                be.addImpulse(0.0D, lift / Math.max(0.3D, be.getMaterial().mass()), 0.0D);
-            }
+            // 浮力は排水量ベース（Buoyancy）でクラスタ単位に計算するため、ここでは水流のみ
         }
 
         // --- レッドストーン信号：レバー自動 ON/OFF ---
