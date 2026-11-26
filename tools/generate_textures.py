@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """Physicalizer ブロックの 16x16 テクスチャを生成するスクリプト。
 
-- images/physicalizer_block.png           … 生成した PNG（原本）
-- src/main/resources/assets/astranautics/textures/block/physicalizer.png … MOD 用テクスチャ
-- images/physicalizer_block_preview.png   … 8倍拡大のプレビュー（確認用）
+MOD 側テクスチャのみを出力します（`images/` には等角図プレビュー 1 枚だけを置きます）:
+- src/main/resources/assets/astranautics/textures/block/physicalizer.png
+- src/main/resources/assets/astranautics/textures/block/physics_core.png
+- src/main/resources/assets/astranautics/textures/block/lever_atlas.png
+- src/main/resources/assets/astranautics/textures/item/physicalizer.png
 """
 import os
 
@@ -101,12 +103,9 @@ os.makedirs(os.path.join(root, "images"), exist_ok=True)
 tex_dir = os.path.join(root, "src/main/resources/assets/astranautics/textures/block")
 os.makedirs(tex_dir, exist_ok=True)
 
-img.save(os.path.join(root, "images/physicalizer_block.png"))
 img.save(os.path.join(tex_dir, "physicalizer.png"))
-img.resize((SIZE * 8, SIZE * 8), Image.NEAREST).save(
-    os.path.join(root, "images/physicalizer_block_preview.png")
-)
-print("generated:", os.path.join(root, "images/physicalizer_block.png"))
+
+print("generated:", os.path.join(tex_dir, "physicalizer.png"))
 
 
 # ----------------------------------------------------------------------
@@ -145,12 +144,9 @@ for y in range(SIZE):
             ch = "C" if ch in ("t", "d") else ch
         core.putpixel((x, y), CORE_PALETTE[ch])
 
-core.save(os.path.join(root, "images/physics_core.png"))
 core.save(os.path.join(tex_dir, "physics_core.png"))
-core.resize((SIZE * 8, SIZE * 8), Image.NEAREST).save(
-    os.path.join(root, "images/physics_core_preview.png")
-)
-print("generated:", os.path.join(root, "images/physics_core.png"))
+
+print("generated:", os.path.join(tex_dir, "physics_core.png"))
 
 
 # ----------------------------------------------------------------------
@@ -243,22 +239,15 @@ def make_lever(on: bool):
 item_dir = os.path.join(root, "src/main/resources/assets/astranautics/textures/item")
 os.makedirs(item_dir, exist_ok=True)
 
-for state, name in ((True, "lever_on"), (False, "lever_off")):
-    lever = make_lever(state)
-    lever.save(os.path.join(root, f"images/{name}.png"))
-    lever.resize((SIZE * 8, SIZE * 8), Image.NEAREST).save(
-        os.path.join(root, f"images/{name}_preview.png")
-    )
-    print("generated:", os.path.join(root, f"images/{name}.png"))
-
-# ブロック側テクスチャ（物理化ブロックの上に表示するレバー）
 block_dir = os.path.join(root, "src/main/resources/assets/astranautics/textures/block")
 os.makedirs(block_dir, exist_ok=True)
-make_lever(True).save(os.path.join(block_dir, "lever_on.png"))
-make_lever(False).save(os.path.join(block_dir, "lever_off.png"))
+for state, name in ((True, "lever_on"), (False, "lever_off")):
+    make_lever(state).save(os.path.join(block_dir, name + ".png"))
 
-# アイテム用の 16x16（物理化装置のアイコンは ON＝上向き）
-make_lever(True).save(os.path.join(item_dir, "physicalizer.png"))
+# ブロック側テクスチャ（物理化ブロックの上に表示するレバー）
+
+
+# アイテムアイコンは block/physicalizer.png（下で生成）を使う
 
 # 「物理化されたブロック」のイメージ（石ブロック + レバー合成）
 def make_physicalized_icon():
@@ -280,20 +269,8 @@ def make_physicalized_icon():
 
 
 phys_icon = make_physicalized_icon()
-phys_icon.save(os.path.join(root, "images/physicalized.png"))
-phys_icon.resize((SIZE * 8, SIZE * 8), Image.NEAREST).save(
-    os.path.join(root, "images/physicalized_preview.png")
-)
-print("generated:", os.path.join(root, "images/physicalized.png"))
 
-# 参考: 2 状態を並べたシート（README 用・拡大）
-sheet = Image.new("RGBA", (SIZE * 2 + 2, SIZE), (0, 0, 0, 0))
-sheet.paste(make_lever(True), (0, 0))
-sheet.paste(make_lever(False), (SIZE + 2, 0))
-sheet.resize(((SIZE * 2 + 2) * 8, SIZE * 8), Image.NEAREST).save(
-    os.path.join(root, "images/lever_on_off_preview.png")
-)
-print("generated:", os.path.join(root, "images/lever_on_off_preview.png"))
+
 
 
 # ----------------------------------------------------------------------
@@ -351,10 +328,6 @@ def make_lever_atlas():
 
 
 atlas = make_lever_atlas()
-atlas.save(os.path.join(root, "images/lever_atlas.png"))
-atlas.resize((atlas.width * 8, atlas.height * 8), Image.NEAREST).save(
-    os.path.join(root, "images/lever_atlas_preview.png")
-)
 atlas.save(os.path.join(block_dir, "lever_atlas.png"))
-print("generated:", os.path.join(root, "images/lever_atlas.png"),
+print("generated:", os.path.join(block_dir, "lever_atlas.png"),
       f"({atlas.width}x{atlas.height})")

@@ -141,37 +141,25 @@ src/main/resources/
 
 `gradle.properties` の `mod_license`（現在: All Rights Reserved）に従います。
 
-## images/ の画像一覧（追加時は必ず PNG を置く）
+## images/ のプレビュー画像（1 枚だけ）
+
+`images/` には **そのアイテム／ブロックの等角図プレビュー 1 枚だけ**を置きます。
+（現時点で追加済みは Physicalizer のみなので、`images/` にあるのは 1 枚だけです）
 
 | ファイル | 内容 |
 | --- | --- |
-| `images/physicalizer_block.png` | 物理化装置のブロックテクスチャ（原本 16x16） |
-| `images/lever_on.png` | レバー **ON（上）** の状態 |
-| `images/lever_off.png` | レバー **OFF（下）** の状態 |
-| `images/lever_on_off_preview.png` | ON / OFF の比較プレビュー |
-| `images/physicalized.png` | 物理化されたブロックのイメージ（ブロック＋レバー合成） |
-| `images/physics_core.png` | 物理コアのテクスチャ |
+| `images/physicalizer.png` | 物理化装置（レバー）の等角図プレビュー（透過 PNG） |
 
-- 各 PNG には 8 倍拡大の `*_preview.png` も生成されます。
-- すべて `tools/generate_textures.py` で再生成できます。
-- **新しいアイテム／ブロックを追加したら、必ず PNG を作って `images/` に保存する**（`AGENTS.md` にも記載）。
+- 生成: `tools/render_preview.py` … MOD 側テクスチャを読み込み、**等角投影で組み立てた状態**に描画
+- 素材テクスチャは `src/main/resources/assets/astranautics/textures/` のみに置きます（`images/` には置きません）
 
-### レバーの表示
-物理化されたブロックの上面に、状態に応じたレバー（ON=上 / OFF=下）が表示されます。
-テクスチャは `assets/astranautics/textures/block/lever_on.png` / `lever_off.png` を使用し、
-`LeverOverlayRenderer` が 2 枚の直交板として軽量に描画します。
+```bash
+python3 -m venv .venv && .venv/bin/pip install Pillow
+.venv/bin/python tools/generate_textures.py   # MOD 用テクスチャを生成
+.venv/bin/python tools/render_preview.py      # images/ に等角図 1 枚を生成
+```
 
-### 3D レバー（1 枚のアトラス PNG で組み立て）
-物理化されたブロックの上には、**本物の 3D レバー**が載ります。
-テクスチャは **1 枚だけ**（`images/lever_atlas.png` / 64x32）で、UV を切り替えて組み立てます。
-
-| アトラス内の位置 | パーツ |
-| --- | --- |
-| 左上 (0,0) 16x16 | 台座（真鍮・リベット・溝） |
-| 上段 2 列目 | 持ち手 **ON**（シアン） |
-| 上段 3 列目 | 持ち手 **OFF**（グレー） |
-
-- 3D ジオメトリ: 台座（立方体）＋ 持ち手（角柱）＋ ノブ（立方体）
-- **ON** で立ち上がって発光、**OFF** で横倒し（描画時のみ補間回転）
-- MOD 側テクスチャ: `assets/astranautics/textures/block/lever_atlas.png`
-- 生成: `tools/generate_textures.py`（`make_lever_atlas()`）
+### レバーの表示（ゲーム内）
+物理化されたブロックの上面に 3D レバーが載り、ON で立ち上がって発光、OFF で横倒しになります。
+テクスチャは **1 枚のアトラス**（`textures/block/lever_atlas.png` 64x32: 台座 / 持ち手ON / 持ち手OFF）で、
+UV を切り替えて 3D ジオメトリを組み立てます。

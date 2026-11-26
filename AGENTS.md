@@ -8,19 +8,20 @@
 
 ## 1. テクスチャ（PNG）のルール
 
-- **アイテム・ブロックを新規追加したら、必ず PNG を作って `images/` に保存する。**
-  - 生成スクリプト: `tools/generate_textures.py`（Pillow 使用）
-  - 原本: `images/<name>.png`（16x16）
-  - 確認用プレビュー: `images/<name>_preview.png`（8倍拡大・NEAREST）
-  - MOD 側: `src/main/resources/assets/astranautics/textures/item/` または `textures/block/`
-- PNG は手作業で生成せず、スクリプトに追記して再現可能にすること。
-- 複数パーツで構成する 3D オブジェクトは、**1 枚のアトラス PNG にまとめて** `images/` に保存する
-  （現在: `images/lever_atlas.png` 64x32 = 台座 / 持ち手ON / 持ち手OFF を UV で切り替え）。
-- 同じパーツ用に複数の PNG を増やさないこと。
+- **`images/` には、アイテム／ブロックごとに等角図プレビュー PNG を 1 枚だけ置く。**
+  - 命名: `images/<アイテムまたはブロック名>.png`（例: `images/physicalizer.png`）
+  - 追加したアイテム／ブロックが 1 つだけなら、`images/` の中身も 1 枚だけにする。
+  - 状態違い・パーツ違いの PNG を `images/` に増やさない（等角図 1 枚に合成する）。
+- **プレビューは Python でテクスチャから組み立てて描く**（手描きしない）。
+  - `tools/generate_textures.py` … MOD 用テクスチャの生成（games 側リソースへ出力）
+  - `tools/render_preview.py` … 等角投影で組み立てた状態のプレビューを `images/` に出力
+- MOD 用の素材テクスチャは `src/main/resources/assets/astranautics/textures/{block,item}/` にのみ置く。
+- 複数パーツで構成する 3D オブジェクトは **1 枚のアトラス**にまとめる（現在: `lever_atlas.png` 64x32）。
 
 ```bash
 python3 -m venv .venv && .venv/bin/pip install Pillow
 .venv/bin/python tools/generate_textures.py
+.venv/bin/python tools/render_preview.py
 ```
 
 ## 2. バージョン・リリース
