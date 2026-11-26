@@ -32,7 +32,20 @@ jobs:
         run: chmod +x ./gradlew
 
       - name: Build with Gradle
-        run: ./gradlew build --no-daemon --stacktrace
+        run: |
+          set -o pipefail
+          ./gradlew build --no-daemon --stacktrace --console=plain 2>&1 | tee gradle-build.log
+
+      - name: Show compile errors
+        if: failure()
+        run: |
+          echo "=== コンパイルエラー ==="
+          grep -E "(\.java:[0-9]+: error:|What went wrong|^> Task .* FAILED)" gradle-build.log | head -40 || true
+          # GitHub のアノテーションとしても出力（ログが取得できない環境でも確認できるように）
+          i=0
+          grep -E "\.java:[0-9]+: error:" gradle-build.log | head -15 | while IFS= read -r line; do
+            echo "::error title=Compile error::$line"
+          done || true
 
       - name: Show produced jars
         if: always()

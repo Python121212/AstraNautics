@@ -2,12 +2,14 @@ package com.astranautics.block;
 
 import com.astranautics.registry.ModBlockEntities;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtUtils;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 
 /**
  * 物理化されたブロックの情報を保持するブロックエンティティ。
@@ -17,9 +19,11 @@ import net.minecraft.world.level.block.state.properties.BlockStateProperties;
  */
 public class PhysicalizedBlockEntity extends BlockEntity {
 
-    /** クライアント側のアニメーション用：出現してからの経過ゲーム時間。 */
+    private static final String TAG_ORIGINAL = "OriginalState";
+
+    /** クライアント側のアニメーション用：出現したゲーム時間。 */
     public long spawnTime = -1L;
-    /** クライアント側のアニメーション用：直近の経過時間（tick）。 */
+    /** クライアント側のアニメーション用：経過 tick（partialTick はレンダラー側で加算）。 */
     public float age;
 
     private CompoundTag originalStateTag = new CompoundTag();
@@ -38,22 +42,31 @@ public class PhysicalizedBlockEntity extends BlockEntity {
     }
 
     public BlockState getOriginalState() {
-        if (cachedOriginal == null) {
-            if (originalStateTag.isEmpty()) {
-                return Blocks.STONE.defaultBlockState();
-            }
-            cachedOriginal = NbtUtils.readBlockState(
-                    level != null ? level.holderLookup(net.minecraft.core.registries.Registries.BLOCK)
-                            : net.minecraft.core.registries.BuiltInRegistries.BLOCK.asLookup(),
-                    originalStateTag);
+        if (this.cachedOriginal != null) {
+            return this.cachedOriginal;
         }
-        return cachedOriginal;
+        if (this.originalStateTag.isEmpty()) {
+            return Blocks.STONE.defaultBlockState();
+        }
+        try {
+            if (this.level != null) {
+                this.cachedOriginal = NbtUtils.readBlockState(
+                        this.level.registryAccess().registryOrThrow(Registries.BLOCK).asLookup(),
+                        this.originalStateTag);
+            } else {
+                this.cachedOriginal = NbtUtils.readBlockState(
+                        BuiltInRegistries.BLOCK.asLookup(), this.originalStateTag);
+            }
+        } catch (Exception exception) {
+            this.cachedOriginal = Blocks.STONE.defaultBlockState();
+        }
+        return this.cachedOriginal;
     }
 
     /** アイテム（BlockEntityTag）から復元する。 */
     public void loadFromItem(CompoundTag tag) {
-        if (tag.contains("OriginalState")) {
-            this.originalStateTag = tag.getCompound("OriginalState");
+        if (tag.contains(TAG_ORIGINAL)) {
+            this.originalStateTag = tag.getCompound(TAG_ORIGINAL);
             this.cachedOriginal = null;
             setChanged();
         }
@@ -64,25 +77,23 @@ public class PhysicalizedBlockEntity extends BlockEntity {
     @Override
     protected void saveAdditional(CompoundTag tag) {
         super.saveAdditional(tag);
-        if (!originalStateTag.isEmpty()) {
-            tag.put("OriginalState", originalStateTag);
+        if (!this.originalStateTag.isEmpty()) {
+            tag.put(TAG_ORIGINAL, this.originalStateTag);
         }
     }
 
     @Override
     public void load(CompoundTag tag) {
         super.load(tag);
-        if (tag.contains("OriginalState")) {
-            this.originalStateTag = tag.getCompound("OriginalState");
+        if (tag.contains(TAG_ORIGINAL)) {
+            this.originalStateTag = tag.getCompound(TAG_ORIGINAL);
             this.cachedOriginal = null;
         }
     }
 
     @Override
     public CompoundTag getUpdateTag() {
-        CompoundTag tag = new CompoundTag();
-        saveAdditional(tag);
-        return tag;
+        return this.saveWithoutMetadata();
     }
 
     @Override
@@ -90,24 +101,14 @@ public class PhysicalizedBlockEntity extends BlockEntity {
         return net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket.create(this);
     }
 
-    /** クライアント側で毎フレーム呼ばれる簡易アニメーション更新。 */
-    public static void clientTick(net.minecraft.world.level.Level level, BlockPos pos, BlockState state,
-                                  PhysicalizedBlockEntity be) {
+    /** クライアント側で毎 tick 呼ばれるアニメーション用の更新。 */
+    public static void clientTick(Level level, BlockPos pos, BlockState state, PhysicalizedBlockEntity be) {
         if (!level.isClientSide) {
             return;
         }
         if (be.spawnTime < 0L) {
             be.spawnTime = level.getGameTime();
         }
-        be.age = level.getGameTime() - be.spawnTime + level.getPartialTick();
-    }
-
-    /** 水中・空中でも自然に動き続けるようにする。 */
-    public static void serverTick(net.minecraft.world.level.Level level, BlockPos pos, BlockState state,
-                                  PhysicalizedBlockEntity be) {
-        // 見た目のみの実装なので、サーバー側ではフェーズ（回転開始角度）だけを保つ
-        if (state.hasProperty(PhysicalizedBlock.PHASE) && state.hasProperty(BlockStateProperties.WATERLOGGED)) {
-            // 未使用（将来拡張用）
-        }
+        be.age = (float) (level.getGameTime() - be.spawnTime);
     }
 }
