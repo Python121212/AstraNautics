@@ -1,10 +1,8 @@
 package com.astranautics.client.ponder;
 
 import com.astranautics.client.ponder.step.EnginePartSteps;
-import com.astranautics.client.ponder.step.GenericSteps;
 import com.astranautics.client.ponder.step.HelmSteps;
 import com.astranautics.client.ponder.step.ThrusterSteps;
-import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 
 import java.util.LinkedHashMap;
@@ -85,10 +83,5 @@ public final class PonderCatalog {
     public static java.util.Set<ResourceLocation> items() {
         init();
         return BY_ITEM.keySet();
-    }
-
-    /** 未使用警告避け。 */
-    static Component unused(GenericSteps.Builder builder) {
-        return builder.build().title;
     }
 }

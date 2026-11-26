@@ -415,253 +415,349 @@ print("generated:", os.path.join(item_dir, "adhesive.png"))
 
 
 # ----------------------------------------------------------------------
-# スラスター（金属のノズル＋噴射口）と舵輪（木の操舵輪）
+# スラスター / 舵輪 / エンジン部品（16x16 ピクセルアート・陰影つき）
+#   16px なので「面取り・リベット・グラデーション・発光」で立体感を出す
 # ----------------------------------------------------------------------
-def make_thruster_textures():
-    """スラスターの top / front / side を作る。"""
-    metal = (92, 100, 108, 255)
-    metal_hi = (146, 156, 164, 255)
-    metal_dark = (48, 54, 60, 255)
-    glow = (120, 226, 240, 255)
-    glow_hi = (206, 250, 254, 255)
+import math
 
-    def base(nozzle):
-        img = Image.new("RGBA", (SIZE, SIZE))
-        for y in range(SIZE):
-            for x in range(SIZE):
-                v = metal
-                if x == 0 or y == 0:
-                    v = metal_hi
-                elif x == SIZE - 1 or y == SIZE - 1:
-                    v = metal_dark
-                elif (x * 7 + y * 11) % 17 == 0:
-                    v = metal_dark
-                img.putpixel((x, y), v)
-        # 外周のボルト
-        for bx, by in ((2, 2), (13, 2), (2, 13), (13, 13)):
-            img.putpixel((bx, by), metal_hi)
-            img.putpixel((bx + 1, by), metal_dark)
-        if nozzle:
-            # 中央の噴射口（円形に光る）
-            for y in range(SIZE):
-                for x in range(SIZE):
-                    dist = ((x - 7.5) ** 2 + (y - 7.5) ** 2) ** 0.5
-                    if dist <= 1.6:
-                        img.putpixel((x, y), glow_hi)
-                    elif dist <= 2.8:
-                        img.putpixel((x, y), glow)
-                    elif dist <= 3.6:
-                        img.putpixel((x, y), metal_dark)
-        return img
 
-    tex_dir = os.path.join(root, "src/main/resources/assets/astranautics/textures/block")
-    base(False).save(os.path.join(tex_dir, "thruster_side.png"))
-    base(True).save(os.path.join(tex_dir, "thruster_front.png"))
+def _shade(c, f):
+    return (max(0, min(255, int(c[0] * f))), max(0, min(255, int(c[1] * f))),
+            max(0, min(255, int(c[2] * f))), c[3] if len(c) > 3 else 255)
 
-    # 上面：中央に排気グリル
-    top = Image.new("RGBA", (SIZE, SIZE))
+
+def _metal_base(top_light=1.0):
+    """金属の下地：左上から光が当たる面取り＋リベット。"""
+    steel = (104, 114, 124, 255)
+    img = Image.new("RGBA", (SIZE, SIZE))
     for y in range(SIZE):
         for x in range(SIZE):
-            v = metal_hi if (y % 3 == 0) else metal
+            # 左上から右下への僅かな勾配
+            g = (x + y) / 30.0
+            c = _shade(steel, 1.12 - g * 0.35)
+            # 面取り（外周 1px）
             if x == 0 or y == 0:
-                v = metal_hi
+                c = _shade(steel, 1.45)
             elif x == SIZE - 1 or y == SIZE - 1:
-                v = metal_dark
-            top.putpixel((x, y), v)
-    for x in range(4, 12):
-        top.putpixel((x, 7), metal_dark)
-        top.putpixel((x, 8), metal_dark)
+                c = _shade(steel, 0.55)
+            elif x == SIZE - 2 or y == SIZE - 2:
+                c = _shade(steel, 0.78)
+            # 細かい傷（斜めの筋）
+            if (x * 3 + y * 5) % 23 == 0:
+                c = _shade(c, 0.86)
+            img.putpixel((x, y), c)
+    # 四隅のリベット
+    for bx, by in ((2, 2), (13, 2), (2, 13), (13, 13)):
+        img.putpixel((bx, by), _shade(steel, 1.6))
+        img.putpixel((bx + 1, by), _shade(steel, 1.25))
+        img.putpixel((bx, by + 1), _shade(steel, 0.8))
+    return img
+
+
+def _plate_seams(img, seams):
+    """金属板の継ぎ目（暗い線＋下に 1px の光沢）。"""
+    for (x0, y0, x1, y1) in seams:
+        for t in range(0, max(1, abs(x1 - x0) + abs(y1 - y0)) + 1):
+            x = x0 + (1 if x1 > x0 else -1 if x1 < x0 else 0) * t
+            y = y0 + (1 if y1 > y0 else -1 if y1 < y0 else 0) * t
+            if 0 <= x < SIZE and 0 <= y < SIZE:
+                img.putpixel((x, y), (40, 46, 52, 255))
+                if y + 1 < SIZE:
+                    img.putpixel((x, y + 1), (168, 178, 188, 255))
+    return img
+
+
+def make_thruster_textures():
+    tex_dir = os.path.join(root, "src/main/resources/assets/astranautics/textures/block")
+
+    flame_out = (150, 226, 240, 255)
+    flame_core = (236, 252, 255, 255)
+    glow = (86, 214, 222, 255)
+
+    # ---- front：大きな噴射口（同心円のノズル）----
+    front = _metal_base()
+    _plate_seams(front, [(0, 5, 15, 5), (0, 10, 15, 10)])
+    for y in range(SIZE):
+        for x in range(SIZE):
+            d = math.hypot(x - 7.5, y - 7.5)
+            if d <= 2.0:
+                front.putpixel((x, y), flame_core)
+            elif d <= 3.0:
+                front.putpixel((x, y), flame_out)
+            elif d <= 4.0:
+                front.putpixel((x, y), glow)
+            elif d <= 4.6:
+                front.putpixel((x, y), (36, 40, 46, 255))
+            elif d <= 5.6:
+                front.putpixel((x, y), (152, 162, 172, 255))
+    # ノズルの光が漏れる演出
+    for (x, y) in ((7, 1), (8, 1), (7, 2)):
+        front.putpixel((x, y), (120, 226, 238, 255))
+    front.save(os.path.join(tex_dir, "thruster_front.png"))
+
+    # ---- top：グリル（排熱スリット）----
+    top = _metal_base()
+    for y in range(3, 13):
+        for x in range(3, 13):
+            dark = (y - 3) % 3 == 0
+            top.putpixel((x, y), (44, 50, 56, 255) if dark else (128, 138, 148, 255))
+    # スリットの中の熱
+    for x in range(5, 11):
+        top.putpixel((x, 7), (150, 96, 60, 255))
+    _plate_seams(top, [(1, 1, 14, 1)])
     top.save(os.path.join(tex_dir, "thruster_top.png"))
 
-    # ---- 舵輪 ----
-    wood = (132, 92, 48, 255)
-    wood_hi = (176, 128, 72, 255)
-    wood_dark = (88, 58, 28, 255)
-    brass = (208, 168, 96, 255)
+    # ---- side：冷却ジャケット（横縞＋配管）----
+    side = _metal_base()
+    for y in range(2, 14):
+        if y % 3 == 0:
+            for x in range(2, 14):
+                side.putpixel((x, y), (52, 58, 66, 255))
+                if y + 1 < SIZE:
+                    side.putpixel((x, y + 1), (150, 160, 170, 255))
+    # 縦の配管
+    for y in range(2, 14):
+        side.putpixel((4, y), (176, 132, 70, 255))
+        side.putpixel((11, y), (176, 132, 70, 255))
+    side.save(os.path.join(tex_dir, "thruster_side.png"))
 
-    def helm_base():
+    # ---- 舵輪：木の台座＋真鍮の操舵輪 ----
+    wood = (126, 88, 46, 255)
+    wood_hi = (168, 122, 68, 255)
+    wood_dark = (82, 54, 26, 255)
+    brass = (214, 172, 96, 255)
+    brass_hi = (246, 216, 150, 255)
+    brass_dark = (140, 104, 48, 255)
+
+    def wood_base():
         img = Image.new("RGBA", (SIZE, SIZE))
         for y in range(SIZE):
             for x in range(SIZE):
+                # 縦の木目
+                band = (x * 5 + y // 3) % 7
+                c = wood if band < 4 else (wood_hi if band == 4 else wood_dark)
                 if x == 0 or y == 0:
-                    v = wood_hi
+                    c = wood_hi
                 elif x == SIZE - 1 or y == SIZE - 1:
-                    v = wood_dark
-                else:
-                    v = wood if ((y * 3 + x // 4) % 5) else wood_dark
-                img.putpixel((x, y), v)
+                    c = wood_dark
+                img.putpixel((x, y), c)
         return img
 
-    side = helm_base()
-    for y in range(6, 10):
-        for x in range(2, 14):
-            side.putpixel((x, y), brass if y in (6, 9) else wood_dark)
-    side.save(os.path.join(tex_dir, "ship_helm_side.png"))
-
-    top = helm_base()
-    # 操舵輪（リング＋スポーク＋ハブ）
-    cx = cy = 7.5
+    helm_top = wood_base()
+    # 台座の縁（真鍮の縁取り）
+    for i in range(SIZE):
+        helm_top.putpixel((i, 0), brass_hi)
+        helm_top.putpixel((0, i), brass_hi)
+        helm_top.putpixel((i, SIZE - 1), brass_dark)
+        helm_top.putpixel((SIZE - 1, i), brass_dark)
+    # 操舵輪：外リング（細く）＋8 本スポーク＋ハブ
     for y in range(SIZE):
         for x in range(SIZE):
-            r = ((x - cx) ** 2 + (y - cy) ** 2) ** 0.5
-            if 5.2 <= r <= 6.4:
-                top.putpixel((x, y), brass)
-            elif r <= 1.2:
-                top.putpixel((x, y), brass)
-    for i in range(-5, 6):
-        top.putpixel((int(cx + i), int(cy)), brass)
-        top.putpixel((int(cx), int(cy + i)), brass)
-    top.save(os.path.join(tex_dir, "ship_helm_top.png"))
+            d = math.hypot(x - 7.5, y - 7.5)
+            if 5.9 <= d <= 6.9:
+                helm_top.putpixel((x, y), brass_hi)
+            elif 5.1 <= d < 5.9:
+                helm_top.putpixel((x, y), brass)
+            elif d < 5.1 and d > 2.2:
+                helm_top.putpixel((x, y), (70, 46, 22, 255))
+    for k in range(8):
+        ang = k * math.pi / 4.0
+        for r in range(1, 6):
+            x = int(round(7.5 + math.cos(ang) * r))
+            y = int(round(7.5 + math.sin(ang) * r))
+            if 0 <= x < SIZE and 0 <= y < SIZE:
+                helm_top.putpixel((x, y), brass if (x + y) % 3 else brass_hi)
+    disc_top = ((7, 7), (8, 7), (7, 8), (8, 8))
+    for (x, y) in disc_top:
+        helm_top.putpixel((x, y), brass_hi)
+    helm_top.save(os.path.join(tex_dir, "ship_helm_top.png"))
 
-    front = helm_base()
-    for y in range(4, 12):
-        for x in range(4, 12):
-            front.putpixel((x, y), brass if (x + y) % 3 else wood_dark)
-    front.save(os.path.join(tex_dir, "ship_helm_front.png"))
+    helm_side = wood_base()
+    # 木の板の継ぎ目＋鉄の帯
+    for y in (5, 10):
+        for x in range(SIZE):
+            helm_side.putpixel((x, y), wood_dark)
+            helm_side.putpixel((x, y + 1), wood_hi)
+    for y in range(7, 9):
+        for x in range(SIZE):
+            helm_side.putpixel((x, y), brass if x % 5 else brass_dark)
+    helm_side.save(os.path.join(tex_dir, "ship_helm_side.png"))
 
-    print("generated: thruster_* / ship_helm_* textures")
+    helm_front = wood_base()
+    # 前面：手前側の輪（弧）＋支柱
+    for y in range(SIZE):
+        for x in range(SIZE):
+            d = math.hypot(x - 7.5, y - 9.0)
+            if 5.2 <= d <= 6.4 and y <= 9:
+                helm_front.putpixel((x, y), brass_hi if y < 8 else brass)
+    for x in (6, 9):
+        for y in range(9, 13):
+            helm_front.putpixel((x, y), brass_dark)
+    for y in range(2, 5):
+        helm_front.putpixel((7, y), brass)
+        helm_front.putpixel((8, y), brass_dark)
+    helm_front.save(os.path.join(tex_dir, "ship_helm_front.png"))
+
+    print("generated: thruster_* / ship_helm_* textures (improved)")
 
 
 make_thruster_textures()
 
 
 # ----------------------------------------------------------------------
-# 自作エンジンの部品テクスチャ（7 種）
-#   top / side の 2 枚ずつ。金属ベースに部品ごとのモチーフを描く。
+# エンジン部品（改良版：金属ベース＋モチーフ＋発光）
 # ----------------------------------------------------------------------
 def make_engine_part_textures():
-    metal = (96, 104, 112, 255)
-    metal_hi = (150, 160, 168, 255)
-    metal_dark = (46, 52, 58, 255)
+    tex_dir = os.path.join(root, "src/main/resources/assets/astranautics/textures/block")
     brass = (208, 168, 96, 255)
-    copper = (186, 112, 66, 255)
+    brass_hi = (246, 216, 150, 255)
+    copper = (188, 116, 68, 255)
     cyan = (86, 214, 222, 255)
     orange = (246, 152, 74, 255)
-    red = (228, 92, 76, 255)
-    white = (240, 250, 252, 255)
+    red = (204, 74, 58, 255)
+    white = (244, 252, 255, 255)
+    blue = (70, 132, 206, 255)
 
     def base():
-        img = Image.new("RGBA", (SIZE, SIZE))
-        for y in range(SIZE):
-            for x in range(SIZE):
-                if x == 0 or y == 0:
-                    v = metal_hi
-                elif x == SIZE - 1 or y == SIZE - 1:
-                    v = metal_dark
-                else:
-                    v = metal if ((x * 5 + y * 3) % 11) else metal_dark
-                img.putpixel((x, y), v)
-        return img
+        return _metal_base()
 
-    def disc(img, cx, cy, r, color):
+    def disc(img, cx, cy, r, color, edge=None):
         for y in range(SIZE):
             for x in range(SIZE):
-                if ((x - cx) ** 2 + (y - cy) ** 2) ** 0.5 <= r:
+                d = math.hypot(x - cx, y - cy)
+                if d <= r:
                     img.putpixel((x, y), color)
+                elif edge is not None and d <= r + 1.0:
+                    img.putpixel((x, y), edge)
 
     def ring(img, cx, cy, r0, r1, color):
         for y in range(SIZE):
             for x in range(SIZE):
-                d = ((x - cx) ** 2 + (y - cy) ** 2) ** 0.5
+                d = math.hypot(x - cx, y - cy)
                 if r0 <= d <= r1:
                     img.putpixel((x, y), color)
 
-    tex_dir = os.path.join(root, "src/main/resources/assets/astranautics/textures/block")
-
     parts = {}
 
-    # 燃焼室：中央に赤熱した炉
+    # 燃焼室
     top = base(); side = base()
-    disc(top, 7.5, 7.5, 3.2, metal_dark)
-    disc(top, 7.5, 7.5, 2.4, orange)
-    disc(top, 7.5, 7.5, 1.2, white)
-    for y in range(4, 12):
-        for x in range(6, 10):
-            side.putpixel((x, y), orange if (x + y) % 4 else red)
+    ring(top, 7.5, 7.5, 3.0, 4.2, (40, 44, 50, 255))
+    disc(top, 7.5, 7.5, 2.9, orange)
+    disc(top, 7.5, 7.5, 1.9, (255, 198, 110, 255))
+    disc(top, 7.5, 7.5, 1.0, white)
+    for y in range(3, 13):
+        for x in range(5, 11):
+            band = (y // 2) % 2
+            side.putpixel((x, y), orange if band else red)
+    for y in range(3, 13):
+        side.putpixel((4, y), (40, 44, 50, 255))
+        side.putpixel((11, y), (40, 44, 50, 255))
+    _plate_seams(side, [(2, 6, 13, 6)])
     parts["combustion_chamber"] = (top, side)
 
-    # ノズル：末広がりの輪
+    # ノズル（末広がり）
     top = base(); side = base()
-    ring(top, 7.5, 7.5, 2.0, 5.6, metal_dark)
-    ring(top, 7.5, 7.5, 3.0, 4.2, brass)
-    for y in range(SIZE):
-        for x in range(SIZE):
-            d = ((x - 7.5) ** 2 + (y - 7.5) ** 2) ** 0.5
-            if d <= 1.6:
-                top.putpixel((x, y), metal_dark)
-    for y in range(3, 13):
-        w = 2 + (y - 3) // 3
+    ring(top, 7.5, 7.5, 2.4, 3.4, brass)
+    ring(top, 7.5, 7.5, 3.4, 5.6, (58, 64, 72, 255))
+    disc(top, 7.5, 7.5, 1.6, (26, 30, 34, 255))
+    disc(top, 7.5, 7.5, 0.9, glow_color := (120, 200, 220, 255))
+    for y in range(2, 14):
+        w = 1 + (y - 2) // 2
         for x in range(8 - w, 8 + w):
-            side.putpixel((x, y), metal_dark if (x + y) % 3 else brass)
+            side.putpixel((x, y), (58, 64, 72, 255) if (x + y) % 3 else brass)
+        side.putpixel((max(0, 8 - w - 1), y), (30, 34, 40, 255))
+        side.putpixel((min(15, 8 + w), y), (120, 128, 138, 255))
     parts["nozzle"] = (top, side)
 
-    # 吸気口：格子＋ファン
+    # 吸気口
     top = base(); side = base()
-    for i in range(3, 13, 3):
-        for x in range(3, 13):
-            top.putpixel((x, i), metal_dark)
-        for y in range(3, 13):
-            top.putpixel((i, y), metal_dark)
-    disc(top, 7.5, 7.5, 1.6, cyan)
-    for y in range(4, 12):
+    for i in range(2, 14, 3):
+        for x in range(2, 14):
+            top.putpixel((x, i), (38, 42, 48, 255))
+            if i + 1 < SIZE:
+                top.putpixel((x, i + 1), (150, 160, 170, 255))
+        for y in range(2, 14):
+            top.putpixel((i, y), (38, 42, 48, 255))
+    ring(top, 7.5, 7.5, 1.4, 2.6, cyan)
+    disc(top, 7.5, 7.5, 1.3, (26, 90, 104, 255))
+    for y in range(3, 13):
         for x in range(4, 12):
-            side.putpixel((x, y), cyan if ((x - 7) ** 2 + (y - 7) ** 2) <= 9 else metal_dark)
+            d = math.hypot(x - 7.5, y - 7.5)
+            if d <= 3.4:
+                side.putpixel((x, y), cyan if d <= 1.6 else (44, 120, 136, 255))
+    _plate_seams(side, [(2, 2, 13, 2), (2, 13, 13, 13)])
     parts["intake"] = (top, side)
 
-    # タービン：羽根車
+    # タービン（羽根車）
     top = base(); side = base()
-    disc(top, 7.5, 7.5, 5.0, metal_dark)
-    for i in range(8):
-        ang = i * 3.14159 / 4
-        for r in range(1, 5):
-            x = int(7.5 + r * 0.866 * 1.0 * (1 if i % 2 == 0 else -1) * abs(__import__("math").cos(ang)))
-            y = int(7.5 + r * 0.5 * (1 if i % 4 < 2 else -1) * abs(__import__("math").sin(ang)) * 2)
+    disc(top, 7.5, 7.5, 5.2, (36, 40, 46, 255))
+    for i in range(9):
+        ang = i * math.pi / 4.5
+        for r in range(1, 6):
+            x = int(round(7.5 + math.cos(ang) * r))
+            y = int(round(7.5 + math.sin(ang) * r))
             if 0 <= x < SIZE and 0 <= y < SIZE:
-                top.putpixel((x, y), brass)
-    disc(top, 7.5, 7.5, 1.2, white)
-    for y in range(5, 11):
-        for x in range(5, 11):
+                top.putpixel((x, y), brass if (i % 2 == 0) else brass_hi)
+    disc(top, 7.5, 7.5, 1.3, white)
+    for y in range(4, 12):
+        for x in range(4, 12):
             side.putpixel((x, y), brass if (x + y) % 2 else copper)
+    ring(side, 7.5, 7.5, 3.2, 4.4, (40, 44, 50, 255))
     parts["turbine"] = (top, side)
 
-    # 冷却フィン：放熱板
+    # 冷却フィン
     top = base(); side = base()
-    for i in range(2, 14, 2):
-        for x in range(2, 14):
-            top.putpixel((x, i), (120, 190, 220, 255) if i % 4 else (170, 226, 242, 255))
+    for i in range(1, 15):
+        for x in range(SIZE):
+            if i % 2 == 0:
+                top.putpixel((x, i), (150, 208, 232, 255) if i % 4 else (196, 238, 250, 255))
     for y in range(2, 14):
-        for x in range(3, 13):
-            side.putpixel((x, y), (140, 206, 232, 255) if y % 3 else metal_dark)
+        for x in range(2, 14):
+            side.putpixel((x, y), (168, 218, 240, 255) if y % 3 else (58, 66, 74, 255))
+    _plate_seams(side, [(1, 1, 14, 1)])
     parts["cooling_fin"] = (top, side)
 
-    # 酸化剤タンク：青い液体タンク
+    # 酸化剤タンク（青）
     top = base(); side = base()
     ring(top, 7.5, 7.5, 4.2, 5.4, brass)
-    disc(top, 7.5, 7.5, 4.0, (54, 132, 200, 255))
-    disc(top, 6.0, 6.0, 1.4, (140, 210, 250, 255))
+    disc(top, 7.5, 7.5, 4.1, blue)
+    disc(top, 6.0, 6.0, 1.6, (156, 214, 250, 255))
     for y in range(2, 14):
         for x in range(3, 13):
-            side.putpixel((x, y), (54, 132, 200, 255) if 2 < y < 13 else brass)
+            c = blue
+            if y in (2, 3, 12, 13):
+                c = brass
+            elif x == 3 or x == 12:
+                c = (40, 78, 132, 255)
+            side.putpixel((x, y), c)
     for x in range(5, 11):
-        side.putpixel((x, 4), (140, 210, 250, 255))
+        side.putpixel((x, 5), (156, 214, 250, 255))
     parts["oxidizer_tank"] = (top, side)
 
-    # 燃料タンク：オレンジの液体タンク
+    # 燃料タンク（橙）
     top = base(); side = base()
     ring(top, 7.5, 7.5, 4.2, 5.4, brass)
-    disc(top, 7.5, 7.5, 4.0, (196, 108, 48, 255))
-    disc(top, 6.0, 6.0, 1.4, (250, 200, 140, 255))
+    disc(top, 7.5, 7.5, 4.1, (196, 108, 48, 255))
+    disc(top, 6.0, 6.0, 1.6, (252, 206, 148, 255))
     for y in range(2, 14):
         for x in range(3, 13):
-            side.putpixel((x, y), (196, 108, 48, 255) if 2 < y < 13 else brass)
+            c = (196, 108, 48, 255)
+            if y in (2, 3, 12, 13):
+                c = brass
+            elif x == 3 or x == 12:
+                c = (118, 60, 26, 255)
+            side.putpixel((x, y), c)
     for x in range(5, 11):
-        side.putpixel((x, 4), (250, 200, 140, 255))
+        side.putpixel((x, 5), (252, 206, 148, 255))
     parts["fuel_tank"] = (top, side)
 
     for name, (top_img, side_img) in parts.items():
         top_img.save(os.path.join(tex_dir, f"engine_{name}_top.png"))
         side_img.save(os.path.join(tex_dir, f"engine_{name}_side.png"))
-    print("generated: engine part textures (%d parts)" % len(parts))
+    print("generated: engine part textures (improved, %d parts)" % len(parts))
 
 
 make_engine_part_textures()
+
+
+
