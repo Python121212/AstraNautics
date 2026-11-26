@@ -160,3 +160,17 @@ src/main/resources/
 物理化されたブロックの上面に、状態に応じたレバー（ON=上 / OFF=下）が表示されます。
 テクスチャは `assets/astranautics/textures/block/lever_on.png` / `lever_off.png` を使用し、
 `LeverOverlayRenderer` が 2 枚の直交板として軽量に描画します。
+
+### 3D レバー（v0.3.2〜）
+物理化されたブロックの上には、**本物の 3D レバー**が載ります。
+
+- 台座（真鍮の立方体）＋ 持ち手（回転する角柱）＋ ノブで構成された純粋な 3D ジオメトリ
+- **ON** では持ち手が立ち上がって発光、**OFF** では横倒し（回転は描画時のみで滑らかに補間）
+- 使用テクスチャ: `images/lever_base.png` / `images/lever_handle_on.png` / `images/lever_handle_off.png`
+
+| ファイル | 内容 |
+| --- | --- |
+| `images/lever_base.png` | 台座のマテリアル |
+| `images/lever_handle_on.png` | 持ち手（ON・シアン） |
+| `images/lever_handle_off.png` | 持ち手（OFF・グレー） |
+| `images/lever_3d_parts_preview.png` | 台座＋持ち手の見本 |

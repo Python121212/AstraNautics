@@ -31,6 +31,8 @@ public class PhysicalizedBlockEntity extends BlockEntity {
     public long spawnTime = -1L;
     /** クライアント側のアニメーション用：経過 tick。 */
     public float age;
+    /** クライアント側：レバーの傾き（0=立ち上がり, 80=横倒し）。描画時に補間される。 */
+    public float leverTilt;
 
     /** クライアント側の補間用：前 tick のオフセット。 */
     public double prevOffX;
