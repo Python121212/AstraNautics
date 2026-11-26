@@ -37,8 +37,8 @@ public final class AdhesiveInputHandler {
         AdhesiveItem.confirmSelection(event.getEntity(), stack);
         event.setCanceled(true);
         // 破壊が始まらないよう、ブロック更新も止める
-        event.setUseBlock(net.minecraftforge.event.entity.player.PlayerInteractEvent.LeftClickBlock.Action.PASS);
-        event.setUseItem(net.minecraftforge.event.entity.player.PlayerInteractEvent.LeftClickBlock.Action.PASS);
+        event.setUseBlock(net.minecraftforge.event.entity.player.PlayerInteractEvent.Result.DENY);
+        event.setUseItem(net.minecraftforge.event.entity.player.PlayerInteractEvent.Result.DENY);
     }
 
     /** 手に持っている接着剤（メイン→オフハンド）。 */
