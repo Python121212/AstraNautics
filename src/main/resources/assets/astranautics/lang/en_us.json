@@ -116,5 +116,10 @@
   "ponder.astranautics.helm.1": "Place the helm on a glued + physicalized structure",
   "ponder.astranautics.helm.2": "Right-click the helm to board",
   "ponder.astranautics.helm.3": "The structure detaches as one ship and starts to sail",
-  "ponder.astranautics.helm.4": "Sneak + right-click to land and turn back into blocks"
+  "ponder.astranautics.helm.4": "Sneak + right-click to land and turn back into blocks",
+  "block.astranautics.nozzle_mold": "Nozzle Mold",
+  "tooltip.astranautics.nozzle_mold": "Insert a metal ingot and right-click to press a nozzle",
+  "message.astranautics.nozzle_pressed": "Nozzle pressed",
+  "message.astranautics.nozzle_mold_help": "Right-click with brass/copper/iron ingot (sneak to pick up)",
+  "ponder.astranautics.nozzle_mold.title": "Nozzle Mold"
 }

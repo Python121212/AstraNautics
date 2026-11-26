@@ -3,6 +3,7 @@ package com.astranautics.registry;
 import com.astranautics.AstraNautics;
 import com.astranautics.block.PhysicalizedBlock;
 import com.astranautics.block.EnginePartBlock;
+import com.astranautics.block.NozzleMoldBlock;
 import com.astranautics.block.ShipHelmBlock;
 import com.astranautics.block.ThrusterBlock;
 import net.minecraft.world.level.block.Block;
@@ -52,6 +53,13 @@ public final class ModBlocks {
                     .strength(2.0F, 4.0F)
                     .sound(SoundType.WOOD)
                     .noOcclusion()));
+
+    /** ノズル金型（金属を入れてノズルを押し出す）。 */
+    public static final RegistryObject<Block> NOZZLE_MOLD = BLOCKS.register("nozzle_mold",
+            () -> new NozzleMoldBlock(BlockBehaviour.Properties.of()
+                    .mapColor(MapColor.METAL)
+                    .strength(3.0F, 6.0F)
+                    .sound(SoundType.METAL)));
 
     /* ------------------------------------------------------------------ */
     /* 自作エンジンの部品                                                   */

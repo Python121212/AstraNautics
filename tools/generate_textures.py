@@ -858,3 +858,56 @@ def make_adhesive_atlas():
 
 
 make_adhesive_atlas()
+
+
+# ----------------------------------------------------------------------
+# ノズル金型（重い鉄の型＋真鍮の押し出し口）
+# ----------------------------------------------------------------------
+def make_nozzle_mold_textures():
+    tex_dir = os.path.join(root, "src/main/resources/assets/astranautics/textures/block")
+
+    top = _metal_base()
+    # 型の窪み（末広がりの円錐）
+    for y in range(SIZE):
+        for x in range(SIZE):
+            d = math.hypot(x - 7.5, y - 7.5)
+            if d <= 1.6:
+                top.putpixel((x, y), (22, 24, 28, 255))
+            elif d <= 2.8:
+                top.putpixel((x, y), (58, 64, 72, 255))
+            elif d <= 4.4:
+                top.putpixel((x, y), (176, 138, 74, 255))
+            elif d <= 5.2:
+                top.putpixel((x, y), (222, 186, 118, 255))
+    # 型の合わせ目
+    for x in range(SIZE):
+        top.putpixel((x, 7), (48, 54, 60, 255))
+    top.save(os.path.join(tex_dir, "nozzle_mold_top.png"))
+
+    front = _metal_base()
+    _plate_seams(front, [(0, 6, 15, 6)])
+    # 押し出し口
+    for y in range(SIZE):
+        for x in range(SIZE):
+            d = math.hypot(x - 7.5, y - 7.5)
+            if d <= 2.2:
+                front.putpixel((x, y), (214, 172, 96, 255))
+            elif d <= 3.0:
+                front.putpixel((x, y), (46, 50, 56, 255))
+    for y in range(9, 13):
+        for x in range(5, 11):
+            front.putpixel((x, y), (120, 92, 44, 255))
+    front.save(os.path.join(tex_dir, "nozzle_mold_front.png"))
+
+    side = _metal_base()
+    _plate_seams(side, [(0, 4, 15, 4), (0, 11, 15, 11)])
+    # 持ち手の取っ手
+    for x in range(4, 12):
+        side.putpixel((x, 8), (176, 138, 74, 255))
+        side.putpixel((x, 9), (120, 92, 44, 255))
+    side.save(os.path.join(tex_dir, "nozzle_mold_side.png"))
+
+    print("generated: nozzle_mold_* textures")
+
+
+make_nozzle_mold_textures()

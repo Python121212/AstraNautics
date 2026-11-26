@@ -50,6 +50,16 @@ public final class ModItems {
         }
     }
 
+    /** ノズル金型の BlockItem。 */
+    public static final RegistryObject<Item> NOZZLE_MOLD = ITEMS.register("nozzle_mold",
+            () -> new BlockItem(ModBlocks.NOZZLE_MOLD.get(), new Item.Properties()));
+
+    /** 部品のアイテムを取得する。 */
+    public static Item enginePart(com.astranautics.engine.EnginePart part) {
+        RegistryObject<Item> item = ENGINE_PARTS.get(part);
+        return item == null ? null : item.get();
+    }
+
     private ModItems() {
     }
 }

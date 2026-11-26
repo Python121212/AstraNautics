@@ -116,5 +116,10 @@
   "ponder.astranautics.helm.1": "接着＋物理化した構造物に舵輪を載せます",
   "ponder.astranautics.helm.2": "舵輪を右クリックすると搭乗します",
   "ponder.astranautics.helm.3": "構造物が1隻の船として切り離され、航行を開始します",
-  "ponder.astranautics.helm.4": "降りるときはスニーク＋右クリックでその場に着地します"
+  "ponder.astranautics.helm.4": "降りるときはスニーク＋右クリックでその場に着地します",
+  "block.astranautics.nozzle_mold": "ノズル金型",
+  "tooltip.astranautics.nozzle_mold": "金属インゴットを入れて右クリックでノズルを押し出し",
+  "message.astranautics.nozzle_pressed": "ノズルを押し出しました",
+  "message.astranautics.nozzle_mold_help": "金型に真鍮/銅/鉄インゴットを持って右クリック（スニークで回収）",
+  "ponder.astranautics.nozzle_mold.title": "ノズル金型"
 }

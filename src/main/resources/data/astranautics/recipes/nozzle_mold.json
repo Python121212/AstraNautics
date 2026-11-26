@@ -1,0 +1,22 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "ISI",
+    "SBS",
+    "ISI"
+  ],
+  "key": {
+    "I": {
+      "item": "minecraft:iron_ingot"
+    },
+    "S": {
+      "item": "minecraft:stone"
+    },
+    "B": {
+      "tag": "forge:ingots/brass"
+    }
+  },
+  "result": {
+    "item": "astranautics:nozzle_mold"
+  }
+}

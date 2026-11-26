@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/orientable",
+  "textures": {
+    "top": "astranautics:block/nozzle_mold_top",
+    "front": "astranautics:block/nozzle_mold_front",
+    "side": "astranautics:block/nozzle_mold_side"
+  }
+}

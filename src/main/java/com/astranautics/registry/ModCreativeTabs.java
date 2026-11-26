@@ -23,6 +23,7 @@ public final class ModCreativeTabs {
                         output.accept(ModItems.ADHESIVE.get());
                         output.accept(ModItems.THRUSTER.get());
                         output.accept(ModItems.SHIP_HELM.get());
+                        output.accept(ModItems.NOZZLE_MOLD.get());
                         for (var item : ModItems.ENGINE_PARTS.values()) {
                             output.accept(item.get());
                         }
