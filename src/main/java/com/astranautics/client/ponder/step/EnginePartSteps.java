@@ -59,6 +59,8 @@ public final class EnginePartSteps {
                     0xFF0B131C, 0xFF16263A, 0xFFE8F2FF, 0xFFA8CCF0, 0xFF7FB8F0);
             case FUEL_TANK -> new PonderTheme(0xFFE8A468, 0xFF33240F, 0xFF20170A,
                     0xFF1C1408, 0xFF38280F, 0xFFFFF2E4, 0xFFF0C094, 0xFFE8A468);
+            case NOZZLE_VANE -> new PonderTheme(0xFFB8D0E0, 0xFF1B2730, 0xFF121A20,
+                    0xFF101820, 0xFF22323D, 0xFFEAF4FA, 0xFFC0D8E8, 0xFF9AC8E0);
         };
     }
 
