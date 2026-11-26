@@ -21,7 +21,7 @@ Minecraft **Forge 1.20.1** 用の MOD プロジェクトです。
 ./gradlew build
 ```
 
-生成物: `build/libs/astranautics-0.2.0-mc1.20.1.jar`
+生成物: `build/libs/astranautics-0.2.1-mc1.20.1.jar`
 
 > `build/libs` には `-sources` などの追加 jar が出力されることがあります。
 > ゲームに導入するのは **`astranautics-<version>-mc1.20.1.jar`** です。
@@ -62,6 +62,7 @@ Minecraft **Forge 1.20.1** 用の MOD プロジェクトです。
 > 実装メモ: 物理化されたブロックは `astranautics:physicalized`（BlockEntity + カスタムレンダラー）。
 > 元ブロックの `BlockState` は NBT に保存され、描画は `PhysicalizedRenderer` が浮遊・回転・拡縮を加えて行います。
 > サーバー側では軽量（見た目のみ）で動作するため、ラグの原因になりにくい設計です。
+> 物理化されたブロックを破壊すると、物理化装置が 1 個ドロップします（ルートテーブル）。
 
 ### テクスチャ
 | ファイル | 内容 |
