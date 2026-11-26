@@ -351,9 +351,4 @@ public class AdhesiveItem extends Item {
         sb.append("] 範囲=").append(radiusName(stack));
         return sb.toString();
     }
-
-    /** 参照用（未使用警告避け）。 */
-    public static BlockState stateAt(Level level, BlockPos pos) {
-        return level.getBlockState(pos);
-    }
 }

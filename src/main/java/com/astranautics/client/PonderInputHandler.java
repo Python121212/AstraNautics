@@ -41,6 +41,22 @@ public final class PonderInputHandler {
     private PonderInputHandler() {
     }
 
+    /** AbstractContainerScreen#hoveredSlot は protected なのでリフレクションで参照する。 */
+    private static java.lang.reflect.Field hoveredSlotField;
+
+    private static Slot hoveredSlot(AbstractContainerScreen<?> screen) {
+        try {
+            if (hoveredSlotField == null) {
+                hoveredSlotField = net.minecraftforge.fml.util.ObfuscationReflectionHelper
+                        .findField(AbstractContainerScreen.class, "hoveredSlot");
+                hoveredSlotField.setAccessible(true);
+            }
+            return (Slot) hoveredSlotField.get(screen);
+        } catch (Exception exception) {
+            return null;
+        }
+    }
+
     /* ------------------------------------------------------------------ */
     /* ホバー中のアイテムを調べる                                           */
     /* ------------------------------------------------------------------ */
@@ -49,7 +65,7 @@ public final class PonderInputHandler {
         Minecraft minecraft = Minecraft.getInstance();
         Screen screen = minecraft.screen;
         if (screen instanceof AbstractContainerScreen<?> containerScreen) {
-            Slot slot = containerScreen.hoveredSlot;
+            Slot slot = hoveredSlot(containerScreen);
             if (slot != null && slot.hasItem()) {
                 return slot.getItem();
             }
@@ -155,7 +171,7 @@ public final class PonderInputHandler {
         if (!(minecraft.screen instanceof AbstractContainerScreen<?> containerScreen)) {
             return;
         }
-        Slot slot = containerScreen.hoveredSlot;
+        Slot slot = hoveredSlot(containerScreen);
         if (slot == null || !hasPonder(slot.getItem())) {
             return;
         }
