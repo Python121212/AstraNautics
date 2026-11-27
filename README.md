@@ -10,6 +10,11 @@ Minecraft **1.20.1 / Forge 47.x** 向けの MOD です。
 
 ## 収録ブロック
 
+![ブロックテクスチャ](docs/images/block_textures.png)
+
+左から: 物理アセンブラ（OFF / ON）、物理トグルスイッチ（OFF / ON）。
+
+
 ### 物理アセンブラ（Physics Assembler / `astranautics:physics_assembler`）
 
 > 旧称「グラビティ・アンカー」。v3.0.0 でブロック ID・名称を物理アセンブラに改名しました。
