@@ -2,7 +2,7 @@
   "block.astranautics.physics_switch": "物理トグルスイッチ",
   "entity.astranautics.physics_ship": "物理演算中の構造物",
   "itemGroup.astranautics": "AstraNautics",
-  "message.astranautics.physics_switch.assembled": "物理演算 ON — %s ブロックを剛体にしました（叩くと動く / ブロックを持って右クリックで増築 / Shift+右クリックで戻す）",
+  "message.astranautics.physics_switch.assembled": "物理演算 ON — %s ブロックを剛体にしました（叩くと動く / ブロック持ち右クリックで増築 / 素手右クリックでスイッチOFF）",
   "message.astranautics.physics_switch.dissolved": "物理演算 OFF — %s ブロックを元の位置に戻しました",
   "message.astranautics.physics_switch.no_ship": "戻すべき構造物がありません",
   "message.astranautics.physics_switch.status": "スイッチ %s / 船 %s / 対象ブロック %s / 直近: %s",
@@ -11,8 +11,9 @@
   "message.astranautics.reason.no_entity": "船エンティティを生成できませんでした（エンティティ登録の問題）",
   "message.astranautics.reason.spawn_refused": "サーバーが船の生成を拒否しました",
   "message.astranautics.reason.exception": "内部エラー: %s（ログを確認してください）",
-  "message.astranautics.ship.status": "構造物: %s ブロック / 質量 %s / 速度 %s（Shift+右クリックで元に戻す）",
+  "message.astranautics.ship.status": "構造物: %s ブロック / 質量 %s / 速度 %s（素手右クリックでスイッチOFF）",
   "message.astranautics.ship.attached": "構造物に追加しました — %s ブロック",
   "message.astranautics.ship.cannot_attach": "そこには追加できません（構造物の面を狙ってください）",
-  "message.astranautics.ship.dissolved": "物理演算 OFF — %s ブロックを元の位置に戻しました"
+  "message.astranautics.ship.dissolved": "物理演算 OFF — %s ブロックを元の位置に戻しました",
+  "message.astranautics.ship.switched_off": "物理演算 OFF — スイッチを切り、%s ブロックを元の位置に戻しました"
 }
