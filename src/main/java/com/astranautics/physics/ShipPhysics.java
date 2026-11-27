@@ -23,6 +23,8 @@ public final class ShipPhysics {
     private static final double RUBBER_EPSILON = 1.0E-6D;
     /** Impacts slower than this do not bounce, which stops resting bodies from jittering. */
     private static final double RESTITUTION_THRESHOLD = 1.0D;
+    /** Below this tangential speed a contact is treated as static friction. */
+    private static final double STATIC_FRICTION_EPSILON = 0.02D;
 
     private ShipPhysics() {
     }
@@ -98,11 +100,21 @@ public final class ShipPhysics {
         Vector3d tangential = new Vector3d(velocity)
                 .sub(new Vector3d(contact.normal).mul(velocity.dot(contact.normal)));
 
-        double speed = tangential.length();
-        if (speed < RUBBER_EPSILON) {
+        // Freeze the friction direction on the first solver iteration: letting it
+        // chase the velocity every iteration makes resting structures slide away.
+        if (!contact.tangentInitialised) {
+            if (tangential.length() < STATIC_FRICTION_EPSILON) {
+                return;
+            }
+            contact.tangent.set(tangential).normalize();
+            contact.tangentInitialised = true;
+        }
+        tangential.set(contact.tangent);
+
+        double speed = velocity.dot(tangential);
+        if (Math.abs(speed) < RUBBER_EPSILON) {
             return;
         }
-        tangential.div(speed);
 
         double effectiveMass = effectiveMass(body, contact, tangential);
         if (effectiveMass < RUBBER_EPSILON) {

@@ -14,6 +14,9 @@ public final class Contact {
     public double tangentImpulse;
     /** Restitution is only applied on the first iteration of a solve. */
     public boolean restitutionApplied;
+    /** Friction direction, frozen on the first iteration so the solver does not drift. */
+    public final Vector3d tangent = new Vector3d(1.0D, 0.0D, 0.0D);
+    public boolean tangentInitialised;
 
     public Contact set(Vector3d pointIn, Vector3d normalIn, double penetrationIn) {
         this.point.set(pointIn);
@@ -27,5 +30,6 @@ public final class Contact {
         this.normalImpulse = 0.0D;
         this.tangentImpulse = 0.0D;
         this.restitutionApplied = false;
+        this.tangentInitialised = false;
     }
 }
