@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "L",
+    "R",
+    "S"
+  ],
+  "key": {
+    "L": { "item": "minecraft:lever" },
+    "R": { "item": "minecraft:redstone" },
+    "S": { "item": "minecraft:stone" }
+  },
+  "result": {
+    "item": "astranautics:gravity_switch",
+    "count": 1
+  }
+}
