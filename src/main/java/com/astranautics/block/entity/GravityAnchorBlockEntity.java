@@ -2,72 +2,110 @@ package com.astranautics.block.entity;
 
 import com.astranautics.block.GravityAnchorBlock;
 import com.astranautics.config.AstraConfig;
+import com.astranautics.entity.GravityShip;
 import net.minecraft.core.BlockPos;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.phys.AABB;
-import net.minecraft.world.phys.Vec3;
+import org.jetbrains.annotations.Nullable;
 
-import java.util.List;
+import java.util.UUID;
 
 /**
- * Runs the gravity "physics simulation" of the anchor.
+ * Keeps the link between an anchor block and the ship it spawned.
  *
- * <p>Every other server tick each non-spectator entity within
- * {@code gravity_anchor.radius} is accelerated towards the block centre, with the
- * force falling off linearly with distance. Entities already closer than
- * {@link #CORE_RADIUS} are ignored so they do not jitter inside the block.</p>
+ * <p>Every few ticks the block state is compared with the current ship:</p>
+ * <ul>
+ *     <li>{@code enabled} and no ship &rarr; assemble the connected structure</li>
+ *     <li>{@code !enabled} and a ship &rarr; dissolve it back into the world</li>
+ * </ul>
  */
 public class GravityAnchorBlockEntity extends BlockEntity {
-    private static final double CORE_RADIUS = 0.75D;
+    private static final int CHECK_INTERVAL = 4;
+
+    @Nullable
+    private UUID shipId;
+    private int failedAssemblies;
 
     public GravityAnchorBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlockEntities.GRAVITY_ANCHOR.get(), pos, state);
     }
 
-    public static void serverTick(Level level, BlockPos pos, BlockState state,
-                                  GravityAnchorBlockEntity blockEntity) {
-        if (!state.getValue(GravityAnchorBlock.ENABLED)) {
+    @Nullable
+    public UUID getShipId() {
+        return shipId;
+    }
+
+    public static void serverTick(Level level, BlockPos pos, BlockState state, GravityAnchorBlockEntity anchor) {
+        if (!(level instanceof ServerLevel serverLevel)) {
+            return;
+        }
+        if (serverLevel.getGameTime() % CHECK_INTERVAL != 0L) {
             return;
         }
 
-        // 10 physics steps per second keeps the motion smooth at a low cost.
-        if (level.getGameTime() % 2L != 0L) {
-            return;
+        boolean enabled = state.getValue(GravityAnchorBlock.ENABLED);
+        GravityShip ship = anchor.resolveShip(serverLevel);
+
+        if (enabled && ship == null) {
+            if (anchor.failedAssemblies > 0) {
+                // Avoid retrying every tick on a hopeless structure.
+                return;
+            }
+            GravityShip assembled = ShipAssembler.assemble(serverLevel, pos,
+                    AstraConfig.ASSEMBLY_RADIUS.get(), AstraConfig.MAX_BLOCKS.get());
+            if (assembled != null) {
+                anchor.shipId = assembled.getUUID();
+                anchor.failedAssemblies = 0;
+                anchor.setChanged();
+            } else {
+                anchor.failedAssemblies = 20;
+                serverLevel.setBlock(pos, state.setValue(GravityAnchorBlock.ENABLED, false), 3);
+            }
+        } else if (!enabled && ship != null) {
+            ship.dissolve(serverLevel);
+            anchor.shipId = null;
+            anchor.failedAssemblies = 0;
+            anchor.setChanged();
+        } else if (ship == null && anchor.shipId != null) {
+            anchor.shipId = null;
+            anchor.setChanged();
         }
 
-        double radius = AstraConfig.RADIUS.get();
-        double strength = AstraConfig.STRENGTH.get();
-        double maxSpeed = AstraConfig.MAX_SPEED.get();
-
-        Vec3 center = Vec3.atCenterOf(pos);
-        Vec3 min = center.subtract(radius, radius, radius);
-        Vec3 max = center.add(radius, radius, radius);
-
-        List<Entity> entities = level.getEntities((Entity) null, new AABB(min, max),
-                entity -> !entity.isSpectator() && entity.isAlive());
-
-        for (Entity entity : entities) {
-            Vec3 offset = center.subtract(entity.position());
-            double distance = offset.length();
-
-            if (distance < CORE_RADIUS || distance > radius) {
-                continue;
-            }
-
-            // Linear falloff: strongest at the centre, zero at the edge.
-            double falloff = 1.0D - (distance / radius);
-            Vec3 acceleration = offset.normalize().scale(strength * falloff);
-
-            entity.push(acceleration.x, acceleration.y, acceleration.z);
-
-            Vec3 velocity = entity.getDeltaMovement();
-            if (velocity.length() > maxSpeed) {
-                entity.setDeltaMovement(velocity.normalize().scale(maxSpeed));
-            }
-            entity.hurtMarked = true;
+        if (anchor.failedAssemblies > 0 && !enabled) {
+            anchor.failedAssemblies = 0;
         }
+    }
+
+    @Nullable
+    private GravityShip resolveShip(ServerLevel level) {
+        if (shipId == null) {
+            return null;
+        }
+        Entity entity = level.getEntity(shipId);
+        if (entity instanceof GravityShip ship && ship.isAlive()) {
+            return ship;
+        }
+        shipId = null;
+        return null;
+    }
+
+    @Override
+    protected void saveAdditional(CompoundTag tag) {
+        super.saveAdditional(tag);
+        if (shipId != null) {
+            tag.putUUID("Ship", shipId);
+            tag.putInt("FailedAssemblies", failedAssemblies);
+        }
+    }
+
+    @Override
+    public void load(CompoundTag tag) {
+        super.load(tag);
+        shipId = tag.hasUUID("Ship") ? tag.getUUID("Ship") : null;
+        failedAssemblies = tag.getInt("FailedAssemblies");
     }
 }

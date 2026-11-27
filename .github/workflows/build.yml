@@ -57,8 +57,8 @@ jobs:
       - name: Report build failure
         if: failure()
         run: |
-          msg=$(grep -B 2 -A 10 -m 3 -E "error:|What went wrong|FAILURE:" build.log \
-                | head -c 5000 | sed ':a;N;$!ba;s/\n/%0A/g')
+          msg=$(grep -B 2 -A 12 -m 4 -E "FAILED|error:|What went wrong|AssertionFailedError" build.log \
+                | head -c 6000 | sed ':a;N;$!ba;s/\n/%0A/g')
           echo "::error title=Gradle build failed::${msg}"
 
       - name: Upload jar

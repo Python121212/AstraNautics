@@ -3,6 +3,7 @@ package com.astranautics;
 import com.astranautics.block.ModBlocks;
 import com.astranautics.block.entity.ModBlockEntities;
 import com.astranautics.config.AstraConfig;
+import com.astranautics.entity.ModEntities;
 import com.astranautics.item.ModItems;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.eventbus.api.IEventBus;
@@ -17,9 +18,9 @@ import org.slf4j.LoggerFactory;
 /**
  * AstraNautics - Minecraft 1.20.1 / Forge mod entry point.
  *
- * <p>Adds the <strong>Gravity Anchor</strong> block, which warps gravity for entities
- * around it, and the <strong>Gravity Toggle Switch</strong> block that switches the
- * physics simulation of every adjacent anchor on and off.</p>
+ * <p>Adds the <strong>Gravity Anchor</strong>, which detaches a connected block
+ * structure and simulates it as a rigid body, and the <strong>Gravity Toggle
+ * Switch</strong> that turns the simulation of every adjacent anchor on and off.</p>
  */
 @Mod(AstraNautics.MODID)
 public class AstraNautics {
@@ -32,6 +33,7 @@ public class AstraNautics {
         ModBlocks.BLOCKS.register(modEventBus);
         ModItems.ITEMS.register(modEventBus);
         ModBlockEntities.BLOCK_ENTITIES.register(modEventBus);
+        ModEntities.ENTITIES.register(modEventBus);
         ModCreativeTabs.CREATIVE_MODE_TABS.register(modEventBus);
 
         modEventBus.addListener(this::commonSetup);
