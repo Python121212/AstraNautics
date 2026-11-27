@@ -132,6 +132,18 @@ PhysicsShipRenderer … クォータニオンで姿勢を適用し、全ボク�
 * 当たり判定: 構造のワールド AABB（回転後の半サイズ）を `makeBoundingBox` で返すため、
   カリング・船 vs エンティティ・船 vs 船のブロードフェーズが実寸で動きます。
 
+### 例外安全（v3.1.1）
+
+物理演算・組み立て・復元はどれもワールドを壊し得る処理なので、境界ごとに例外を捕捉します。
+
+* `ShipAssembler.assemble` — 走査・構造生成・エンティティ生成それぞれを捕捉し、
+  `Result(Reason.EXCEPTION, detail)` として返す（ブロックは消さない）。
+* `PhysicsAssemblerBlockEntity.serverTick` — 失敗したらログを出して再試行を 240 tick 後ろに倒す。
+* `PhysicsShip.tickServer` — 物理計算で例外が出たら**その船だけ**ブロックに戻して除去。
+  サーバースレッドは落とさない。
+* `PhysicsShip` の当たり判定ベクトルは遅延生成（`Entity` のコンストラクタが
+  `setPos -> makeBoundingBox` を呼ぶため、フィールド初期化子より先に走る）。
+
 ## 診断
 
 * `/astranautics diag` — 周囲 32 ブロックのアセンブラ状態、船の質量・ブロック数・
