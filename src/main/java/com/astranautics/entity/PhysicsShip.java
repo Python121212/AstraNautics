@@ -4,6 +4,7 @@ import com.astranautics.AstraNautics;
 import com.astranautics.block.PhysicsSwitchBlock;
 import com.astranautics.config.AstraConfig;
 import com.astranautics.physics.ContactCache;
+import com.astranautics.physics.EntityShipCollision;
 import com.astranautics.physics.PhysicsParams;
 import com.astranautics.physics.RigidBody;
 import com.astranautics.physics.ShipPhysics;
@@ -13,7 +14,9 @@ import com.astranautics.physics.ShipWorld;
 import com.astranautics.physics.VoxelSpatialIndex;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.NonNullList;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.syncher.EntityDataAccessor;
@@ -23,10 +26,13 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.Container;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.SimpleMenuProvider;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.ChestMenu;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityDimensions;
 import net.minecraft.world.entity.EntityType;
@@ -34,7 +40,11 @@ import net.minecraft.world.entity.Pose;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.BarrelBlock;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.ChestBlock;
+import net.minecraft.world.level.block.ShulkerBoxBlock;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
@@ -70,6 +80,8 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
     private final ContactCache contactCache = new ContactCache();
     private ShipStructure structure;
     private boolean structureSyncPending;
+    /** Saved block entity data per local voxel (chest contents, sign text, ...). */
+    private final Map<BlockPos, CompoundTag> blockEntities = new LinkedHashMap<>();
     /** Remaining ticks during which the structure is (re)sent, so late tracking still receives it. */
     private int structureSyncTicks;
     /**
@@ -106,6 +118,13 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
         this.entityData.define(DATA_QY, 0.0F);
         this.entityData.define(DATA_QZ, 0.0F);
         this.entityData.define(DATA_QW, 1.0F);
+    }
+
+    /** Server-side: remember the block entity contents that travel with the hull. */
+    public void setBlockEntityData(Map<BlockPos, CompoundTag> data) {
+        this.blockEntities.clear();
+        this.blockEntities.putAll(data);
+        this.setChanged();
     }
 
     /** Server-side: turn the structure into a dynamic rigid body at {@code worldCenterOfMass}. */
@@ -271,7 +290,24 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
             this.previousClientOrientation.set(this.currentClientOrientation);
             this.currentClientOrientation.set(readSyncedOrientation());
             this.clientOrientationKnown = true;
+
+            // Mirror the synced pose into the local body so the bounding box, the voxel
+            // index and the client-side entity collision all use the real transform.
+            this.body.position.set(this.getX(), this.getY(), this.getZ());
+            this.body.orientation.set(this.currentClientOrientation);
+            this.body.updateRotationMatrix();
             this.updateBoundingExtents();
+
+            if (AstraConfig.ENABLE_ENTITY_COLLISIONS.get()) {
+                this.spatialIndex = null;
+                VoxelSpatialIndex index = this.getSpatialIndex();
+                if (index != null) {
+                    // Resolve locally as well: the local player is simulated by its own
+                    // client, so this is what makes the hull feel like solid blocks
+                    // instead of being yanked around by server corrections.
+                    EntityShipCollision.resolve(this.level(), this, index);
+                }
+            }
             return;
         }
 
@@ -371,6 +407,7 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
 
                 BlockPos target = BlockPos.containing(world.x, world.y, world.z);
                 BlockState state = entry.getValue();
+                CompoundTag storedData = this.blockEntities.get(entry.getKey());
                 if (state.getBlock() instanceof PhysicsSwitchBlock) {
                     // The hull carried the switch in its ON position: put it back OFF so it
                     // is ready to be switched on again.
@@ -378,6 +415,13 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
                 }
                 if (level.isEmptyBlock(target) || level.getBlockState(target).canBeReplaced()) {
                     level.setBlock(target, state, 3);
+                    if (storedData != null) {
+                        BlockEntity restored = level.getBlockEntity(target);
+                        if (restored != null) {
+                            restored.load(storedData.copy());
+                            restored.setChanged();
+                        }
+                    }
                 } else {
                     Block.popResource(level, target, new ItemStack(state.getBlock()));
                 }
@@ -417,6 +461,16 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
             this.setPos(body.position.x, body.position.y, body.position.z);
         }
 
+        this.blockEntities.clear();
+        if (tag.contains("BlockEntities", Tag.TAG_LIST)) {
+            ListTag list = tag.getList("BlockEntities", Tag.TAG_COMPOUND);
+            for (int i = 0; i < list.size(); i++) {
+                CompoundTag voxelTag = list.getCompound(i);
+                BlockPos pos = new BlockPos(voxelTag.getInt("X"), voxelTag.getInt("Y"), voxelTag.getInt("Z"));
+                this.blockEntities.put(pos, voxelTag.getCompound("Data").copy());
+            }
+        }
+
         this.structureSyncTicks = 20;
         this.updateBoundingExtents();
     }
@@ -442,6 +496,19 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
         bodyTag.putDouble("WY", body.angularVelocity.y);
         bodyTag.putDouble("WZ", body.angularVelocity.z);
         tag.put("Body", bodyTag);
+
+        if (!this.blockEntities.isEmpty()) {
+            ListTag list = new ListTag();
+            for (Map.Entry<BlockPos, CompoundTag> entry : this.blockEntities.entrySet()) {
+                CompoundTag voxelTag = new CompoundTag();
+                voxelTag.putInt("X", entry.getKey().getX());
+                voxelTag.putInt("Y", entry.getKey().getY());
+                voxelTag.putInt("Z", entry.getKey().getZ());
+                voxelTag.put("Data", entry.getValue().copy());
+                list.add(voxelTag);
+            }
+            tag.put("BlockEntities", list);
+        }
     }
 
     /**
@@ -499,6 +566,12 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
             return InteractionResult.CONSUME;
         }
 
+        // A chest / barrel / shulker box on the hull can be opened normally.
+        VoxelHit hit = this.raycastHull(player.getEyePosition(), player.getLookAngle());
+        if (hit != null && this.openContainer(level, player, hit.cell())) {
+            return InteractionResult.CONSUME;
+        }
+
         // Switch OFF: the hull turns back into blocks (the switch comes back switched off).
         int blocks = this.structure.voxels().size();
         level.playSound(null, this.getX(), this.getY(), this.getZ(),
@@ -511,6 +584,17 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
         return InteractionResult.CONSUME;
     }
 
+    /** A hit of the view ray against the hull: the voxel and the face that was hit. */
+    private record VoxelHit(BlockPos cell, int axis, int sign) {
+        BlockPos outsideCell() {
+            return switch (this.axis) {
+                case 0 -> this.cell.offset(this.sign, 0, 0);
+                case 1 -> this.cell.offset(0, this.sign, 0);
+                default -> this.cell.offset(0, 0, this.sign);
+            };
+        }
+    }
+
     /** Adds a block to the rigid body at the cell the player is looking at. */
     private boolean attachBlock(Player player, BlockState state) {
         ShipStructure current = this.structure;
@@ -521,17 +605,80 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
             return false;
         }
 
-        BlockPos target = raycastAddedCell(player.getEyePosition(), player.getLookAngle());
-        if (target == null || current.voxels().containsKey(target)) {
+        VoxelHit hit = this.raycastHull(player.getEyePosition(), player.getLookAngle());
+        if (hit == null) {
+            return false;
+        }
+        BlockPos target = hit.outsideCell();
+        if (current.voxels().containsKey(target)) {
             return false;
         }
 
         Map<BlockPos, BlockState> voxels = new LinkedHashMap<>(current.voxels());
         voxels.put(target, state);
-        ShipStructure rebuilt = ShipStructure.of(voxels);
+        this.applyVoxels(ShipStructure.of(voxels));
+        return true;
+    }
 
-        // The centre of mass moves when a block is added, so shift the body to keep the
-        // existing hull exactly where it is in the world.
+    /** Removes the block the player is looking at and drops it (with its contents). */
+    private boolean breakVoxel(ServerLevel level, Player player) {
+        ShipStructure current = this.structure;
+        if (current == null) {
+            return false;
+        }
+        VoxelHit hit = this.raycastHull(player.getEyePosition(), player.getLookAngle());
+        if (hit == null) {
+            return false;
+        }
+        BlockState state = current.voxels().get(hit.cell());
+        if (state == null) {
+            return false;
+        }
+
+        Vector3d dropAt = new Vector3d();
+        this.voxelWorldCenter(hit.cell(), dropAt);
+        BlockPos dropPos = BlockPos.containing(dropAt.x, dropAt.y, dropAt.z);
+
+        Block.popResource(level, dropPos, new ItemStack(state.getBlock()));
+        CompoundTag stored = this.blockEntities.remove(hit.cell());
+        if (stored != null) {
+            ListTag items = stored.getList("Items", Tag.TAG_COMPOUND);
+            for (int i = 0; i < items.size(); i++) {
+                ItemStack stack = ItemStack.of(items.getCompound(i));
+                if (!stack.isEmpty()) {
+                    Block.popResource(level, dropPos, stack);
+                }
+            }
+        }
+
+        level.playSound(null, dropAt.x, dropAt.y, dropAt.z,
+                state.getSoundType().getBreakSound(), SoundSource.BLOCKS, 1.0F, 0.9F);
+        level.levelEvent(2001, dropPos, Block.getId(state));
+
+        Map<BlockPos, BlockState> voxels = new LinkedHashMap<>(current.voxels());
+        voxels.remove(hit.cell());
+        if (voxels.isEmpty()) {
+            // Nothing left to simulate.
+            this.structure = null;
+            this.discard();
+            return true;
+        }
+        this.applyVoxels(ShipStructure.of(voxels));
+        return true;
+    }
+
+    /**
+     * Rebuilds the rigid body after a voxel was added or removed. The centre of mass
+     * moves, so the body is shifted by {@code R * (com_new - com_old)} to keep the rest
+     * of the hull exactly where it is in the world.
+     */
+    private void applyVoxels(ShipStructure rebuilt) {
+        ShipStructure current = this.structure;
+        if (current == null) {
+            this.structure = rebuilt;
+            return;
+        }
+
         Vector3d shift = new Vector3d(rebuilt.getCenterOfMass()).sub(current.getCenterOfMass());
         this.body.getRotationMatrix().transform(shift);
         this.body.position.add(shift);
@@ -551,15 +698,39 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
         this.setPos(this.body.position.x, this.body.position.y, this.body.position.z);
         this.updateBoundingExtents();
         this.wake();
-        return true;
     }
 
     /**
-     * Casts the player's view ray against the hull and returns the empty cell just
-     * outside the face that was hit (or {@code null} when nothing is in reach).
+     * Opens a chest / barrel / shulker box that travels with the hull. The contents are
+     * kept in the per-voxel block entity data.
      */
+    private boolean openContainer(ServerLevel level, Player player, BlockPos cell) {
+        ShipStructure current = this.structure;
+        if (current == null) {
+            return false;
+        }
+        BlockState state = current.voxels().get(cell);
+        if (state == null) {
+            return false;
+        }
+        if (!(state.getBlock() instanceof ChestBlock
+                || state.getBlock() instanceof BarrelBlock
+                || state.getBlock() instanceof ShulkerBoxBlock)) {
+            return false;
+        }
+
+        CompoundTag data = this.blockEntities.computeIfAbsent(cell, key -> new CompoundTag());
+        ShipContainer container = new ShipContainer(data);
+        player.openMenu(new SimpleMenuProvider(
+                (id, inventory, opener) -> ChestMenu.threeRows(id, inventory, container),
+                Component.translatable(state.getBlock().getDescriptionId())));
+        level.playSound(null, player.getX(), player.getY(), player.getZ(),
+                state.getSoundType().getHitSound(), SoundSource.BLOCKS, 0.6F, 1.0F);
+        return true;
+    }
+
     @Nullable
-    private BlockPos raycastAddedCell(Vec3 eye, Vec3 look) {
+    private VoxelHit raycastHull(Vec3 eye, Vec3 look) {
         ShipStructure current = this.structure;
         if (current == null) {
             return null;
@@ -639,11 +810,7 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
         if (bestCell == null || bestT > 6.0D) {
             return null;
         }
-        return switch (bestAxis) {
-            case 0 -> bestCell.offset(bestSign, 0, 0);
-            case 1 -> bestCell.offset(0, bestSign, 0);
-            default -> bestCell.offset(0, 0, bestSign);
-        };
+        return new VoxelHit(bestCell, bestAxis, bestSign);
     }
 
     private static double axisValue(Vector3d vector, int axis) {
@@ -656,6 +823,99 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
 
     private static double axisValue(BlockPos pos, int axis) {
         return axis == 0 ? pos.getX() : axis == 1 ? pos.getY() : pos.getZ();
+    }
+
+    private static void readItems(CompoundTag data, NonNullList<ItemStack> items) {
+        ListTag list = data.getList("Items", Tag.TAG_COMPOUND);
+        for (int i = 0; i < list.size(); i++) {
+            CompoundTag entry = list.getCompound(i);
+            int slot = entry.getByte("Slot") & 255;
+            if (slot < items.size()) {
+                items.set(slot, ItemStack.of(entry));
+            }
+        }
+    }
+
+    private static void writeItems(CompoundTag data, NonNullList<ItemStack> items) {
+        ListTag list = new ListTag();
+        for (int i = 0; i < items.size(); i++) {
+            ItemStack stack = items.get(i);
+            if (stack.isEmpty()) {
+                continue;
+            }
+            CompoundTag entry = stack.save(new CompoundTag());
+            entry.putByte("Slot", (byte) i);
+            list.add(entry);
+        }
+        data.put("Items", list);
+    }
+
+    /** Inventory of one container block that lives on the hull. */
+    private final class ShipContainer implements Container {
+        private final CompoundTag data;
+        private final NonNullList<ItemStack> items = NonNullList.withSize(27, ItemStack.EMPTY);
+
+        private ShipContainer(CompoundTag data) {
+            this.data = data;
+            readItems(this.data, this.items);
+        }
+
+        @Override
+        public int getContainerSize() {
+            return this.items.size();
+        }
+
+        @Override
+        public boolean isEmpty() {
+            for (ItemStack stack : this.items) {
+                if (!stack.isEmpty()) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        @Override
+        public ItemStack getItem(int slot) {
+            return this.items.get(slot);
+        }
+
+        @Override
+        public ItemStack removeItem(int slot, int amount) {
+            ItemStack removed = net.minecraft.world.ContainerHelper.removeItem(this.items, slot, amount);
+            if (!removed.isEmpty()) {
+                this.setChanged();
+            }
+            return removed;
+        }
+
+        @Override
+        public ItemStack removeItemNoUpdate(int slot) {
+            return net.minecraft.world.ContainerHelper.takeItem(this.items, slot);
+        }
+
+        @Override
+        public void setItem(int slot, ItemStack stack) {
+            this.items.set(slot, stack);
+            this.setChanged();
+        }
+
+        @Override
+        public void setChanged() {
+            writeItems(this.data, this.items);
+            PhysicsShip.this.setChanged();
+        }
+
+        @Override
+        public boolean stillValid(Player player) {
+            return !PhysicsShip.this.isRemoved();
+        }
+
+        @Override
+        public void clearContent() {
+            this.items.clear();
+            this.setChanged();
+        }
     }
 
     /**
@@ -677,6 +937,11 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
         if (attacker == null && direct == null) {
             // Environmental damage: the structure is indestructible.
             return false;
+        }
+
+        // Shift + hit picks the block apart instead of pushing the hull.
+        if (attacker instanceof Player player && player.isShiftKeyDown()) {
+            return this.breakVoxel(level, player);
         }
 
         Vector3d point = new Vector3d(this.body.position);

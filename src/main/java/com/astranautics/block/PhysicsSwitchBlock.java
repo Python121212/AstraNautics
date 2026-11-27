@@ -3,7 +3,6 @@ package com.astranautics.block;
 import com.astranautics.block.entity.ModBlockEntities;
 import com.astranautics.block.entity.PhysicsSwitchBlockEntity;
 import net.minecraft.core.BlockPos;
-import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.InteractionHand;
@@ -101,16 +100,8 @@ public class PhysicsSwitchBlock extends BaseEntityBlock {
         return InteractionResult.CONSUME;
     }
 
-    /** Breaking the switch puts an already assembled structure back into the world. */
-    @Override
-    public void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
-        if (!state.is(newState.getBlock()) && !level.isClientSide
-                && level instanceof ServerLevel serverLevel
-                && level.getBlockEntity(pos) instanceof PhysicsSwitchBlockEntity switchEntity) {
-            switchEntity.dissolveOnRemoval(serverLevel);
-        }
-        super.onRemove(state, level, pos, newState, movedByPiston);
-    }
+    // Breaking the switch does not stop an already assembled ship: the hull is an
+    // independent rigid body and is switched off by using it (right-click).
 
     @Override
     public boolean hasAnalogOutputSignal(BlockState state) {
