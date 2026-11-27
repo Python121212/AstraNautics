@@ -1,12 +1,16 @@
 package com.astranautics.block.entity;
 
+import com.astranautics.AstraNautics;
 import com.astranautics.block.PhysicsAssemblerBlock;
 import com.astranautics.block.PhysicsSwitchBlock;
 import com.astranautics.entity.ModEntities;
 import com.astranautics.entity.PhysicsShip;
 import com.astranautics.physics.ShipStructure;
+import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
@@ -35,17 +39,58 @@ public final class ShipAssembler {
     private ShipAssembler() {
     }
 
-    /** Outcome of an assembly attempt, used for both the game logic and diagnostics. */
-    public record Result(@Nullable PhysicsShip ship, int blocks, String reason) {
+    /** Why an assembly attempt returned the ship (or not). Translated for the player. */
+    public enum Reason {
+        NONE,
+        OK,
+        EMPTY,
+        NO_ENTITY,
+        SPAWN_REFUSED,
+        EXCEPTION
+    }
+
+    /**
+     * Outcome of an assembly attempt, used for the game logic, the chat feedback and
+     * the diagnostics command.
+     *
+     * @param arg extra number for the message (the search radius for {@link Reason#EMPTY})
+     * @param detail English debug text for the log / status line
+     */
+    public record Result(@Nullable PhysicsShip ship, int blocks, Reason reason, int arg, String detail) {
         public boolean ok() {
-            return ship != null;
+            return this.ship != null;
+        }
+
+        public Component message() {
+            MutableComponent text = switch (this.reason) {
+                case NONE -> Component.translatable("message.astranautics.reason.none");
+                case OK -> Component.translatable(
+                        "message.astranautics.physics_assembler.assembled", this.blocks);
+                case EMPTY -> Component.translatable("message.astranautics.reason.empty", this.arg);
+                case NO_ENTITY -> Component.translatable("message.astranautics.reason.no_entity");
+                case SPAWN_REFUSED -> Component.translatable("message.astranautics.reason.spawn_refused");
+                case EXCEPTION -> Component.translatable("message.astranautics.reason.exception", this.detail);
+            };
+            ChatFormatting color = switch (this.reason) {
+                case OK -> ChatFormatting.AQUA;
+                case NONE -> ChatFormatting.GRAY;
+                default -> ChatFormatting.RED;
+            };
+            return text.withStyle(color);
         }
     }
 
     public static Result assemble(ServerLevel level, BlockPos assemblerPos, int radius, int maxBlocks) {
-        Set<BlockPos> found = floodFill(level, assemblerPos, radius, maxBlocks);
+        Set<BlockPos> found;
+        try {
+            found = floodFill(level, assemblerPos, radius, maxBlocks);
+        } catch (Exception exception) {
+            AstraNautics.LOGGER.error("[astranautics] scanning the structure around {} failed", assemblerPos, exception);
+            return exception(exception);
+        }
+
         if (found.isEmpty()) {
-            return new Result(null, 0,
+            return new Result(null, 0, Reason.EMPTY, radius,
                     "no connected blocks with a collision shape within " + radius + " blocks");
         }
 
@@ -64,22 +109,37 @@ public final class ShipAssembler {
             localVoxels.put(pos.subtract(corner), level.getBlockState(pos));
         }
 
-        ShipStructure structure = ShipStructure.of(localVoxels);
+        ShipStructure structure;
+        PhysicsShip ship;
+        Vector3d worldCenter;
+        try {
+            structure = ShipStructure.of(localVoxels);
+            Vector3d centerOfMass = structure.getCenterOfMass();
+            worldCenter = new Vector3d(
+                    corner.getX() + centerOfMass.x,
+                    corner.getY() + centerOfMass.y,
+                    corner.getZ() + centerOfMass.z);
 
-        Vector3d centerOfMass = structure.getCenterOfMass();
-        Vector3d worldCenter = new Vector3d(
-                corner.getX() + centerOfMass.x,
-                corner.getY() + centerOfMass.y,
-                corner.getZ() + centerOfMass.z);
-
-        PhysicsShip ship = ModEntities.PHYSICS_SHIP.get().create(level);
-        if (ship == null) {
-            return new Result(null, found.size(), "could not create the ship entity (entity type missing?)");
+            ship = ModEntities.PHYSICS_SHIP.get().create(level);
+            if (ship == null) {
+                return new Result(null, found.size(), Reason.NO_ENTITY, 0,
+                        "the physics_ship entity type is missing");
+            }
+            ship.initialise(structure, worldCenter);
+        } catch (Exception exception) {
+            // Never let a broken structure take the server thread down with it.
+            AstraNautics.LOGGER.error("[astranautics] building the ship entity around {} failed", assemblerPos, exception);
+            return exception(exception);
         }
 
-        ship.initialise(structure, worldCenter);
-        if (!level.addFreshEntity(ship)) {
-            return new Result(null, found.size(), "the server refused to spawn the ship entity");
+        try {
+            if (!level.addFreshEntity(ship)) {
+                return new Result(null, found.size(), Reason.SPAWN_REFUSED, 0,
+                        "the server refused to spawn the ship entity");
+            }
+        } catch (Exception exception) {
+            AstraNautics.LOGGER.error("[astranautics] spawning the ship around {} failed", assemblerPos, exception);
+            return exception(exception);
         }
 
         // Remove the source blocks only after the entity exists.
@@ -87,12 +147,24 @@ public final class ShipAssembler {
             level.setBlock(pos, Blocks.AIR.defaultBlockState(), 2 | 16);
         }
 
-        return new Result(ship, found.size(), "ok");
+        return new Result(ship, found.size(), Reason.OK, found.size(),
+                found.size() + " blocks assembled");
+    }
+
+    private static Result exception(Exception exception) {
+        String detail = exception.getClass().getSimpleName()
+                + (exception.getMessage() == null ? "" : ": " + exception.getMessage());
+        return new Result(null, 0, Reason.EXCEPTION, 0, detail);
     }
 
     /** How many blocks a structure would contain, without touching the world. */
     public static int preview(ServerLevel level, BlockPos assemblerPos, int radius, int maxBlocks) {
-        return floodFill(level, assemblerPos, radius, maxBlocks).size();
+        try {
+            return floodFill(level, assemblerPos, radius, maxBlocks).size();
+        } catch (Exception exception) {
+            AstraNautics.LOGGER.error("[astranautics] preview around {} failed", assemblerPos, exception);
+            return 0;
+        }
     }
 
     private static Set<BlockPos> floodFill(ServerLevel level, BlockPos assemblerPos, int radius, int maxBlocks) {

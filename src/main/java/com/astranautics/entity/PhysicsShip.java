@@ -1,5 +1,6 @@
 package com.astranautics.entity;
 
+import com.astranautics.AstraNautics;
 import com.astranautics.config.AstraConfig;
 import com.astranautics.physics.ContactCache;
 import com.astranautics.physics.PhysicsParams;
@@ -59,8 +60,13 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
     private boolean structureSyncPending;
     /** Remaining ticks during which the structure is (re)sent, so late tracking still receives it. */
     private int structureSyncTicks;
-    /** Half extents of the world-space bounding box, derived from the structure and rotation. */
-    private final Vector3d halfExtents = new Vector3d(0.5D, 0.5D, 0.5D);
+    /**
+     * Half extents of the world-space bounding box, derived from the structure and rotation.
+     * Created lazily: {@code Entity}'s constructor calls {@code setPos -> makeBoundingBox}
+     * before subclass field initialisers run, so a plain initialiser would be null there.
+     */
+    @Nullable
+    private Vector3d halfExtents;
     @Nullable
     private VoxelSpatialIndex spatialIndex;
 
@@ -128,17 +134,29 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
         this.sleepTicks = 0;
     }
 
+    /** Never null, even while the super constructor is still running. */
+    private Vector3d extents() {
+        Vector3d current = this.halfExtents;
+        if (current == null) {
+            current = new Vector3d(0.5D, 0.5D, 0.5D);
+            this.halfExtents = current;
+        }
+        return current;
+    }
+
     @Override
     public EntityDimensions getDimensions(Pose pose) {
-        float width = (float) Math.max(0.5D, Math.max(halfExtents.x, halfExtents.z) * 2.0D);
-        float height = (float) Math.max(0.5D, halfExtents.y * 2.0D);
+        Vector3d half = extents();
+        float width = (float) Math.max(0.5D, Math.max(half.x, half.z) * 2.0D);
+        float height = (float) Math.max(0.5D, half.y * 2.0D);
         return EntityDimensions.scalable(width, height);
     }
 
     @Override
     protected AABB makeBoundingBox() {
-        return new AABB(getX() - halfExtents.x, getY() - halfExtents.y, getZ() - halfExtents.z,
-                getX() + halfExtents.x, getY() + halfExtents.y, getZ() + halfExtents.z);
+        Vector3d half = extents();
+        return new AABB(getX() - half.x, getY() - half.y, getZ() - half.z,
+                getX() + half.x, getY() + half.y, getZ() + half.z);
     }
 
     /**
@@ -147,9 +165,10 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
      * size of the ship instead of a 1x1x1 box.
      */
     private void updateBoundingExtents() {
+        Vector3d half = extents();
         ShipStructure current = this.structure;
         if (current == null) {
-            halfExtents.set(0.5D, 0.5D, 0.5D);
+            half.set(0.5D, 0.5D, 0.5D);
             return;
         }
 
@@ -160,7 +179,7 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
         double hz = Math.max(Math.abs(local.minZ - com.z), Math.abs(local.maxZ - com.z));
 
         Matrix3d rotation = this.body.getRotationMatrix();
-        halfExtents.set(
+        half.set(
                 Math.abs(rotation.m00) * hx + Math.abs(rotation.m01) * hy + Math.abs(rotation.m02) * hz,
                 Math.abs(rotation.m10) * hx + Math.abs(rotation.m11) * hy + Math.abs(rotation.m12) * hz,
                 Math.abs(rotation.m20) * hx + Math.abs(rotation.m21) * hy + Math.abs(rotation.m22) * hz);
@@ -248,6 +267,23 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
     }
 
     private void tickServer(ServerLevel level) {
+        try {
+            this.tickServerUnsafe(level);
+        } catch (Exception exception) {
+            // A physics bug must never take the whole world down: park the ship by
+            // putting its blocks back and removing the entity.
+            AstraNautics.LOGGER.error("[astranautics] physics tick failed for the ship at {}, dissolving it",
+                    this.blockPosition(), exception);
+            try {
+                this.dissolve(level);
+            } catch (Exception nested) {
+                AstraNautics.LOGGER.error("[astranautics] dissolving the broken ship failed too", nested);
+                this.discard();
+            }
+        }
+    }
+
+    private void tickServerUnsafe(ServerLevel level) {
         if (this.structure == null) {
             return;
         }

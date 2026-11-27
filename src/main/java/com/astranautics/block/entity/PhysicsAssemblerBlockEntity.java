@@ -40,7 +40,9 @@ public class PhysicsAssemblerBlockEntity extends BlockEntity {
     private int retryCooldown;
     private long lastFailureLog = Long.MIN_VALUE;
     private int lastBlockCount;
-    private String lastReason = "not assembled yet";
+    private ShipAssembler.Reason lastReason = ShipAssembler.Reason.NONE;
+    private int lastReasonArg;
+    private String lastDetail = "";
 
     public PhysicsAssemblerBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlockEntities.PHYSICS_ASSEMBLER.get(), pos, state);
@@ -55,8 +57,14 @@ public class PhysicsAssemblerBlockEntity extends BlockEntity {
         return lastBlockCount;
     }
 
-    public String getLastReason() {
-        return lastReason;
+    public ShipAssembler.Reason getLastReason() {
+        return this.lastReason;
+    }
+
+    /** Chat-ready form of the last outcome. */
+    public Component lastMessage() {
+        return new ShipAssembler.Result(null, this.lastBlockCount, this.lastReason,
+                this.lastReasonArg, this.lastDetail).message();
     }
 
     // ------------------------------------------------------------------ control
@@ -86,11 +94,7 @@ public class PhysicsAssemblerBlockEntity extends BlockEntity {
         if (enabled) {
             ShipAssembler.Result result = assembler.assembleNow(serverLevel);
             if (player != null) {
-                player.displayClientMessage(result.ok()
-                        ? Component.translatable("message.astranautics.physics_assembler.assembled",
-                                result.blocks()).withStyle(ChatFormatting.AQUA)
-                        : Component.translatable("message.astranautics.physics_assembler.failed",
-                                result.reason()).withStyle(ChatFormatting.RED), false);
+                player.displayClientMessage(result.message(), false);
             }
             return result.blocks();
         }
@@ -110,13 +114,16 @@ public class PhysicsAssemblerBlockEntity extends BlockEntity {
     public ShipAssembler.Result assembleNow(ServerLevel level) {
         PhysicsShip existing = resolveShip(level);
         if (existing != null) {
-            return new ShipAssembler.Result(existing, lastBlockCount, "already assembled");
+            return new ShipAssembler.Result(existing, this.lastBlockCount,
+                    ShipAssembler.Reason.OK, this.lastBlockCount, "already assembled");
         }
 
         ShipAssembler.Result result = ShipAssembler.assemble(level, this.worldPosition,
                 AstraConfig.ASSEMBLY_RADIUS.get(), AstraConfig.MAX_BLOCKS.get());
         this.lastBlockCount = result.blocks();
         this.lastReason = result.reason();
+        this.lastReasonArg = result.arg();
+        this.lastDetail = result.detail();
 
         if (result.ok() && result.ship() != null) {
             this.shipId = result.ship().getUUID();
@@ -125,8 +132,9 @@ public class PhysicsAssemblerBlockEntity extends BlockEntity {
             AstraNautics.LOGGER.info("[astranautics] assembled {} blocks into a physics ship at {}",
                     result.blocks(), this.worldPosition);
         } else {
-            this.retryCooldown = RETRY_TICKS;
-            this.logFailure(level, result.reason());
+            // A structural exception is not going to fix itself: back off further.
+            this.retryCooldown = result.reason() == ShipAssembler.Reason.EXCEPTION ? RETRY_TICKS * 4 : RETRY_TICKS;
+            this.logFailure(level, result.detail());
         }
         return result;
     }
@@ -143,10 +151,16 @@ public class PhysicsAssemblerBlockEntity extends BlockEntity {
         }
 
         int blocks = ship.getStructure() == null ? 0 : ship.getStructure().voxels().size();
-        ship.dissolve(level);
+        try {
+            ship.dissolve(level);
+        } catch (Exception exception) {
+            AstraNautics.LOGGER.error("[astranautics] restoring the ship at {} failed", this.worldPosition, exception);
+            ship.discard();
+        }
         this.shipId = null;
         this.retryCooldown = 0;
-        this.lastReason = "dissolved";
+        this.lastReason = ShipAssembler.Reason.NONE;
+        this.lastDetail = "dissolved";
         this.setChanged();
         AstraNautics.LOGGER.info("[astranautics] dissolved the physics ship at {} ({} blocks)",
                 this.worldPosition, blocks);
@@ -163,7 +177,7 @@ public class PhysicsAssemblerBlockEntity extends BlockEntity {
     /** Chat report: state, ship, and how many blocks the structure would contain. */
     public void sendStatus(Player player) {
         boolean enabled = this.getBlockState().getValue(PhysicsAssemblerBlock.ENABLED);
-        String shipText = this.shipId == null ? "none" : this.shipId.toString().substring(0, 8);
+        String shipText = this.shipId == null ? "-" : this.shipId.toString().substring(0, 8);
         String previewText = "-";
         if (enabled && this.shipId == null && this.level instanceof ServerLevel serverLevel) {
             previewText = String.valueOf(ShipAssembler.preview(serverLevel, this.worldPosition,
@@ -171,7 +185,7 @@ public class PhysicsAssemblerBlockEntity extends BlockEntity {
         }
 
         player.sendSystemMessage(Component.translatable("message.astranautics.physics_assembler.status",
-                enabled ? "ON" : "OFF", shipText, previewText, this.lastReason)
+                enabled ? "ON" : "OFF", shipText, previewText, this.lastMessage())
                 .withStyle(ChatFormatting.GOLD));
     }
 
@@ -185,6 +199,16 @@ public class PhysicsAssemblerBlockEntity extends BlockEntity {
             return;
         }
 
+        try {
+            tickAssembler(serverLevel, pos, state, assembler);
+        } catch (Exception exception) {
+            AstraNautics.LOGGER.error("[astranautics] assembler tick at {} failed", pos, exception);
+            assembler.retryCooldown = RETRY_TICKS * 4;
+        }
+    }
+
+    private static void tickAssembler(ServerLevel serverLevel, BlockPos pos, BlockState state,
+                                      PhysicsAssemblerBlockEntity assembler) {
         boolean enabled = state.getValue(PhysicsAssemblerBlock.ENABLED);
         PhysicsShip ship = assembler.resolveShip(serverLevel);
 
@@ -240,7 +264,9 @@ public class PhysicsAssemblerBlockEntity extends BlockEntity {
             tag.putUUID("Ship", this.shipId);
         }
         tag.putInt("LastBlocks", this.lastBlockCount);
-        tag.putString("LastReason", this.lastReason);
+        tag.putString("LastReason", this.lastReason.name());
+        tag.putInt("LastReasonArg", this.lastReasonArg);
+        tag.putString("LastDetail", this.lastDetail);
     }
 
     @Override
@@ -249,7 +275,15 @@ public class PhysicsAssemblerBlockEntity extends BlockEntity {
         this.shipId = tag.hasUUID("Ship") ? tag.getUUID("Ship") : null;
         this.lastBlockCount = tag.getInt("LastBlocks");
         if (tag.contains("LastReason")) {
-            this.lastReason = tag.getString("LastReason");
+            try {
+                this.lastReason = ShipAssembler.Reason.valueOf(tag.getString("LastReason"));
+            } catch (IllegalArgumentException unknown) {
+                this.lastReason = ShipAssembler.Reason.NONE;
+            }
+        }
+        this.lastReasonArg = tag.getInt("LastReasonArg");
+        if (tag.contains("LastDetail")) {
+            this.lastDetail = tag.getString("LastDetail");
         }
     }
 }
