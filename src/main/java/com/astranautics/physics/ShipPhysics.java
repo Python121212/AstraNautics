@@ -42,7 +42,7 @@ public final class ShipPhysics {
         applyPositionCorrection(body, contacts);
     }
 
-    private static void solveContacts(RigidBody body, List<Contact> contacts, double h,
+    static void solveContacts(RigidBody body, List<Contact> contacts, double h,
                                       double friction, double restitution) {
         if (contacts.isEmpty()) {
             return;
@@ -114,7 +114,7 @@ public final class ShipPhysics {
     }
 
     /** Small positional push so ships do not slowly sink into the ground. */
-    private static void applyPositionCorrection(RigidBody body, List<Contact> contacts) {
+    static void applyPositionCorrection(RigidBody body, List<Contact> contacts) {
         double deepest = 0.0D;
         Vector3d deepestNormal = null;
         for (Contact contact : contacts) {
