@@ -12,6 +12,7 @@ import com.astranautics.physics.VoxelSpatialIndex;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
+import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
@@ -25,6 +26,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
+import net.minecraftforge.entity.IEntityAdditionalSpawnData;
 import org.jetbrains.annotations.Nullable;
 import org.joml.Matrix3d;
 import org.joml.Quaterniond;
@@ -39,7 +41,7 @@ import java.util.Map;
  * <p>The entity position is the centre of mass; the voxel grid is kept in local
  * coordinates and rendered with the synced orientation.</p>
  */
-public class PhysicsShip extends Entity {
+public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
     private static final EntityDataAccessor<String> DATA_STRUCTURE =
             SynchedEntityData.defineId(PhysicsShip.class, EntityDataSerializers.STRING);
     private static final EntityDataAccessor<Float> DATA_QX =
@@ -163,6 +165,24 @@ public class PhysicsShip extends Entity {
                 Math.abs(rotation.m10) * hx + Math.abs(rotation.m11) * hy + Math.abs(rotation.m12) * hz,
                 Math.abs(rotation.m20) * hx + Math.abs(rotation.m21) * hy + Math.abs(rotation.m22) * hz);
         this.setBoundingBox(makeBoundingBox());
+    }
+
+    // The structure is part of the spawn packet, so a player who starts tracking an
+    // already assembled ship still sees its blocks (previously the ship was invisible
+    // until the entity was recreated).
+    @Override
+    public void writeSpawnData(FriendlyByteBuf buffer) {
+        buffer.writeUtf(this.structure == null ? "" : ShipStructureCodec.encode(this.structure), 1 << 21);
+    }
+
+    @Override
+    public void readSpawnData(FriendlyByteBuf buffer) {
+        String data = buffer.readUtf(1 << 21);
+        if (!data.isEmpty()) {
+            this.structure = ShipStructureCodec.decode(data);
+            this.spatialIndex = null;
+            this.updateBoundingExtents();
+        }
     }
 
     /** Rebuilds the per-tick broad-phase index used by collisions and rendering. */
