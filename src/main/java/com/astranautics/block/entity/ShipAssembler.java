@@ -1,7 +1,6 @@
 package com.astranautics.block.entity;
 
 import com.astranautics.AstraNautics;
-import com.astranautics.block.PhysicsSwitchBlock;
 import com.astranautics.entity.ModEntities;
 import com.astranautics.entity.PhysicsShip;
 import com.astranautics.physics.ShipStructure;
@@ -141,9 +140,16 @@ public final class ShipAssembler {
             return exception(exception);
         }
 
-        // Remove the source blocks only after the entity exists.
+        // Remove the source blocks only after the entity exists. The switch goes last:
+        // removing the block that owns the block entity we are ticking is the least
+        // invasive when it happens at the very end of the call.
         for (BlockPos pos : found) {
-            level.setBlock(pos, Blocks.AIR.defaultBlockState(), 2 | 16);
+            if (!pos.equals(switchPos)) {
+                level.setBlock(pos, Blocks.AIR.defaultBlockState(), 2 | 16);
+            }
+        }
+        if (found.contains(switchPos)) {
+            level.setBlock(switchPos, Blocks.AIR.defaultBlockState(), 2 | 16);
         }
 
         return new Result(ship, found.size(), Reason.OK, found.size(),
@@ -171,12 +177,9 @@ public final class ShipAssembler {
         Deque<BlockPos> queue = new ArrayDeque<>();
         double radiusSq = (double) radius * radius;
 
-        for (Direction direction : Direction.values()) {
-            BlockPos start = switchPos.relative(direction);
-            if (isAssemblable(level, start) && start.distSqr(switchPos) <= radiusSq) {
-                queue.add(start);
-            }
-        }
+        // The switch itself is part of the structure: it is detached from the world
+        // together with the blocks, so nothing is left floating behind.
+        queue.add(switchPos);
 
         BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
         while (!queue.isEmpty() && visited.size() < maxBlocks) {
@@ -206,9 +209,6 @@ public final class ShipAssembler {
     public static boolean isAssemblable(ServerLevel level, BlockPos pos) {
         BlockState state = level.getBlockState(pos);
         if (state.isAir()) {
-            return false;
-        }
-        if (state.getBlock() instanceof PhysicsSwitchBlock) {
             return false;
         }
         VoxelShape shape = state.getCollisionShape(level, pos);
