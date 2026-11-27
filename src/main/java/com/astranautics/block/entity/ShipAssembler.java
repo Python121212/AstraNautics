@@ -1,6 +1,7 @@
 package com.astranautics.block.entity;
 
 import com.astranautics.AstraNautics;
+import com.astranautics.block.PhysicsSwitchBlock;
 import com.astranautics.entity.ModEntities;
 import com.astranautics.entity.PhysicsShip;
 import com.astranautics.physics.ShipStructure;
@@ -9,8 +10,10 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.shapes.VoxelShape;
 import org.jetbrains.annotations.Nullable;
@@ -103,8 +106,19 @@ public final class ShipAssembler {
         BlockPos corner = new BlockPos(minX, minY, minZ);
 
         Map<BlockPos, BlockState> localVoxels = new LinkedHashMap<>();
+        Map<BlockPos, CompoundTag> blockEntityData = new LinkedHashMap<>();
         for (BlockPos pos : found) {
-            localVoxels.put(pos.subtract(corner), level.getBlockState(pos));
+            BlockPos local = pos.subtract(corner);
+            localVoxels.put(local, level.getBlockState(pos));
+
+            // Chests / signs / machines keep their contents while the hull is physical.
+            BlockEntity blockEntity = level.getBlockEntity(pos);
+            if (blockEntity != null && !(blockEntity instanceof PhysicsSwitchBlockEntity)) {
+                CompoundTag data = blockEntity.saveWithoutMetadata();
+                if (!data.isEmpty()) {
+                    blockEntityData.put(local, data);
+                }
+            }
         }
 
         ShipStructure structure;
@@ -124,6 +138,7 @@ public final class ShipAssembler {
                         "the physics_ship entity type is missing");
             }
             ship.initialise(structure, worldCenter);
+            ship.setBlockEntityData(blockEntityData);
         } catch (Exception exception) {
             // Never let a broken structure take the server thread down with it.
             AstraNautics.LOGGER.error("[astranautics] building the ship entity around {} failed", switchPos, exception);
