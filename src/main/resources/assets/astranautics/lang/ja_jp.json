@@ -3,5 +3,6 @@
   "block.astranautics.gravity_switch": "グラビティ・トグルスイッチ",
   "message.astranautics.gravity_switch.no_anchor": "このスイッチに隣接するグラビティ・アンカーがありません",
   "message.astranautics.gravity_switch.on": "物理演算をONにしました（アンカー %s 個）",
-  "message.astranautics.gravity_switch.off": "物理演算をOFFにしました（アンカー %s 個）"
+  "message.astranautics.gravity_switch.off": "物理演算をOFFにしました（アンカー %s 個）",
+  "itemGroup.astranautics": "AstraNautics"
 }

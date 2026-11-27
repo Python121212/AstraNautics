@@ -3,5 +3,6 @@
   "block.astranautics.gravity_switch": "Gravity Toggle Switch",
   "message.astranautics.gravity_switch.no_anchor": "No Gravity Anchor is adjacent to this switch",
   "message.astranautics.gravity_switch.on": "Gravity physics enabled (%s anchor(s))",
-  "message.astranautics.gravity_switch.off": "Gravity physics disabled (%s anchor(s))"
+  "message.astranautics.gravity_switch.off": "Gravity physics disabled (%s anchor(s))",
+  "itemGroup.astranautics": "AstraNautics"
 }

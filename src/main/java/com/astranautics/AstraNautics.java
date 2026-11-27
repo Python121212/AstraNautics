@@ -4,11 +4,8 @@ import com.astranautics.block.ModBlocks;
 import com.astranautics.block.entity.ModBlockEntities;
 import com.astranautics.config.AstraConfig;
 import com.astranautics.item.ModItems;
-import net.minecraft.world.item.CreativeModeTabs;
 import net.minecraftforge.common.MinecraftForge;
-import net.minecraftforge.event.CreativeModeTabEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.config.ModConfig;
@@ -35,6 +32,7 @@ public class AstraNautics {
         ModBlocks.BLOCKS.register(modEventBus);
         ModItems.ITEMS.register(modEventBus);
         ModBlockEntities.BLOCK_ENTITIES.register(modEventBus);
+        ModCreativeTabs.CREATIVE_MODE_TABS.register(modEventBus);
 
         modEventBus.addListener(this::commonSetup);
         ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, AstraConfig.SPEC);
@@ -44,13 +42,5 @@ public class AstraNautics {
 
     private void commonSetup(final FMLCommonSetupEvent event) {
         LOGGER.info("AstraNautics loaded (Minecraft 1.20.1 / Forge)");
-    }
-
-    @SubscribeEvent
-    public void onBuildCreativeModeTabContents(CreativeModeTabEvent.BuildContents event) {
-        if (event.getTabKey() == CreativeModeTabs.BUILDING_BLOCKS) {
-            event.accept(ModItems.GRAVITY_ANCHOR);
-            event.accept(ModItems.GRAVITY_SWITCH);
-        }
     }
 }
