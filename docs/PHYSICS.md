@@ -1,23 +1,24 @@
 # AstraNautics Physics Engine
 
-「物理アセンブラ」で切り離したブロック構造物を 6 自由度の剛体として
+「物理トグルスイッチ」で切り離したブロック構造物を 6 自由度の剛体として
 シミュレーションする、Valkyrien Skies / Create: Aeronautics 系の物理実装です。
 
-現在の実装は **Phase 1（剛体コア）+ Phase 2（衝突レイヤ / 軽量化）** です。
+現在の実装は **Phase 1（剛体コア）+ Phase 2（衝突レイヤ / 軽量化）+
+Phase 3 の一部（プレイヤーの撃力で動く / 転がる）** です。
 
 ## アーキテクチャ
 
 ```
-PhysicsAssemblerBlock (物理アセンブラ / enabled ブロックステート)
-   │  隣接する PhysicsSwitchBlock を右クリックで ON/OFF
+PhysicsSwitchBlock (物理トグルスイッチ / enabled ブロックステート)
+   │  右クリックで ON/OFF（Shift + 右クリックは状態表示のみ）
    ▼
-PhysicsAssemblerBlockEntity … 4 tick ごとに状態と船の有無を比較
+PhysicsSwitchBlockEntity … 4 tick ごとに状態と船の有無を比較
    │   ON  → ShipAssembler.assemble()
    │   OFF → PhysicsShip.dissolve()
    ▼
-ShipAssembler … アンカーから 6 方向 BFS。半径/ブロック数上限つき
-   │   対象: 衝突形状を持ち、BE を持たず、流体でないブロック
-   │   アンカー / スイッチ自身は除外
+ShipAssembler … スイッチから 6 方向 BFS。半径/ブロック数上限つき
+   │   対象: 衝突形状を持つブロックならすべて（BE 持ち・岩盤も可）
+   │   スイッチ自身だけ除外
    ▼
 ShipStructure … ローカル座標のボクセルグリッド
    │   質量 = Σ ブロック質量（硬さベース: 0.4 + 0.35 × hardness、上限 6）
@@ -61,8 +62,9 @@ PhysicsShipRenderer … クォータニオンで姿勢を適用し、全ボク�
 
 | キー | 既定値 | 説明 |
 |---|---|---|
-| `physics_assembler.assemblyRadius` | 8 | 構造物として切り離す半径 |
-| `physics_assembler.maxBlocks` | 512 | 1 隻あたりの最大ブロック数 |
+| `physics.assemblyRadius` | 10 | スイッチから構造物として切り離す半径 |
+| `physics.maxBlocks` | 512 | 1 隻あたりの最大ブロック数 |
+| `physics.punchSpeed` | 2.5 | 左クリックで与える撃力（目標速度 blocks/s） |
 | `physics.gravity` | 32.0 | 重力 (blocks/s²) |
 | `physics.substeps` | 2 | 1 tick あたりの物理サブステップ数 |
 | `physics.friction` | 0.6 | 摩擦係数 |
@@ -97,7 +99,7 @@ PhysicsShipRenderer … クォータニオンで姿勢を適用し、全ボク�
 | BlockEntity 持ち（チェスト・かまど・看板など） | 対象（中身は保持されない） |
 | 空気・流体 | 対象外 |
 | 当たり判定の無いブロック（草花・たいまつ・レッドストーン） | 対象外 |
-| `physics_assembler` / `physics_switch` | 対象外（切り離し後もその場に残る制御ブロック） |
+| `physics_switch` | 対象外（切り離し後もその場に残る唯一の制御ブロック） |
 
 質量はブロックごとの `destroySpeed` に基づきますが、下限を設けているため
 硬さ 0 のブロック（草ブロック等）でも質量 0 にはなりません。
@@ -119,7 +121,9 @@ PhysicsShipRenderer … クォータニオンで姿勢を適用し、全ボク�
 * アセンブルは**スイッチを押した瞬間**に同期実行され、結果がチャットに出ます。
 * tick 側（4 tick ごと）は「ON なのに船が無い」「OFF なのに船がある」を
   突き合わせて収束させるフォールバックです。
-* アセンブラを壊した場合も船をブロックに戻します。
+* スイッチを壊した場合も船をブロックに戻します。
+* v3.2.0 で `physics_assembler` を削除。既存ワールドのアセンブラは
+  `RegistryEvent.MissingMappings` でスイッチに remap されます（NBT 互換）。
 * `shipId` / `LastBlocks` / `LastReason` はブロックエンティティ NBT に保存されます。
 
 ### クライアント同期
@@ -144,11 +148,37 @@ PhysicsShipRenderer … クォータニオンで姿勢を適用し、全ボク�
 * `PhysicsShip` の当たり判定ベクトルは遅延生成（`Entity` のコンストラクタが
   `setPos -> makeBoundingBox` を呼ぶため、フィールド初期化子より先に走る）。
 
+## Phase 3: プレイヤーの撃力（v3.2.0）
+
+構造物を**叩く（左クリック）**と剛体に撃力がかかります。
+
+```
+見た目: 攻撃者の目 → 最も近い表面ボクセル中心を接触点 p とする
+撃力:   J = punchSpeed × m / (48 + m) × m方向ベクトル
+        （軽い構造物ほど目標速度に近づき、重い構造物はほとんど動かない）
+適用:   RigidBody.applyImpulseAt(J, p)
+        Δv = J / m                   … 並進
+        Δω = I⁻¹ (p − com) × J       … 回転（端を叩くと転がる）
+```
+
+* `Entity#isPickable` / `isAttackable` を有効化し、`hurt()` を上書きしています
+  （体力は持たず、ダメージでは壊れません）。
+* 叩いた瞬間に `wake()` してスリープを解除、接触キャッシュを捨てます。
+* 効果音は叩いたブロックの `SoundType#getHitSound`。
+* 角度・位置のインパルスはどちらも既存のソルバにそのまま乗るので、
+  転がり・跳ね返り・積み木の崩れはすべて通常の衝突解決で表現されます。
+
+### Phase 3 の残り
+
+* 空気力学（揚力・抗力・プロペラ推力）
+* 船上でのブロック操作 / インベントリ / レッドストーン連携
+* 船単位の並列化（現在はサーバースレッドで直列）
+
 ## 診断
 
-* `/astranautics diag` — 周囲 32 ブロックのアセンブラ状態、船の質量・ブロック数・
+* `/astranautics diag` — 周囲 32 ブロックのスイッチ状態、船の質量・ブロック数・
   スリープ状態、ON なのに船が無い場合の「組み立てた場合のブロック数」を表示。
-* 素手でアセンブラを右クリック — ON/OFF、船 UUID、対象ブロック数、直近の結果。
+* スイッチを Shift + 右クリック — ON/OFF、船 UUID、対象ブロック数、直近の結果。
 
 ## 軽量化
 

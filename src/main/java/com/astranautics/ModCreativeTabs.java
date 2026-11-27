@@ -20,9 +20,8 @@ public class ModCreativeTabs {
     public static final RegistryObject<CreativeModeTab> ASTRANAUTICS_TAB =
             CREATIVE_MODE_TABS.register("astranautics", () -> CreativeModeTab.builder()
                     .title(Component.translatable("itemGroup.astranautics"))
-                    .icon(() -> new ItemStack(ModItems.PHYSICS_ASSEMBLER.get()))
+                    .icon(() -> new ItemStack(ModItems.PHYSICS_SWITCH.get()))
                     .displayItems((params, output) -> {
-                        output.accept(ModItems.PHYSICS_ASSEMBLER.get());
                         output.accept(ModItems.PHYSICS_SWITCH.get());
                     })
                     .build());

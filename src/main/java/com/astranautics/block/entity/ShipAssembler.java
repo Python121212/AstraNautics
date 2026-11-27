@@ -1,7 +1,6 @@
 package com.astranautics.block.entity;
 
 import com.astranautics.AstraNautics;
-import com.astranautics.block.PhysicsAssemblerBlock;
 import com.astranautics.block.PhysicsSwitchBlock;
 import com.astranautics.entity.ModEntities;
 import com.astranautics.entity.PhysicsShip;
@@ -65,7 +64,7 @@ public final class ShipAssembler {
             MutableComponent text = switch (this.reason) {
                 case NONE -> Component.translatable("message.astranautics.reason.none");
                 case OK -> Component.translatable(
-                        "message.astranautics.physics_assembler.assembled", this.blocks);
+                        "message.astranautics.physics_switch.assembled", this.blocks);
                 case EMPTY -> Component.translatable("message.astranautics.reason.empty", this.arg);
                 case NO_ENTITY -> Component.translatable("message.astranautics.reason.no_entity");
                 case SPAWN_REFUSED -> Component.translatable("message.astranautics.reason.spawn_refused");
@@ -80,12 +79,12 @@ public final class ShipAssembler {
         }
     }
 
-    public static Result assemble(ServerLevel level, BlockPos assemblerPos, int radius, int maxBlocks) {
+    public static Result assemble(ServerLevel level, BlockPos switchPos, int radius, int maxBlocks) {
         Set<BlockPos> found;
         try {
-            found = floodFill(level, assemblerPos, radius, maxBlocks);
+            found = floodFill(level, switchPos, radius, maxBlocks);
         } catch (Exception exception) {
-            AstraNautics.LOGGER.error("[astranautics] scanning the structure around {} failed", assemblerPos, exception);
+            AstraNautics.LOGGER.error("[astranautics] scanning the structure around {} failed", switchPos, exception);
             return exception(exception);
         }
 
@@ -128,7 +127,7 @@ public final class ShipAssembler {
             ship.initialise(structure, worldCenter);
         } catch (Exception exception) {
             // Never let a broken structure take the server thread down with it.
-            AstraNautics.LOGGER.error("[astranautics] building the ship entity around {} failed", assemblerPos, exception);
+            AstraNautics.LOGGER.error("[astranautics] building the ship entity around {} failed", switchPos, exception);
             return exception(exception);
         }
 
@@ -138,7 +137,7 @@ public final class ShipAssembler {
                         "the server refused to spawn the ship entity");
             }
         } catch (Exception exception) {
-            AstraNautics.LOGGER.error("[astranautics] spawning the ship around {} failed", assemblerPos, exception);
+            AstraNautics.LOGGER.error("[astranautics] spawning the ship around {} failed", switchPos, exception);
             return exception(exception);
         }
 
@@ -158,23 +157,23 @@ public final class ShipAssembler {
     }
 
     /** How many blocks a structure would contain, without touching the world. */
-    public static int preview(ServerLevel level, BlockPos assemblerPos, int radius, int maxBlocks) {
+    public static int preview(ServerLevel level, BlockPos switchPos, int radius, int maxBlocks) {
         try {
-            return floodFill(level, assemblerPos, radius, maxBlocks).size();
+            return floodFill(level, switchPos, radius, maxBlocks).size();
         } catch (Exception exception) {
-            AstraNautics.LOGGER.error("[astranautics] preview around {} failed", assemblerPos, exception);
+            AstraNautics.LOGGER.error("[astranautics] preview around {} failed", switchPos, exception);
             return 0;
         }
     }
 
-    private static Set<BlockPos> floodFill(ServerLevel level, BlockPos assemblerPos, int radius, int maxBlocks) {
+    private static Set<BlockPos> floodFill(ServerLevel level, BlockPos switchPos, int radius, int maxBlocks) {
         Set<BlockPos> visited = new LinkedHashSet<>();
         Deque<BlockPos> queue = new ArrayDeque<>();
         double radiusSq = (double) radius * radius;
 
         for (Direction direction : Direction.values()) {
-            BlockPos start = assemblerPos.relative(direction);
-            if (isAssemblable(level, start) && start.distSqr(assemblerPos) <= radiusSq) {
+            BlockPos start = switchPos.relative(direction);
+            if (isAssemblable(level, start) && start.distSqr(switchPos) <= radiusSq) {
                 queue.add(start);
             }
         }
@@ -187,7 +186,7 @@ public final class ShipAssembler {
             }
             for (Direction direction : Direction.values()) {
                 cursor.setWithOffset(pos, direction);
-                if (visited.contains(cursor) || cursor.distSqr(assemblerPos) > radiusSq) {
+                if (visited.contains(cursor) || cursor.distSqr(switchPos) > radiusSq) {
                     continue;
                 }
                 if (isAssemblable(level, cursor)) {
@@ -209,8 +208,7 @@ public final class ShipAssembler {
         if (state.isAir()) {
             return false;
         }
-        if (state.getBlock() instanceof PhysicsAssemblerBlock
-                || state.getBlock() instanceof PhysicsSwitchBlock) {
+        if (state.getBlock() instanceof PhysicsSwitchBlock) {
             return false;
         }
         VoxelShape shape = state.getCollisionShape(level, pos);

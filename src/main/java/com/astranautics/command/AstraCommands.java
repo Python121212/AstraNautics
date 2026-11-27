@@ -1,8 +1,8 @@
 package com.astranautics.command;
 
 import com.astranautics.AstraNautics;
-import com.astranautics.block.PhysicsAssemblerBlock;
-import com.astranautics.block.entity.PhysicsAssemblerBlockEntity;
+import com.astranautics.block.PhysicsSwitchBlock;
+import com.astranautics.block.entity.PhysicsSwitchBlockEntity;
 import com.astranautics.block.entity.ShipAssembler;
 import com.astranautics.config.AstraConfig;
 import com.astranautics.entity.PhysicsShip;
@@ -65,35 +65,35 @@ public final class AstraCommands {
             lines.add(Component.literal("  - " + describe(ship)).withStyle(ChatFormatting.DARK_AQUA));
         }
 
-        int assemblers = 0;
+        int switches = 0;
         BlockPos center = player.blockPosition();
         for (BlockPos pos : BlockPos.betweenClosed(center.offset(-SCAN_RADIUS, -SCAN_RADIUS, -SCAN_RADIUS),
                 center.offset(SCAN_RADIUS, SCAN_RADIUS, SCAN_RADIUS))) {
             BlockState state = level.getBlockState(pos);
-            if (!(state.getBlock() instanceof PhysicsAssemblerBlock)) {
+            if (!(state.getBlock() instanceof PhysicsSwitchBlock)) {
                 continue;
             }
-            assemblers++;
+            switches++;
             BlockEntity blockEntity = level.getBlockEntity(pos);
-            boolean enabled = state.getValue(PhysicsAssemblerBlock.ENABLED);
+            boolean enabled = state.getValue(PhysicsSwitchBlock.ENABLED);
             String shipInfo = "-";
             int lastBlocks = -1;
-            if (blockEntity instanceof PhysicsAssemblerBlockEntity assembler) {
-                shipInfo = assembler.getShipId() == null ? "none" : assembler.getShipId().toString().substring(0, 8);
-                lastBlocks = assembler.getLastBlockCount();
+            if (blockEntity instanceof PhysicsSwitchBlockEntity switchEntity) {
+                shipInfo = switchEntity.getShipId() == null ? "none" : switchEntity.getShipId().toString().substring(0, 8);
+                lastBlocks = switchEntity.getLastBlockCount();
             }
             int preview = enabled && "none".equals(shipInfo)
                     ? ShipAssembler.preview(level, pos, radius, maxBlocks) : -1;
 
-            String text = "  assembler " + pos.toShortString() + " enabled=" + enabled
+            String text = "  switch " + pos.toShortString() + " enabled=" + enabled
                     + " ship=" + shipInfo
                     + (lastBlocks >= 0 ? " lastBlocks=" + lastBlocks : "")
                     + (preview >= 0 ? " wouldAssemble=" + preview : "");
             lines.add(Component.literal(text).withStyle(preview == 0 ? ChatFormatting.RED : ChatFormatting.GREEN));
         }
 
-        if (assemblers == 0) {
-            lines.add(Component.literal("  no physics assembler within " + SCAN_RADIUS + " blocks")
+        if (switches == 0) {
+            lines.add(Component.literal("  no physics switch within " + SCAN_RADIUS + " blocks")
                     .withStyle(ChatFormatting.RED));
         }
 

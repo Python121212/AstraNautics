@@ -18,6 +18,9 @@ import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityDimensions;
 import net.minecraft.world.entity.EntityType;
@@ -27,6 +30,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.entity.IEntityAdditionalSpawnData;
 import org.jetbrains.annotations.Nullable;
 import org.joml.Matrix3d;
@@ -427,14 +431,118 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
         tag.put("Body", bodyTag);
     }
 
+    /**
+     * Punching the structure pushes it: the impulse is applied at the surface voxel
+     * closest to the attacker, so hitting it off-centre also spins it.
+     */
+    @Override
+    public boolean hurt(DamageSource source, float amount) {
+        if (this.level().isClientSide) {
+            // Let the client play the swing animation; the server does the physics.
+            return true;
+        }
+        if (!(this.level() instanceof ServerLevel level) || this.structure == null) {
+            return false;
+        }
+
+        Entity attacker = source.getEntity();
+        Entity direct = source.getDirectEntity();
+        if (attacker == null && direct == null) {
+            // Environmental damage: the structure is indestructible.
+            return false;
+        }
+
+        Vector3d point = new Vector3d(this.body.position);
+        Vector3d direction = new Vector3d();
+        BlockState hitState = null;
+
+        if (attacker != null) {
+            Vector3d eye = new Vector3d(attacker.getX(), attacker.getEyeY(), attacker.getZ());
+            if (eye.distanceSquared(this.body.position) > 64.0D) {
+                return false; // out of punching range, ignore stray "hits"
+            }
+            BlockPos voxel = nearestSurfaceVoxel(eye);
+            if (voxel != null) {
+                this.voxelWorldCenter(voxel, point);
+                hitState = this.structure.voxels().get(voxel);
+            }
+            direction.set(point).sub(eye);
+            if (direction.lengthSquared() < 1.0E-6D) {
+                Vec3 look = attacker.getLookAngle();
+                direction.set(look.x, look.y, look.z);
+            }
+            direction.normalize();
+        } else {
+            Vec3 motion = direct.getDeltaMovement();
+            direction.set(motion.x, motion.y, motion.z);
+            if (direction.lengthSquared() < 1.0E-6D) {
+                return false;
+            }
+            direction.normalize();
+        }
+
+        double mass = Math.max(this.body.getMass(), 1.0E-4D);
+        // Heavy structures barely budge, small ones fly off: a soft mass falloff keeps
+        // the punch feeling similar for a 3-block crate and a 200-block hull.
+        double scale = 48.0D / (48.0D + mass);
+        double impulseMagnitude = AstraConfig.PUNCH_SPEED.get() * scale * mass;
+
+        this.wake();
+        this.body.applyImpulseAt(new Vector3d(direction).mul(impulseMagnitude), point);
+        this.spatialIndex = null;
+
+        if (hitState != null) {
+            level.playSound(null, point.x, point.y, point.z,
+                    hitState.getSoundType().getHitSound(), SoundSource.BLOCKS, 0.9F,
+                    0.85F + level.random.nextFloat() * 0.3F);
+        } else {
+            level.playSound(null, point.x, point.y, point.z,
+                    SoundEvents.STONE_HIT, SoundSource.BLOCKS, 0.9F, 1.0F);
+        }
+        return true;
+    }
+
+    /** Local voxel (on the surface) closest to a world position. */
+    @Nullable
+    private BlockPos nearestSurfaceVoxel(Vector3d worldFrom) {
+        ShipStructure current = this.structure;
+        if (current == null) {
+            return null;
+        }
+        Matrix3d rotation = this.body.getRotationMatrix();
+        Vector3d scratch = new Vector3d();
+        BlockPos best = null;
+        double bestDistance = Double.MAX_VALUE;
+        for (BlockPos voxel : current.surfaceVoxels()) {
+            current.localCenterRelativeToCom(voxel, scratch);
+            rotation.transform(scratch).add(this.body.position);
+            double distance = scratch.distanceSquared(worldFrom);
+            if (distance < bestDistance) {
+                bestDistance = distance;
+                best = voxel;
+            }
+        }
+        return best;
+    }
+
+    /** World-space centre of a local voxel. */
+    private void voxelWorldCenter(BlockPos local, Vector3d dest) {
+        if (this.structure == null) {
+            dest.set(this.body.position);
+            return;
+        }
+        this.structure.localCenterRelativeToCom(local, dest);
+        this.body.getRotationMatrix().transform(dest).add(this.body.position);
+    }
+
     @Override
     public boolean isPickable() {
-        return false;
+        return true;
     }
 
     @Override
     public boolean isAttackable() {
-        return false;
+        return true;
     }
 
     @Override

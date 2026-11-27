@@ -1,7 +1,6 @@
 {
   "replace": false,
   "values": [
-    "astranautics:physics_assembler",
     "astranautics:physics_switch"
   ]
 }

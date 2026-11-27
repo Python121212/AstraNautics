@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
 """Generate the 16x16 block textures for AstraNautics (pure Python, no Pillow).
 
-Writes:
-  textures/block/physics_assembler.png          assembler, idle
-  textures/block/physics_assembler_active.png   assembler, running (lit core)
+Writes (v3.2.0: the physics assembler block is gone, the switch is the only block):
   textures/block/physics_switch_off.png         switch, OFF
   textures/block/physics_switch_on.png          switch, ON
 
@@ -116,53 +114,6 @@ def noise(canvas: Canvas, seed: int, strength: float) -> None:
             canvas[y][x] = (clamp(r * edge), clamp(g * edge), clamp(b * edge))
 
 
-# --------------------------------------------------------------------- assembler
-def assembler(active: bool) -> Canvas:
-    steel_dark = (34, 30, 44)
-    steel = (58, 52, 76)
-    steel_light = (86, 78, 108)
-    bolt = (26, 24, 34)
-
-    core_cold = (96, 84, 128)
-    core_hot = (122, 243, 255)
-    core_white = (222, 252, 255)
-
-    canvas = blank(steel)
-    for y in range(SIZE):
-        for x in range(SIZE):
-            vertical = y / (SIZE - 1)
-            canvas[y][x] = mix(steel_light, steel_dark, 0.25 + 0.6 * vertical)
-
-    noise(canvas, 7, 0.18)
-
-    # outer bevel + inner plate
-    frame(canvas, bolt)
-    frame(canvas, (20, 18, 26), 1)
-    rect(canvas, 2, 2, SIZE - 3, SIZE - 3, mix(steel, steel_dark, 0.35))
-    frame(canvas, steel_light, 2)
-    rect(canvas, 3, 3, SIZE - 4, SIZE - 4, mix(steel_dark, steel, 0.5))
-
-    rivets(canvas, bolt, steel_light)
-
-    # gravity rings
-    ring(canvas, 8.0, 8.0, 5.4, 1.0, core_cold if not active else mix(core_hot, core_cold, 0.4), 0.75)
-    ring(canvas, 8.0, 8.0, 3.6, 1.0, core_cold if not active else core_hot, 0.85)
-
-    # four anchor lugs on the diagonals
-    for (dx, dy) in ((-1, -1), (1, -1), (-1, 1), (1, 1)):
-        put(canvas, 8 + int(dx * 6), 8 + int(dy * 6), mix(steel_light, (18, 16, 24), 0.5))
-
-    # core
-    disc(canvas, 8.0, 8.0, 2.1, core_cold if not active else mix(core_white, core_hot, 0.5), 0.95)
-    disc(canvas, 8.0, 8.0, 1.2, core_white if active else mix(core_cold, (200, 205, 230), 0.35), 0.95)
-    if active:
-        disc(canvas, 8.0, 8.0, 6.2, core_hot, 0.16)
-    else:
-        disc(canvas, 8.0, 8.0, 6.2, core_cold, 0.10)
-
-    return canvas
-
-
 # ------------------------------------------------------------------------ switch
 def switch(on: bool) -> Canvas:
     plate = (66, 70, 78)
@@ -211,11 +162,9 @@ def switch(on: bool) -> Canvas:
 
 
 def main() -> int:
-    write_png(os.path.join(OUT_DIR, "physics_assembler.png"), assembler(active=False))
-    write_png(os.path.join(OUT_DIR, "physics_assembler_active.png"), assembler(active=True))
     write_png(os.path.join(OUT_DIR, "physics_switch_off.png"), switch(on=False))
     write_png(os.path.join(OUT_DIR, "physics_switch_on.png"), switch(on=True))
-    print(f"wrote 4 textures to {os.path.relpath(OUT_DIR)}")
+    print(f"wrote 2 textures to {os.path.relpath(OUT_DIR)}")
     return 0
 
 

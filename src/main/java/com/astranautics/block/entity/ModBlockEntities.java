@@ -12,10 +12,10 @@ public class ModBlockEntities {
     public static final DeferredRegister<BlockEntityType<?>> BLOCK_ENTITIES =
             DeferredRegister.create(ForgeRegistries.BLOCK_ENTITY_TYPES, AstraNautics.MODID);
 
-    public static final RegistryObject<BlockEntityType<PhysicsAssemblerBlockEntity>> PHYSICS_ASSEMBLER =
-            BLOCK_ENTITIES.register("physics_assembler",
+    public static final RegistryObject<BlockEntityType<PhysicsSwitchBlockEntity>> PHYSICS_SWITCH =
+            BLOCK_ENTITIES.register("physics_switch",
                     () -> BlockEntityType.Builder
-                            .of(PhysicsAssemblerBlockEntity::new, ModBlocks.PHYSICS_ASSEMBLER.get())
+                            .of(PhysicsSwitchBlockEntity::new, ModBlocks.PHYSICS_SWITCH.get())
                             .build(null));
 
     public static void register(IEventBus eventBus) {
