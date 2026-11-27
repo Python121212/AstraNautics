@@ -3,7 +3,7 @@ name: Build and Release
 # Creates a GitHub Release with the Forge 1.20.1 mod jar attached.
 #
 # The jar is built on GitHub's runners (which can reach maven.minecraftforge.net),
-# so the release asset is produced by a regular ForgeGradle `./gradlew build`.
+# so the release asset is produced by a regular ForgeGradle build.
 # If ForgeGradle cannot reach its repositories, the offline builder
 # `tools/build_jar.py` is used as a fallback so a load-only jar is still attached.
 
@@ -26,28 +26,43 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v3
+      # ForgeGradle 6 needs Gradle 8.x, so pin the version instead of relying
+      # on whatever Gradle happens to be preinstalled on the runner.
+      - name: Set up Gradle 8.1.1
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.1.1'
 
       - name: Build with ForgeGradle
+        id: forgegradle
         continue-on-error: true
         run: |
-          chmod +x ./gradlew
-          ./gradlew build --stacktrace
+          set -o pipefail
+          gradle build --stacktrace --no-daemon 2>&1 | tee forgegradle-build.log
 
       - name: Fallback build (offline jar builder)
         if: ${{ hashFiles('build/libs/*.jar') == '' }}
         run: |
-          echo "ForgeGradle build did not produce a jar, using tools/build_jar.py"
+          echo "ForgeGradle build did not produce a jar, using tools/build_jar.py" | tee -a "$GITHUB_STEP_SUMMARY"
           python3 tools/build_jar.py --check
+
+      - name: Build log
+        if: always()
+        run: |
+          {
+            echo '### ForgeGradle build log (tail)'
+            echo '```'
+            tail -n 80 forgegradle-build.log 2>/dev/null || echo 'no log'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Show artifacts
         run: ls -l build/libs/
@@ -69,4 +84,5 @@ jobs:
             3. 起動してログに `AstraNautics loaded (Minecraft 1.20.1 / Forge)` が出れば読み込み成功
           files: build/libs/*.jar
           fail_on_unmatched_files: true
+          overwrite_files: true
           generate_release_notes: true
