@@ -1,0 +1,23 @@
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.eclipse/
+.settings/
+.classpath
+.project
+
+# Minecraft runs
+run/
+run_client/
+run_server/
+run_data/
+
+# OS
+.DS_Store
+Thumbs.db
