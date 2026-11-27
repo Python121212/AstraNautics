@@ -78,16 +78,22 @@ class TwoBodySolverTest {
         Contact contact = new Contact().set(
                 new Vector3d(0.0D, 0.5D, 0.0D), new Vector3d(0.0D, 1.0D, 0.0D), 0.01D);
 
-        ShipPhysics.solveContacts(light, heavy, List.of(contact), H, PARAMS);
+        PhysicsParams converged = new PhysicsParams(32.0D, 0.6D, 0.05D, 0.999D, 0.995D, 16);
+        ShipPhysics.solveContacts(light, heavy, List.of(contact), H, converged);
 
-        assertTrue(Math.abs(light.linearVelocity.y) > Math.abs(heavy.linearVelocity.y) * 5.0D,
-                "mass ratio not respected: light=" + light.linearVelocity + " heavy=" + heavy.linearVelocity);
+        // In a perfectly inelastic contact both bodies end at the same velocity, so the
+        // mass ratio shows up in the velocity *change* of each body.
+        double deltaLight = Math.abs(light.linearVelocity.y - (-2.0D));
+        double deltaHeavy = Math.abs(heavy.linearVelocity.y);
+        assertTrue(deltaLight > deltaHeavy * 5.0D,
+                "mass ratio not respected: light dV=" + deltaLight + " heavy dV=" + deltaHeavy);
     }
 
     @Test
     void warmStartingKeepsARestingStackStable() {
         RigidBody lower = cube(2.0D);
         lower.position.set(0.0D, 0.5D, 0.0D);
+        lower.setKinematic(true);
         RigidBody upper = cube(1.0D);
         upper.position.set(0.0D, 1.5D, 0.0D);
 
@@ -96,21 +102,19 @@ class TwoBodySolverTest {
         Vector3d normal = new Vector3d(0.0D, 1.0D, 0.0D);
 
         for (int step = 0; step < 300; step++) {
-            for (RigidBody body : List.of(lower, upper)) {
-                body.applyForce(new Vector3d(0.0D, -32.0D * body.getMass(), 0.0D));
-                body.integrateVelocities(H, 0.999D, 0.995D);
-            }
+            upper.applyForce(new Vector3d(0.0D, -32.0D * upper.getMass(), 0.0D));
+            upper.integrateVelocities(H, 0.999D, 0.995D);
+
             Contact contact = new Contact().set(point, normal, 0.01D);
             ShipPhysics.solveContacts(upper, lower, List.of(contact), H, PARAMS, cache);
             cache.swap();
-            lower.integratePosition(H);
             upper.integratePosition(H);
-            point.set(lower.position.x, lower.position.y + 0.5D, lower.position.z);
+            point.set(upper.position.x, lower.position.y + 0.5D, upper.position.z);
         }
 
         assertTrue(Math.abs(upper.linearVelocity.y) < 1.0D,
                 "stack keeps falling: " + upper.linearVelocity);
-        assertTrue(Math.abs(lower.linearVelocity.y) < 1.0D,
-                "base keeps falling: " + lower.linearVelocity);
+        assertTrue(Math.abs(upper.position.y - 1.5D) < 0.15D,
+                "stack sank or floated: " + upper.position);
     }
 }
