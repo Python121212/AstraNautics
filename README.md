@@ -3,7 +3,7 @@
 Minecraft **1.20.1 / Forge 47.x** 向けの MOD です。
 
 - Mod ID: `astranautics`
-- Version: `1.1.0`
+- Version: `2.0.0`
 - Minecraft: `1.20.1`（`[1.20.1,1.21)`）
 - Forge: `47.x`（`[47,)`）
 - Java: 17
@@ -12,39 +12,47 @@ Minecraft **1.20.1 / Forge 47.x** 向けの MOD です。
 
 ### グラビティ・アンカー（Gravity Anchor）
 
-周囲のエンティティに重力を及ぼすブロックです。
+周囲のブロック構造を**剛体として切り離し、物理演算で動かす**ブロックです
+（Create: Aeronautics / Valkyrien Skies 系）。
 
-- `enabled=true`（物理演算 ON）のとき、半径 `radius`（既定 12 ブロック）以内の
-  エンティティをアンカー中心へ向かって加速させます（距離による線形減衰つき）。
-- `enabled=false`（OFF）のときは何もせず、バニラの物理演算のみになります。
-- 状態はブロックステート `enabled` で保持され、ON のときは発光（明るさ 10）します。
-- 描画は通常のブロックモデル（BE はサーバー側の物理演算専用）。
+- `enabled=true`（物理演算 ON）にすると、アンカーに繋がっているブロック群を
+  半径 `assemblyRadius`（既定 8）以内で BFS 探索し、1 つの剛体（`GravityShip`）として
+  ワールドから切り離します。
+- 切り離された構造物は質量・慣性テンソルを持ち、重力・摩擦・反発・回転を伴って
+  落下・滑走・衝突します。
+- `enabled=false`（OFF）にすると構造物はその場でブロックに戻ります（`dissolve`）。
 
 ### グラビティ・トグルスイッチ（Gravity Toggle Switch）
 
-アンカーに**隣接**させて設置するスイッチです。
+アンカーに**隣接**させて設置するスイッチです。**右クリック**で隣接する
+（6 方向すべての）アンカーの物理演算を一括 ON/OFF します。
 
-- **右クリック**で、隣接する（6 方向すべての）グラビティ・アンカーの
-  物理演算をまとめて ON / OFF します。
-- 隣接アンカーが無い場合はアクションバーにメッセージを表示します。
-- スイッチ自体も `enabled` ブロックステートを持ち、ON でランプが緑・明るさ 7 になります。
+## 物理演算エンジン
 
-### 物理演算の内容
+詳細は [docs/PHYSICS.md](docs/PHYSICS.md) を参照してください。概要:
 
-`GravityAnchorBlockEntity#serverTick` が 2 tick に 1 回（10 回/秒）実行されます。
+| 要素 | 実装 |
+|---|---|
+| 剛体 | 位置・姿勢クォータニオン・線形/角速度、6 DOF |
+| 質量特性 | ブロック硬さベースの質量 + 平行軸の定理による慣性テンソル |
+| 衝突 | 表面ボクセル OBB × ワールドブロック AABB の **SAT（15軸）** |
+| 求解 | 逐次インパルス法（累積インパルス + クランプ、クーロン摩擦、Baumgarte 補正） |
+| 積分 | 半陰的オイラー、1 tick あたり可変サブステップ（高速時は自動で増加） |
+| 同期 | 位置=バニラ同期 / 姿勢=SynchedEntityData(FLOAT×4) / 構造=Base64文字列 |
+| 描画 | `GravityShipRenderer` がクォータニオンを適用し全ボクセルを描画 |
+| 保存 | 構造と剛体状態をエンティティ NBT に保存 |
 
-1. `enabled` が false なら何もしない
-2. 半径内の（スペクテイター以外の）生存エンティティを取得
-3. 中心からの距離で減衰する加速度を加算
-4. 速度が `maxSpeed` を超えないようにクランプしてクライアントへ同期
+### 検証（GitHub Actions 上のユニットテスト）
 
-### 設定（`config/astranautics-common.toml`）
+`src/test/java/com/astranautics/physics/` に物理コアのテストがあり、
+`./gradlew test` で CI 上で実行されています（合成ボクセルワールドでの実シミュレーション）。
 
-| キー | 既定値 | 説明 |
-|---|---|---|
-| `gravity_anchor.radius` | `12.0` | 重力場の半径（ブロック） |
-| `gravity_anchor.strength` | `0.08` | 1 ステップあたりの加速度 |
-| `gravity_anchor.maxSpeed` | `1.2` | 加速後の最大速度（blocks/tick） |
+- 立方体が床の上で静止する（sink/float しない）
+- 高速落下でも床を突き抜けない
+- 壁に衝突して停止する
+- 角から落ちると落下する
+- 運動学的（OFF）ボディは動かない
+- 貫通時の法線・深さ（SAT）、点速度・角運動量・クォータニオン正規化
 
 ## レシピ
 
@@ -84,7 +92,20 @@ src/main/java/com/astranautics/
     block/GravityAnchorBlock.java     グラビティ・アンカー
     block/GravitySwitchBlock.java     トグルスイッチ
     block/entity/ModBlockEntities.java
-    block/entity/GravityAnchorBlockEntity.java   物理演算本体
+    block/entity/GravityAnchorBlockEntity.java   アンカーと船のリンク管理
+    block/entity/ShipAssembler.java   構造物の切り離し（BFS）
+    entity/GravityShip.java           物理演算される構造物エンティティ
+    entity/ModEntities.java           エンティティ登録
+    physics/RigidBody.java            剛体（質量・慣性・力積）
+    physics/ShipStructure.java        ボクセル構造と質量特性
+    physics/CollisionDetector.java    衝突検出
+    physics/Obb.java                  OBB / SAT
+    physics/ShipPhysics.java          逐次インパルスソルバ
+    physics/BlockCollisionSource.java 衝突形状の供給元（テスト可能）
+    physics/LevelCollisionSource.java 実ワールド版
+    physics/ShipStructureCodec.java   構造のシリアライズ
+    client/GravityShipRenderer.java   船の描画
+    client/AstraClientEvents.java     クライアント登録
     config/AstraConfig.java           共通コンフィグ
     item/ModItems.java                ブロックアイテム登録
 src/main/resources/META-INF/mods.toml
@@ -98,7 +119,7 @@ tools/build_jar.py            ForgeGradle 無しで最小 jar を作るフォー
 
 ```bash
 ./gradlew build
-# => build/libs/astranautics-1.1.0.jar
+# => build/libs/astranautics-2.0.0.jar
 ```
 
 開発用クライアント起動:
@@ -117,6 +138,15 @@ python3 tools/gen_textures.py
 
 - `.github/workflows/build.yml` — push / PR ごとにコンパイルとリソース JSON 検証
 - `.github/workflows/release.yml` — タグ push または手動実行で jar をビルドし Release に添付
+
+## 既知の制限
+
+`docs/PHYSICS.md` の「既知の制限」に詳細があります。要点:
+
+- 船 vs エンティティ / 船 vs 船の衝突は未実装（ワールドとのみ衝突）
+- 浮力・空気抵抗・推力（プロペラ）などの空気力学は未実装
+- 物理はサーバースレッドで計算（スレッディングなし）
+- 船上でのブロック操作・レッドストーン・インベントリは未対応
 
 ## ライセンス
 
