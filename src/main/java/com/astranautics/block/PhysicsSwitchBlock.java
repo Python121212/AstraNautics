@@ -20,12 +20,12 @@ import net.minecraft.world.phys.BlockHitResult;
 
 /**
  * A small toggle switch. Right-clicking it flips the physics simulation of every
- * {@link GravityAnchorBlock} that is directly adjacent to it (all six sides).
+ * {@link PhysicsAssemblerBlock} that is directly adjacent to it (all six sides).
  */
-public class GravitySwitchBlock extends Block {
+public class PhysicsSwitchBlock extends Block {
     public static final BooleanProperty ENABLED = BooleanProperty.create("enabled");
 
-    public GravitySwitchBlock() {
+    public PhysicsSwitchBlock() {
         super(BlockBehaviour.Properties.of()
                 .mapColor(MapColor.METAL)
                 .strength(2.0F, 6.0F)
@@ -56,12 +56,12 @@ public class GravitySwitchBlock extends Block {
 
         if (toggled == 0) {
             player.displayClientMessage(
-                    Component.translatable("message.astranautics.gravity_switch.no_anchor"), true);
+                    Component.translatable("message.astranautics.physics_switch.no_anchor"), true);
         } else {
             player.displayClientMessage(
                     Component.translatable(newState
-                                    ? "message.astranautics.gravity_switch.on"
-                                    : "message.astranautics.gravity_switch.off",
+                                    ? "message.astranautics.physics_switch.on"
+                                    : "message.astranautics.physics_switch.off",
                             toggled), true);
         }
 
@@ -73,9 +73,9 @@ public class GravitySwitchBlock extends Block {
         for (Direction direction : Direction.values()) {
             BlockPos neighbourPos = pos.relative(direction);
             BlockState neighbour = level.getBlockState(neighbourPos);
-            if (neighbour.getBlock() instanceof GravityAnchorBlock) {
+            if (neighbour.getBlock() instanceof PhysicsAssemblerBlock) {
                 level.setBlock(neighbourPos,
-                        neighbour.setValue(GravityAnchorBlock.ENABLED, enabled), 3);
+                        neighbour.setValue(PhysicsAssemblerBlock.ENABLED, enabled), 3);
                 level.playSound(null, neighbourPos,
                         enabled ? SoundEvents.BEACON_ACTIVATE : SoundEvents.BEACON_DEACTIVATE,
                         SoundSource.BLOCKS, 0.7F, enabled ? 1.4F : 0.7F);

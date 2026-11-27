@@ -4,6 +4,8 @@ import com.astranautics.block.ModBlocks;
 import com.astranautics.block.entity.ModBlockEntities;
 import com.astranautics.config.AstraConfig;
 import com.astranautics.entity.ModEntities;
+import com.astranautics.physics.ShipPhysicsTicker;
+import com.astranautics.physics.ShipWorld;
 import com.astranautics.item.ModItems;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.eventbus.api.IEventBus;
@@ -18,7 +20,7 @@ import org.slf4j.LoggerFactory;
 /**
  * AstraNautics - Minecraft 1.20.1 / Forge mod entry point.
  *
- * <p>Adds the <strong>Gravity Anchor</strong>, which detaches a connected block
+ * <p>Adds the <strong>Physics Assembler</strong>, which detaches a connected block
  * structure and simulates it as a rigid body, and the <strong>Gravity Toggle
  * Switch</strong> that turns the simulation of every adjacent anchor on and off.</p>
  */
@@ -40,6 +42,7 @@ public class AstraNautics {
         ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, AstraConfig.SPEC);
 
         MinecraftForge.EVENT_BUS.register(this);
+        MinecraftForge.EVENT_BUS.register(ShipPhysicsTicker.class);
     }
 
     private void commonSetup(final FMLCommonSetupEvent event) {

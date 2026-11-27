@@ -11,7 +11,7 @@
     "S": { "item": "minecraft:stone" }
   },
   "result": {
-    "item": "astranautics:gravity_switch",
+    "item": "astranautics:physics_switch",
     "count": 1
   }
 }

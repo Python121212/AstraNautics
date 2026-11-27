@@ -1,8 +1,8 @@
 package com.astranautics.block.entity;
 
-import com.astranautics.block.GravityAnchorBlock;
+import com.astranautics.block.PhysicsAssemblerBlock;
 import com.astranautics.config.AstraConfig;
-import com.astranautics.entity.GravityShip;
+import com.astranautics.entity.PhysicsShip;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
@@ -23,15 +23,15 @@ import java.util.UUID;
  *     <li>{@code !enabled} and a ship &rarr; dissolve it back into the world</li>
  * </ul>
  */
-public class GravityAnchorBlockEntity extends BlockEntity {
+public class PhysicsAssemblerBlockEntity extends BlockEntity {
     private static final int CHECK_INTERVAL = 4;
 
     @Nullable
     private UUID shipId;
     private int failedAssemblies;
 
-    public GravityAnchorBlockEntity(BlockPos pos, BlockState state) {
-        super(ModBlockEntities.GRAVITY_ANCHOR.get(), pos, state);
+    public PhysicsAssemblerBlockEntity(BlockPos pos, BlockState state) {
+        super(ModBlockEntities.PHYSICS_ASSEMBLER.get(), pos, state);
     }
 
     @Nullable
@@ -39,7 +39,7 @@ public class GravityAnchorBlockEntity extends BlockEntity {
         return shipId;
     }
 
-    public static void serverTick(Level level, BlockPos pos, BlockState state, GravityAnchorBlockEntity anchor) {
+    public static void serverTick(Level level, BlockPos pos, BlockState state, PhysicsAssemblerBlockEntity anchor) {
         if (!(level instanceof ServerLevel serverLevel)) {
             return;
         }
@@ -47,15 +47,15 @@ public class GravityAnchorBlockEntity extends BlockEntity {
             return;
         }
 
-        boolean enabled = state.getValue(GravityAnchorBlock.ENABLED);
-        GravityShip ship = anchor.resolveShip(serverLevel);
+        boolean enabled = state.getValue(PhysicsAssemblerBlock.ENABLED);
+        PhysicsShip ship = anchor.resolveShip(serverLevel);
 
         if (enabled && ship == null) {
             if (anchor.failedAssemblies > 0) {
                 // Avoid retrying every tick on a hopeless structure.
                 return;
             }
-            GravityShip assembled = ShipAssembler.assemble(serverLevel, pos,
+            PhysicsShip assembled = ShipAssembler.assemble(serverLevel, pos,
                     AstraConfig.ASSEMBLY_RADIUS.get(), AstraConfig.MAX_BLOCKS.get());
             if (assembled != null) {
                 anchor.shipId = assembled.getUUID();
@@ -63,7 +63,7 @@ public class GravityAnchorBlockEntity extends BlockEntity {
                 anchor.setChanged();
             } else {
                 anchor.failedAssemblies = 20;
-                serverLevel.setBlock(pos, state.setValue(GravityAnchorBlock.ENABLED, false), 3);
+                serverLevel.setBlock(pos, state.setValue(PhysicsAssemblerBlock.ENABLED, false), 3);
             }
         } else if (!enabled && ship != null) {
             ship.dissolve(serverLevel);
@@ -81,12 +81,12 @@ public class GravityAnchorBlockEntity extends BlockEntity {
     }
 
     @Nullable
-    private GravityShip resolveShip(ServerLevel level) {
+    private PhysicsShip resolveShip(ServerLevel level) {
         if (shipId == null) {
             return null;
         }
         Entity entity = level.getEntity(shipId);
-        if (entity instanceof GravityShip ship && ship.isAlive()) {
+        if (entity instanceof PhysicsShip ship && ship.isAlive()) {
             return ship;
         }
         shipId = null;

@@ -12,12 +12,12 @@ public class ModBlocks {
             DeferredRegister.create(ForgeRegistries.BLOCKS, AstraNautics.MODID);
 
     /** Pulls entities towards itself while its physics simulation is enabled. */
-    public static final RegistryObject<Block> GRAVITY_ANCHOR =
-            BLOCKS.register("gravity_anchor", GravityAnchorBlock::new);
+    public static final RegistryObject<Block> PHYSICS_ASSEMBLER =
+            BLOCKS.register("physics_assembler", PhysicsAssemblerBlock::new);
 
-    /** Small wall switch that toggles every adjacent gravity anchor. */
-    public static final RegistryObject<Block> GRAVITY_SWITCH =
-            BLOCKS.register("gravity_switch", GravitySwitchBlock::new);
+    /** Small wall switch that toggles every adjacent physics assembler. */
+    public static final RegistryObject<Block> PHYSICS_SWITCH =
+            BLOCKS.register("physics_switch", PhysicsSwitchBlock::new);
 
     public static void register(IEventBus eventBus) {
         BLOCKS.register(eventBus);

@@ -1,10 +1,14 @@
 package com.astranautics.entity;
 
 import com.astranautics.config.AstraConfig;
+import com.astranautics.physics.ContactCache;
+import com.astranautics.physics.PhysicsParams;
 import com.astranautics.physics.RigidBody;
 import com.astranautics.physics.ShipPhysics;
 import com.astranautics.physics.ShipStructure;
 import com.astranautics.physics.ShipStructureCodec;
+import com.astranautics.physics.ShipWorld;
+import com.astranautics.physics.VoxelSpatialIndex;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
@@ -18,6 +22,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
+import org.jetbrains.annotations.Nullable;
 import org.joml.Matrix3d;
 import org.joml.Quaterniond;
 import org.joml.Vector3d;
@@ -29,32 +34,42 @@ import java.util.Map;
  * single rigid body.
  *
  * <p>The entity position is the centre of mass; the voxel grid is kept in local
- * coordinates and rendered with the synced orientation quaternion.</p>
+ * coordinates and rendered with the synced orientation.</p>
  */
-public class GravityShip extends Entity {
+public class PhysicsShip extends Entity {
     private static final EntityDataAccessor<String> DATA_STRUCTURE =
-            SynchedEntityData.defineId(GravityShip.class, EntityDataSerializers.STRING);
+            SynchedEntityData.defineId(PhysicsShip.class, EntityDataSerializers.STRING);
     private static final EntityDataAccessor<Float> DATA_QX =
-            SynchedEntityData.defineId(GravityShip.class, EntityDataSerializers.FLOAT);
+            SynchedEntityData.defineId(PhysicsShip.class, EntityDataSerializers.FLOAT);
     private static final EntityDataAccessor<Float> DATA_QY =
-            SynchedEntityData.defineId(GravityShip.class, EntityDataSerializers.FLOAT);
+            SynchedEntityData.defineId(PhysicsShip.class, EntityDataSerializers.FLOAT);
     private static final EntityDataAccessor<Float> DATA_QZ =
-            SynchedEntityData.defineId(GravityShip.class, EntityDataSerializers.FLOAT);
+            SynchedEntityData.defineId(PhysicsShip.class, EntityDataSerializers.FLOAT);
     private static final EntityDataAccessor<Float> DATA_QW =
-            SynchedEntityData.defineId(GravityShip.class, EntityDataSerializers.FLOAT);
+            SynchedEntityData.defineId(PhysicsShip.class, EntityDataSerializers.FLOAT);
 
     private final RigidBody body = new RigidBody();
+    private final ContactCache contactCache = new ContactCache();
     private ShipStructure structure;
     private boolean structureSyncPending;
+    @Nullable
+    private VoxelSpatialIndex spatialIndex;
+
+    // Sleeping (perf): a settled ship skips the solver until something wakes it.
+    private boolean sleeping;
+    private int sleepTicks;
 
     // Client-side interpolation of the orientation
     private final Quaterniond currentClientOrientation = new Quaterniond();
     private final Quaterniond previousClientOrientation = new Quaterniond();
     private boolean clientOrientationKnown;
 
-    public GravityShip(EntityType<?> type, Level level) {
+    public PhysicsShip(EntityType<?> type, Level level) {
         super(type, level);
         this.noCulling = true;
+        if (!level.isClientSide) {
+            ShipWorld.add(this);
+        }
     }
 
     @Override
@@ -76,9 +91,12 @@ public class GravityShip extends Entity {
         this.body.setKinematic(false);
         this.setPos(worldCenterOfMass.x, worldCenterOfMass.y, worldCenterOfMass.z);
         this.structureSyncPending = true;
+        this.spatialIndex = null;
+        this.wake();
         this.pushOrientation();
     }
 
+    @Nullable
     public ShipStructure getStructure() {
         if (this.structure == null && this.level().isClientSide) {
             this.structure = ShipStructureCodec.decode(this.entityData.get(DATA_STRUCTURE));
@@ -88,6 +106,29 @@ public class GravityShip extends Entity {
 
     public RigidBody getBody() {
         return body;
+    }
+
+    public boolean isSleeping() {
+        return sleeping;
+    }
+
+    public void wake() {
+        this.sleeping = false;
+        this.sleepTicks = 0;
+    }
+
+    /** Rebuilds the per-tick broad-phase index used by collisions and rendering. */
+    public void refreshSpatialIndex() {
+        ShipStructure current = getStructure();
+        this.spatialIndex = current == null ? null : VoxelSpatialIndex.build(this.body, current);
+    }
+
+    @Nullable
+    public VoxelSpatialIndex getSpatialIndex() {
+        if (this.spatialIndex == null) {
+            refreshSpatialIndex();
+        }
+        return this.spatialIndex;
     }
 
     public Quaterniond getRenderOrientation(float partialTick) {
@@ -118,6 +159,7 @@ public class GravityShip extends Entity {
         super.onSyncedDataUpdated(key);
         if (this.level().isClientSide && DATA_STRUCTURE.equals(key)) {
             this.structure = ShipStructureCodec.decode(this.entityData.get(DATA_STRUCTURE));
+            this.spatialIndex = null;
         }
     }
 
@@ -145,23 +187,51 @@ public class GravityShip extends Entity {
             this.structureSyncPending = false;
         }
 
+        if (this.sleeping) {
+            return;
+        }
+
+        PhysicsParams params = PhysicsParams.fromConfig();
+
         // Adaptive substepping: fast ships get more substeps so they cannot tunnel
-        // through the world between two collisions checks.
+        // through the world between two collision checks.
         double speed = Math.max(this.body.linearVelocity.length(),
                 this.body.angularVelocity.length() * 4.0D);
         int substeps = Math.max(AstraConfig.SUBSTEPS.get(),
                 Math.min(16, (int) Math.ceil(speed * (1.0D / 20.0D) / 0.4D)));
         double h = (1.0D / 20.0D) / substeps;
+
         for (int i = 0; i < substeps; i++) {
-            ShipPhysics.step(level, this.body, this.structure, h);
+            ShipPhysics.step(level, this.body, this.structure, h, params, this.contactCache);
         }
 
         this.setPos(body.position.x, body.position.y, body.position.z);
         this.pushOrientation();
+        this.spatialIndex = null;
+        this.updateSleepState();
 
         if (body.position.y < level.getMinBuildHeight() - 48.0D) {
-            // Fell out of the world: give the blocks back as items at the void edge.
             dissolve(level);
+        }
+    }
+
+    private void updateSleepState() {
+        double linear = this.body.linearVelocity.length();
+        double angular = this.body.angularVelocity.length();
+        boolean slow = linear < AstraConfig.SLEEP_LINEAR_THRESHOLD.get()
+                && angular < AstraConfig.SLEEP_ANGULAR_THRESHOLD.get();
+
+        if (!slow) {
+            this.sleepTicks = 0;
+            return;
+        }
+
+        this.sleepTicks++;
+        if (this.sleepTicks >= AstraConfig.SLEEP_TICKS.get()) {
+            this.sleeping = true;
+            this.body.linearVelocity.zero();
+            this.body.angularVelocity.zero();
+            this.contactCache.clear();
         }
     }
 
@@ -188,6 +258,13 @@ public class GravityShip extends Entity {
             this.structure = null;
         }
         this.discard();
+    }
+
+    @Override
+    public void remove(RemovalReason reason) {
+        super.remove(reason);
+        ShipWorld.remove(this);
+        this.contactCache.clear();
     }
 
     @Override
@@ -250,10 +327,5 @@ public class GravityShip extends Entity {
     @Override
     public boolean isPushable() {
         return false;
-    }
-
-    /** Unused, but keeps the capability for future EMP-style torque effects. */
-    public void addTorque(Vector3d worldTorque) {
-        this.body.applyAngularImpulse(worldTorque);
     }
 }

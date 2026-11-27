@@ -1,6 +1,6 @@
 package com.astranautics.block;
 
-import com.astranautics.block.entity.GravityAnchorBlockEntity;
+import com.astranautics.block.entity.PhysicsAssemblerBlockEntity;
 import com.astranautics.block.entity.ModBlockEntities;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.Level;
@@ -19,15 +19,15 @@ import net.minecraft.world.level.material.MapColor;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * The gravity anchor.
+ * The physics assembler.
  *
  * <p>Switching it on detaches the connected structure around it and hands it to the
  * rigid body physics simulation; switching it off puts the blocks back.</p>
  */
-public class GravityAnchorBlock extends BaseEntityBlock {
+public class PhysicsAssemblerBlock extends BaseEntityBlock {
     public static final BooleanProperty ENABLED = BooleanProperty.create("enabled");
 
-    public GravityAnchorBlock() {
+    public PhysicsAssemblerBlock() {
         super(BlockBehaviour.Properties.of()
                 .mapColor(MapColor.COLOR_PURPLE)
                 .strength(4.0F, 12.0F)
@@ -49,7 +49,7 @@ public class GravityAnchorBlock extends BaseEntityBlock {
     @Nullable
     @Override
     public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
-        return new GravityAnchorBlockEntity(pos, state);
+        return new PhysicsAssemblerBlockEntity(pos, state);
     }
 
     @Nullable
@@ -59,8 +59,8 @@ public class GravityAnchorBlock extends BaseEntityBlock {
         if (level.isClientSide) {
             return null;
         }
-        return createTickerHelper(type, ModBlockEntities.GRAVITY_ANCHOR.get(),
-                GravityAnchorBlockEntity::serverTick);
+        return createTickerHelper(type, ModBlockEntities.PHYSICS_ASSEMBLER.get(),
+                PhysicsAssemblerBlockEntity::serverTick);
     }
 
     @Override

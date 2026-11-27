@@ -1,7 +1,7 @@
 {
   "replace": false,
   "values": [
-    "astranautics:gravity_anchor",
-    "astranautics:gravity_switch"
+    "astranautics:physics_assembler",
+    "astranautics:physics_switch"
   ]
 }

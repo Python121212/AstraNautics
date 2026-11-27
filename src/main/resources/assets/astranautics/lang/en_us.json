@@ -1,9 +1,9 @@
 {
-  "block.astranautics.gravity_anchor": "Gravity Anchor",
-  "block.astranautics.gravity_switch": "Gravity Toggle Switch",
-  "entity.astranautics.gravity_ship": "Physics Ship",
-  "message.astranautics.gravity_switch.no_anchor": "No Gravity Anchor is adjacent to this switch",
-  "message.astranautics.gravity_switch.on": "Physics ON - %s anchor(s) released",
-  "message.astranautics.gravity_switch.off": "Physics OFF - %s anchor(s) frozen",
+  "block.astranautics.physics_assembler": "Physics Assembler",
+  "block.astranautics.physics_switch": "Physics Toggle Switch",
+  "entity.astranautics.physics_ship": "Physics Ship",
+  "message.astranautics.physics_switch.no_anchor": "No Physics Assembler is adjacent to this switch",
+  "message.astranautics.physics_switch.on": "Physics ON - %s anchor(s) released",
+  "message.astranautics.physics_switch.off": "Physics OFF - %s anchor(s) frozen",
   "itemGroup.astranautics": "AstraNautics"
 }
