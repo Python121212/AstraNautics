@@ -17,6 +17,8 @@ public final class ShipPhysics {
     private static final double SLOP = 0.005D;
     private static final double BAUMGARTE = 0.2D;
     private static final double RUBBER_EPSILON = 1.0E-6D;
+    /** Impacts slower than this do not bounce, which stops resting bodies from jittering. */
+    private static final double RESTITUTION_THRESHOLD = 1.0D;
 
     private ShipPhysics() {
     }
@@ -77,7 +79,8 @@ public final class ShipPhysics {
                 }
 
                 double bias = BAUMGARTE / h * Math.max(contact.penetration - SLOP, 0.0D);
-                double target = -(1.0D + (approaching ? restitution : 0.0D)) * normalVelocity + bias;
+                boolean bounce = normalVelocity < -RESTITUTION_THRESHOLD;
+                double target = -(1.0D + (bounce ? restitution : 0.0D)) * normalVelocity + bias;
                 double normalImpulse = target / effectiveMass;
                 if (normalImpulse <= 0.0D) {
                     continue;
