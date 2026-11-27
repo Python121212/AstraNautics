@@ -1,6 +1,7 @@
 package com.astranautics.entity;
 
 import com.astranautics.AstraNautics;
+import com.astranautics.block.PhysicsSwitchBlock;
 import com.astranautics.config.AstraConfig;
 import com.astranautics.physics.ContactCache;
 import com.astranautics.physics.PhysicsParams;
@@ -370,6 +371,11 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
 
                 BlockPos target = BlockPos.containing(world.x, world.y, world.z);
                 BlockState state = entry.getValue();
+                if (state.getBlock() instanceof PhysicsSwitchBlock) {
+                    // The hull carried the switch in its ON position: put it back OFF so it
+                    // is ready to be switched on again.
+                    state = state.setValue(PhysicsSwitchBlock.ENABLED, false);
+                }
                 if (level.isEmptyBlock(target) || level.getBlockState(target).canBeReplaced()) {
                     level.setBlock(target, state, 3);
                 } else {
@@ -439,13 +445,16 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
     }
 
     /**
-     * Right-click interaction.
+     * Right-click interaction with the hull.
+     *
+     * <p>The switch is part of the structure, so flipping it off is done by simply
+     * using the hull: an empty hand (or any non-block item) turns the switch off and
+     * puts every block back. A block in hand bolts that block onto the hull instead.</p>
      *
      * <ul>
-     *     <li>shift + right-click: put every block back and remove the ship</li>
-     *     <li>right-click with a block: bolt that block onto the hull (it becomes part
-     *         of the rigid body)</li>
-     *     <li>right-click with an empty hand: report blocks / mass / speed</li>
+     *     <li>right-click with an empty hand / non-block item: switch OFF, blocks restored</li>
+     *     <li>right-click with a block: extend the hull (the block becomes part of the body)</li>
+     *     <li>shift + right-click: report blocks / mass / speed</li>
      * </ul>
      */
     @Override
@@ -463,10 +472,11 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
         ItemStack stack = player.getItemInHand(hand);
 
         if (player.isShiftKeyDown()) {
-            int blocks = this.structure.voxels().size();
-            this.dissolve(level);
-            player.displayClientMessage(Component.translatable(
-                    "message.astranautics.ship.dissolved", blocks).withStyle(ChatFormatting.GRAY), false);
+            player.displayClientMessage(Component.translatable("message.astranautics.ship.status",
+                    this.structure.voxels().size(),
+                    String.format("%.1f", this.body.getMass()),
+                    String.format("%.2f", this.body.linearVelocity.length()))
+                    .withStyle(ChatFormatting.GOLD), false);
             return InteractionResult.CONSUME;
         }
 
@@ -489,11 +499,15 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
             return InteractionResult.CONSUME;
         }
 
-        player.displayClientMessage(Component.translatable("message.astranautics.ship.status",
-                this.structure.voxels().size(),
-                String.format("%.1f", this.body.getMass()),
-                String.format("%.2f", this.body.linearVelocity.length()))
-                .withStyle(ChatFormatting.GOLD), false);
+        // Switch OFF: the hull turns back into blocks (the switch comes back switched off).
+        int blocks = this.structure.voxels().size();
+        level.playSound(null, this.getX(), this.getY(), this.getZ(),
+                SoundEvents.LEVER_CLICK, SoundSource.BLOCKS, 0.6F, 0.6F);
+        level.playSound(null, this.getX(), this.getY(), this.getZ(),
+                SoundEvents.BEACON_DEACTIVATE, SoundSource.BLOCKS, 0.5F, 0.7F);
+        this.dissolve(level);
+        player.displayClientMessage(Component.translatable(
+                "message.astranautics.ship.switched_off", blocks).withStyle(ChatFormatting.GRAY), false);
         return InteractionResult.CONSUME;
     }
 
