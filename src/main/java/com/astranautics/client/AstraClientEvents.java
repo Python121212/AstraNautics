@@ -14,6 +14,6 @@ public final class AstraClientEvents {
 
     @SubscribeEvent
     public static void registerRenderers(EntityRenderersEvent.RegisterRenderers event) {
-        event.registerEntityRenderer(ModEntities.GRAVITY_SHIP.get(), GravityShipRenderer::new);
+        event.registerEntityRenderer(ModEntities.GRAVITY_SHIP.get(), PhysicsShipRenderer::new);
     }
 }

@@ -1,6 +1,6 @@
 package com.astranautics.client;
 
-import com.astranautics.entity.GravityShip;
+import com.astranautics.entity.PhysicsShip;
 import com.astranautics.physics.ShipStructure;
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.Minecraft;
@@ -20,21 +20,21 @@ import org.joml.Vector3d;
 /**
  * Renders a physics ship by drawing every voxel with the ship's orientation.
  */
-public class GravityShipRenderer extends EntityRenderer<GravityShip> {
+public class PhysicsShipRenderer extends EntityRenderer<PhysicsShip> {
     private static final ResourceLocation FALLBACK_TEXTURE =
             new ResourceLocation("minecraft", "textures/block/stone.png");
 
-    public GravityShipRenderer(EntityRendererProvider.Context context) {
+    public PhysicsShipRenderer(EntityRendererProvider.Context context) {
         super(context);
     }
 
     @Override
-    public ResourceLocation getTextureLocation(GravityShip entity) {
+    public ResourceLocation getTextureLocation(PhysicsShip entity) {
         return FALLBACK_TEXTURE;
     }
 
     @Override
-    public void render(GravityShip entity, float entityYaw, float partialTick, PoseStack poseStack,
+    public void render(PhysicsShip entity, float entityYaw, float partialTick, PoseStack poseStack,
                        MultiBufferSource bufferSource, int packedLight) {
         ShipStructure structure = entity.getStructure();
         if (structure == null || structure.voxels().isEmpty()) {

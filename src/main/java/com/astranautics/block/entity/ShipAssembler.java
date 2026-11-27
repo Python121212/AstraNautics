@@ -1,8 +1,8 @@
 package com.astranautics.block.entity;
 
-import com.astranautics.block.GravityAnchorBlock;
-import com.astranautics.block.GravitySwitchBlock;
-import com.astranautics.entity.GravityShip;
+import com.astranautics.block.PhysicsAssemblerBlock;
+import com.astranautics.block.PhysicsSwitchBlock;
+import com.astranautics.entity.PhysicsShip;
 import com.astranautics.entity.ModEntities;
 import com.astranautics.physics.BlockPhysics;
 import com.astranautics.physics.ShipStructure;
@@ -23,8 +23,8 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Detaches a connected blob of blocks around a gravity anchor and turns it into a
- * {@link GravityShip}.
+ * Detaches a connected blob of blocks around a physics assembler and turns it into a
+ * {@link PhysicsShip}.
  */
 public final class ShipAssembler {
     private ShipAssembler() {
@@ -37,7 +37,7 @@ public final class ShipAssembler {
      * @return the new ship, or {@code null} when nothing suitable was found
      */
     @Nullable
-    public static GravityShip assemble(ServerLevel level, BlockPos anchorPos, int radius, int maxBlocks) {
+    public static PhysicsShip assemble(ServerLevel level, BlockPos anchorPos, int radius, int maxBlocks) {
         Set<BlockPos> found = floodFill(level, anchorPos, radius, maxBlocks);
         if (found.isEmpty()) {
             return null;
@@ -67,7 +67,7 @@ public final class ShipAssembler {
                 corner.getY() + centerOfMass.y,
                 corner.getZ() + centerOfMass.z);
 
-        GravityShip ship = ModEntities.GRAVITY_SHIP.get().create(level);
+        PhysicsShip ship = ModEntities.GRAVITY_SHIP.get().create(level);
         if (ship == null) {
             return null;
         }
@@ -125,7 +125,7 @@ public final class ShipAssembler {
         if (!state.getFluidState().isEmpty()) {
             return false;
         }
-        if (state.getBlock() instanceof GravityAnchorBlock || state.getBlock() instanceof GravitySwitchBlock) {
+        if (state.getBlock() instanceof PhysicsAssemblerBlock || state.getBlock() instanceof PhysicsSwitchBlock) {
             return false;
         }
         BlockEntity blockEntity = level.getBlockEntity(pos);

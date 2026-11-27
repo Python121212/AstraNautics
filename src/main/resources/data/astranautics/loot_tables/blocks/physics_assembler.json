@@ -7,7 +7,7 @@
       "entries": [
         {
           "type": "minecraft:item",
-          "name": "astranautics:gravity_switch"
+          "name": "astranautics:physics_assembler"
         }
       ],
       "conditions": [

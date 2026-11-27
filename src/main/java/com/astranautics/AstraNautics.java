@@ -20,7 +20,7 @@ import org.slf4j.LoggerFactory;
 /**
  * AstraNautics - Minecraft 1.20.1 / Forge mod entry point.
  *
- * <p>Adds the <strong>Gravity Anchor</strong>, which detaches a connected block
+ * <p>Adds the <strong>Physics Assembler</strong>, which detaches a connected block
  * structure and simulates it as a rigid body, and the <strong>Gravity Toggle
  * Switch</strong> that turns the simulation of every adjacent anchor on and off.</p>
  */

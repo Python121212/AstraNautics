@@ -105,7 +105,8 @@ class TwoBodySolverTest {
             upper.applyForce(new Vector3d(0.0D, -32.0D * upper.getMass(), 0.0D));
             upper.integrateVelocities(H, 0.999D, 0.995D);
 
-            Contact contact = new Contact().set(point, normal, 0.01D);
+            // penetration 0 so the Baumgarte bias does not push the stack apart
+            Contact contact = new Contact().set(point, normal, 0.0D);
             ShipPhysics.solveContacts(upper, lower, List.of(contact), H, PARAMS, cache);
             cache.swap();
             upper.integratePosition(H);

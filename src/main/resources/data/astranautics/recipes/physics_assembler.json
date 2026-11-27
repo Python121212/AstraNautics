@@ -13,7 +13,7 @@
     "O": { "item": "minecraft:obsidian" }
   },
   "result": {
-    "item": "astranautics:gravity_anchor",
+    "item": "astranautics:physics_assembler",
     "count": 1
   }
 }

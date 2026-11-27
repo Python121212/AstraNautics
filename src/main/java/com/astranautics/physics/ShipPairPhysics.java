@@ -1,6 +1,6 @@
 package com.astranautics.physics;
 
-import com.astranautics.entity.GravityShip;
+import com.astranautics.entity.PhysicsShip;
 import org.joml.Vector3d;
 
 import java.util.ArrayList;
@@ -20,8 +20,8 @@ public final class ShipPairPhysics {
     }
 
     public static void resolve(PhysicsParams params, double h,
-                               GravityShip shipA, VoxelSpatialIndex indexA,
-                               GravityShip shipB, VoxelSpatialIndex indexB) {
+                               PhysicsShip shipA, VoxelSpatialIndex indexA,
+                               PhysicsShip shipB, VoxelSpatialIndex indexB) {
         RigidBody bodyA = shipA.getBody();
         RigidBody bodyB = shipB.getBody();
         if (bodyA.isKinematic() && bodyB.isKinematic()) {

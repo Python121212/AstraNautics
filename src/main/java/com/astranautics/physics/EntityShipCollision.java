@@ -1,6 +1,6 @@
 package com.astranautics.physics;
 
-import com.astranautics.entity.GravityShip;
+import com.astranautics.entity.PhysicsShip;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
@@ -24,10 +24,10 @@ public final class EntityShipCollision {
     private EntityShipCollision() {
     }
 
-    public static void resolve(ServerLevel level, GravityShip ship, VoxelSpatialIndex index) {
+    public static void resolve(ServerLevel level, PhysicsShip ship, VoxelSpatialIndex index) {
         AABB area = ship.getBoundingBox().inflate(1.5D);
         List<Entity> entities = level.getEntities(ship, area,
-                entity -> !(entity instanceof GravityShip) && entity.isAlive() && !entity.isSpectator());
+                entity -> !(entity instanceof PhysicsShip) && entity.isAlive() && !entity.isSpectator());
         if (entities.isEmpty()) {
             return;
         }

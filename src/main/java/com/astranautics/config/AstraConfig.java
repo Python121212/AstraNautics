@@ -8,7 +8,7 @@ import net.minecraftforge.common.ForgeConfigSpec;
 public final class AstraConfig {
     public static final ForgeConfigSpec SPEC;
 
-    // Gravity anchor / assembly
+    // Physics assembler / assembly
     public static final ForgeConfigSpec.IntValue ASSEMBLY_RADIUS;
     public static final ForgeConfigSpec.IntValue MAX_BLOCKS;
 
@@ -33,7 +33,7 @@ public final class AstraConfig {
     static {
         ForgeConfigSpec.Builder builder = new ForgeConfigSpec.Builder();
 
-        builder.comment("Gravity Anchor: which blocks get turned into a physics ship").push("gravity_anchor");
+        builder.comment("Physics Assembler: which blocks get turned into a physics ship").push("physics_assembler");
         ASSEMBLY_RADIUS = builder
                 .comment("Radius (in blocks) around the anchor that is scanned for the ship structure.")
                 .defineInRange("assemblyRadius", 8, 1, 32);

@@ -1,9 +1,9 @@
 {
-  "block.astranautics.gravity_anchor": "グラビティ・アンカー",
-  "block.astranautics.gravity_switch": "グラビティ・トグルスイッチ",
-  "entity.astranautics.gravity_ship": "物理演算中の構造物",
-  "message.astranautics.gravity_switch.no_anchor": "このスイッチに隣接するグラビティ・アンカーがありません",
-  "message.astranautics.gravity_switch.on": "物理演算 ON — アンカー %s 基を解放しました",
-  "message.astranautics.gravity_switch.off": "物理演算 OFF — アンカー %s 基を固定しました",
+  "block.astranautics.physics_assembler": "物理アセンブラ",
+  "block.astranautics.physics_switch": "物理トグルスイッチ",
+  "entity.astranautics.physics_ship": "物理演算中の構造物",
+  "message.astranautics.physics_switch.no_anchor": "このスイッチに隣接する物理アセンブラがありません",
+  "message.astranautics.physics_switch.on": "物理演算 ON — アンカー %s 基を解放しました",
+  "message.astranautics.physics_switch.off": "物理演算 OFF — アンカー %s 基を固定しました",
   "itemGroup.astranautics": "AstraNautics"
 }

@@ -36,17 +36,17 @@ import java.util.Map;
  * <p>The entity position is the centre of mass; the voxel grid is kept in local
  * coordinates and rendered with the synced orientation.</p>
  */
-public class GravityShip extends Entity {
+public class PhysicsShip extends Entity {
     private static final EntityDataAccessor<String> DATA_STRUCTURE =
-            SynchedEntityData.defineId(GravityShip.class, EntityDataSerializers.STRING);
+            SynchedEntityData.defineId(PhysicsShip.class, EntityDataSerializers.STRING);
     private static final EntityDataAccessor<Float> DATA_QX =
-            SynchedEntityData.defineId(GravityShip.class, EntityDataSerializers.FLOAT);
+            SynchedEntityData.defineId(PhysicsShip.class, EntityDataSerializers.FLOAT);
     private static final EntityDataAccessor<Float> DATA_QY =
-            SynchedEntityData.defineId(GravityShip.class, EntityDataSerializers.FLOAT);
+            SynchedEntityData.defineId(PhysicsShip.class, EntityDataSerializers.FLOAT);
     private static final EntityDataAccessor<Float> DATA_QZ =
-            SynchedEntityData.defineId(GravityShip.class, EntityDataSerializers.FLOAT);
+            SynchedEntityData.defineId(PhysicsShip.class, EntityDataSerializers.FLOAT);
     private static final EntityDataAccessor<Float> DATA_QW =
-            SynchedEntityData.defineId(GravityShip.class, EntityDataSerializers.FLOAT);
+            SynchedEntityData.defineId(PhysicsShip.class, EntityDataSerializers.FLOAT);
 
     private final RigidBody body = new RigidBody();
     private final ContactCache contactCache = new ContactCache();
@@ -64,7 +64,7 @@ public class GravityShip extends Entity {
     private final Quaterniond previousClientOrientation = new Quaterniond();
     private boolean clientOrientationKnown;
 
-    public GravityShip(EntityType<?> type, Level level) {
+    public PhysicsShip(EntityType<?> type, Level level) {
         super(type, level);
         this.noCulling = true;
         if (!level.isClientSide) {

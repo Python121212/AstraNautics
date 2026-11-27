@@ -2,7 +2,7 @@ package com.astranautics.physics;
 
 import com.astranautics.AstraNautics;
 import com.astranautics.config.AstraConfig;
-import com.astranautics.entity.GravityShip;
+import com.astranautics.entity.PhysicsShip;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -26,29 +26,29 @@ public final class ShipPhysicsTicker {
             return;
         }
 
-        List<GravityShip> ships = ShipWorld.ships(level);
+        List<PhysicsShip> ships = ShipWorld.ships(level);
         if (ships.isEmpty()) {
             return;
         }
 
         // Copy: resolving contacts may discard ships (e.g. a ship falling out of the world).
-        List<GravityShip> snapshot = new ArrayList<>(ships);
+        List<PhysicsShip> snapshot = new ArrayList<>(ships);
         PhysicsParams params = PhysicsParams.fromConfig();
         double h = 1.0D / 20.0D;
 
-        for (GravityShip ship : snapshot) {
+        for (PhysicsShip ship : snapshot) {
             ship.refreshSpatialIndex();
         }
 
         if (AstraConfig.ENABLE_SHIP_COLLISIONS.get()) {
             for (int i = 0; i < snapshot.size(); i++) {
-                GravityShip a = snapshot.get(i);
+                PhysicsShip a = snapshot.get(i);
                 VoxelSpatialIndex indexA = a.getSpatialIndex();
                 if (indexA == null) {
                     continue;
                 }
                 for (int j = i + 1; j < snapshot.size(); j++) {
-                    GravityShip b = snapshot.get(j);
+                    PhysicsShip b = snapshot.get(j);
                     VoxelSpatialIndex indexB = b.getSpatialIndex();
                     if (indexB == null) {
                         continue;
@@ -70,7 +70,7 @@ public final class ShipPhysicsTicker {
         }
 
         if (AstraConfig.ENABLE_ENTITY_COLLISIONS.get()) {
-            for (GravityShip ship : snapshot) {
+            for (PhysicsShip ship : snapshot) {
                 VoxelSpatialIndex index = ship.getSpatialIndex();
                 if (index != null) {
                     EntityShipCollision.resolve(level, ship, index);

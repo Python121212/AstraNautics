@@ -2,10 +2,10 @@
 """Generate the 16x16 block textures for AstraNautics (pure Python, no Pillow).
 
 Writes:
-  textures/block/gravity_anchor.png          anchor, physics OFF (dormant)
-  textures/block/gravity_anchor_active.png   anchor, physics ON (lit rings)
-  textures/block/gravity_switch_off.png      toggle switch, OFF
-  textures/block/gravity_switch_on.png       toggle switch, ON
+  textures/block/physics_assembler.png          anchor, physics OFF (dormant)
+  textures/block/physics_assembler_active.png   anchor, physics ON (lit rings)
+  textures/block/physics_switch_off.png      toggle switch, OFF
+  textures/block/physics_switch_on.png       toggle switch, ON
 
 Run from the repository root:
     python3 tools/gen_textures.py
@@ -151,10 +151,10 @@ def switch_texture(on: bool) -> list[tuple[list[tuple[int, int, int, int]]]]:
 
 
 def main() -> int:
-    write_png(os.path.join(OUT_DIR, "gravity_anchor.png"), anchor_texture(active=False))
-    write_png(os.path.join(OUT_DIR, "gravity_anchor_active.png"), anchor_texture(active=True))
-    write_png(os.path.join(OUT_DIR, "gravity_switch_off.png"), switch_texture(on=False))
-    write_png(os.path.join(OUT_DIR, "gravity_switch_on.png"), switch_texture(on=True))
+    write_png(os.path.join(OUT_DIR, "physics_assembler.png"), anchor_texture(active=False))
+    write_png(os.path.join(OUT_DIR, "physics_assembler_active.png"), anchor_texture(active=True))
+    write_png(os.path.join(OUT_DIR, "physics_switch_off.png"), switch_texture(on=False))
+    write_png(os.path.join(OUT_DIR, "physics_switch_on.png"), switch_texture(on=True))
     print(f"wrote 4 textures to {os.path.relpath(OUT_DIR)}")
     return 0
 

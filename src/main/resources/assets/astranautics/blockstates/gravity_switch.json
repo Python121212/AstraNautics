@@ -1,6 +1,0 @@
-{
-  "variants": {
-    "enabled=false": { "model": "astranautics:block/gravity_switch_off" },
-    "enabled=true": { "model": "astranautics:block/gravity_switch_on" }
-  }
-}

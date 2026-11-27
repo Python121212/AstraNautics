@@ -7,7 +7,7 @@
       "entries": [
         {
           "type": "minecraft:item",
-          "name": "astranautics:gravity_anchor"
+          "name": "astranautics:physics_switch"
         }
       ],
       "conditions": [

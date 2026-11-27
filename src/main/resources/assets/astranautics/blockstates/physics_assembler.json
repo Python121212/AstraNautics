@@ -1,0 +1,6 @@
+{
+  "variants": {
+    "enabled=false": { "model": "astranautics:block/physics_assembler" },
+    "enabled=true": { "model": "astranautics:block/physics_assembler_active" }
+  }
+}
