@@ -1,21 +1,46 @@
 package com.astranautics;
 
+import com.astranautics.block.ModBlocks;
+import com.astranautics.block.entity.ModBlockEntities;
+import com.astranautics.config.AstraConfig;
+import com.astranautics.item.ModItems;
+import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.eventbus.api.IEventBus;
+import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.config.ModConfig;
+import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
+import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * AstraNautics - minimal Forge 1.20.1 mod entry point.
+ * AstraNautics - Minecraft 1.20.1 / Forge mod entry point.
  *
- * <p>This build only proves that the mod loads inside Minecraft Forge 1.20.1.
- * Nothing is registered (no blocks, items, entities or world generation).</p>
+ * <p>Adds the <strong>Gravity Anchor</strong> block, which warps gravity for entities
+ * around it, and the <strong>Gravity Toggle Switch</strong> block that switches the
+ * physics simulation of every adjacent anchor on and off.</p>
  */
 @Mod(AstraNautics.MODID)
 public class AstraNautics {
     public static final String MODID = "astranautics";
-    private static final Logger LOGGER = LoggerFactory.getLogger("AstraNautics");
+    public static final Logger LOGGER = LoggerFactory.getLogger("AstraNautics");
 
     public AstraNautics() {
+        IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
+
+        ModBlocks.BLOCKS.register(modEventBus);
+        ModItems.ITEMS.register(modEventBus);
+        ModBlockEntities.BLOCK_ENTITIES.register(modEventBus);
+        ModCreativeTabs.CREATIVE_MODE_TABS.register(modEventBus);
+
+        modEventBus.addListener(this::commonSetup);
+        ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, AstraConfig.SPEC);
+
+        MinecraftForge.EVENT_BUS.register(this);
+    }
+
+    private void commonSetup(final FMLCommonSetupEvent event) {
         LOGGER.info("AstraNautics loaded (Minecraft 1.20.1 / Forge)");
     }
 }
