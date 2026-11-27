@@ -86,16 +86,17 @@ public class PhysicsSwitchBlock extends BaseEntityBlock {
             return InteractionResult.CONSUME;
         }
 
-        PhysicsSwitchBlockEntity.toggle(level, pos, player);
+        // The switch itself is part of the structure, so assembling removes this very
+        // block: evaluate everything from the pre-toggle state instead of re-reading it.
+        boolean newState = !state.getValue(ENABLED);
 
         level.playSound(null, pos, SoundEvents.LEVER_CLICK, SoundSource.BLOCKS, 0.6F,
-                level.getBlockState(pos).getValue(ENABLED) ? 1.0F : 0.6F);
+                newState ? 1.0F : 0.6F);
 
-        if (level.getBlockState(pos).getValue(ENABLED)) {
-            level.playSound(null, pos, SoundEvents.BEACON_ACTIVATE, SoundSource.BLOCKS, 0.5F, 1.4F);
-        } else {
-            level.playSound(null, pos, SoundEvents.BEACON_DEACTIVATE, SoundSource.BLOCKS, 0.5F, 0.7F);
-        }
+        PhysicsSwitchBlockEntity.apply(level, pos, newState, player);
+
+        level.playSound(null, pos, newState ? SoundEvents.BEACON_ACTIVATE : SoundEvents.BEACON_DEACTIVATE,
+                SoundSource.BLOCKS, 0.5F, newState ? 1.4F : 0.7F);
 
         return InteractionResult.CONSUME;
     }

@@ -2,7 +2,7 @@
   "block.astranautics.physics_switch": "Physics Toggle Switch",
   "entity.astranautics.physics_ship": "Physics Ship",
   "itemGroup.astranautics": "AstraNautics",
-  "message.astranautics.physics_switch.assembled": "Physics ON - %s block(s) assembled (punch it to move it)",
+  "message.astranautics.physics_switch.assembled": "Physics ON - %s block(s) assembled (punch to move / right-click with a block to extend / shift+right-click to restore)",
   "message.astranautics.physics_switch.dissolved": "Physics OFF - %s block(s) restored",
   "message.astranautics.physics_switch.no_ship": "No assembled structure to restore",
   "message.astranautics.physics_switch.status": "Switch %s / ship %s / blocks %s / last: %s",
@@ -10,5 +10,9 @@
   "message.astranautics.reason.empty": "No blocks to assemble within %s blocks (place blocks touching the switch)",
   "message.astranautics.reason.no_entity": "Could not create the ship entity (entity registration problem)",
   "message.astranautics.reason.spawn_refused": "The server refused to spawn the ship",
-  "message.astranautics.reason.exception": "Internal error: %s (see the log)"
+  "message.astranautics.reason.exception": "Internal error: %s (see the log)",
+  "message.astranautics.ship.status": "Structure: %s block(s) / mass %s / speed %s (shift+right-click to restore)",
+  "message.astranautics.ship.attached": "Added to the structure - %s block(s)",
+  "message.astranautics.ship.cannot_attach": "Cannot add a block there (aim at the surface of the structure)",
+  "message.astranautics.ship.dissolved": "Physics OFF - %s block(s) restored"
 }

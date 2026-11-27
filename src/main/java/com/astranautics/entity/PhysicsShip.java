@@ -10,6 +10,7 @@ import com.astranautics.physics.ShipStructure;
 import com.astranautics.physics.ShipStructureCodec;
 import com.astranautics.physics.ShipWorld;
 import com.astranautics.physics.VoxelSpatialIndex;
+import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
@@ -17,14 +18,19 @@ import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
 import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityDimensions;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.Pose;
+import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
@@ -37,6 +43,7 @@ import org.joml.Matrix3d;
 import org.joml.Quaterniond;
 import org.joml.Vector3d;
 
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
@@ -429,6 +436,212 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
         bodyTag.putDouble("WY", body.angularVelocity.y);
         bodyTag.putDouble("WZ", body.angularVelocity.z);
         tag.put("Body", bodyTag);
+    }
+
+    /**
+     * Right-click interaction.
+     *
+     * <ul>
+     *     <li>shift + right-click: put every block back and remove the ship</li>
+     *     <li>right-click with a block: bolt that block onto the hull (it becomes part
+     *         of the rigid body)</li>
+     *     <li>right-click with an empty hand: report blocks / mass / speed</li>
+     * </ul>
+     */
+    @Override
+    public InteractionResult interact(Player player, InteractionHand hand) {
+        if (this.structure == null) {
+            return InteractionResult.PASS;
+        }
+        if (this.level().isClientSide) {
+            return InteractionResult.SUCCESS;
+        }
+        if (!(this.level() instanceof ServerLevel level)) {
+            return InteractionResult.PASS;
+        }
+
+        ItemStack stack = player.getItemInHand(hand);
+
+        if (player.isShiftKeyDown()) {
+            int blocks = this.structure.voxels().size();
+            this.dissolve(level);
+            player.displayClientMessage(Component.translatable(
+                    "message.astranautics.ship.dissolved", blocks).withStyle(ChatFormatting.GRAY), false);
+            return InteractionResult.CONSUME;
+        }
+
+        if (stack.getItem() instanceof BlockItem blockItem) {
+            BlockState state = blockItem.getBlock().defaultBlockState();
+            if (this.attachBlock(player, state)) {
+                if (!player.getAbilities().instabuild) {
+                    stack.shrink(1);
+                }
+                level.playSound(null, this.getX(), this.getY(), this.getZ(),
+                        state.getSoundType().getPlaceSound(), SoundSource.BLOCKS, 1.0F, 1.0F);
+                player.displayClientMessage(Component.translatable(
+                        "message.astranautics.ship.attached",
+                        this.structure == null ? 0 : this.structure.voxels().size())
+                        .withStyle(ChatFormatting.AQUA), true);
+                return InteractionResult.CONSUME;
+            }
+            player.displayClientMessage(Component.translatable("message.astranautics.ship.cannot_attach")
+                    .withStyle(ChatFormatting.RED), true);
+            return InteractionResult.CONSUME;
+        }
+
+        player.displayClientMessage(Component.translatable("message.astranautics.ship.status",
+                this.structure.voxels().size(),
+                String.format("%.1f", this.body.getMass()),
+                String.format("%.2f", this.body.linearVelocity.length()))
+                .withStyle(ChatFormatting.GOLD), false);
+        return InteractionResult.CONSUME;
+    }
+
+    /** Adds a block to the rigid body at the cell the player is looking at. */
+    private boolean attachBlock(Player player, BlockState state) {
+        ShipStructure current = this.structure;
+        if (current == null) {
+            return false;
+        }
+        if (current.voxels().size() >= AstraConfig.MAX_BLOCKS.get()) {
+            return false;
+        }
+
+        BlockPos target = raycastAddedCell(player.getEyePosition(), player.getLookAngle());
+        if (target == null || current.voxels().containsKey(target)) {
+            return false;
+        }
+
+        Map<BlockPos, BlockState> voxels = new LinkedHashMap<>(current.voxels());
+        voxels.put(target, state);
+        ShipStructure rebuilt = ShipStructure.of(voxels);
+
+        // The centre of mass moves when a block is added, so shift the body to keep the
+        // existing hull exactly where it is in the world.
+        Vector3d shift = new Vector3d(rebuilt.getCenterOfMass()).sub(current.getCenterOfMass());
+        this.body.getRotationMatrix().transform(shift);
+        this.body.position.add(shift);
+
+        double oldMass = current.getMass();
+        double newMass = rebuilt.getMass();
+        if (newMass > 1.0E-4D) {
+            // Roughly conserve momentum: a heavy hull hardly slows down.
+            this.body.linearVelocity.mul(oldMass / newMass);
+        }
+        this.body.setMassProperties(newMass, rebuilt.getInertiaLocal());
+
+        this.structure = rebuilt;
+        this.structureSyncPending = true;
+        this.structureSyncTicks = 20;
+        this.spatialIndex = null;
+        this.setPos(this.body.position.x, this.body.position.y, this.body.position.z);
+        this.updateBoundingExtents();
+        this.wake();
+        return true;
+    }
+
+    /**
+     * Casts the player's view ray against the hull and returns the empty cell just
+     * outside the face that was hit (or {@code null} when nothing is in reach).
+     */
+    @Nullable
+    private BlockPos raycastAddedCell(Vec3 eye, Vec3 look) {
+        ShipStructure current = this.structure;
+        if (current == null) {
+            return null;
+        }
+
+        Quaterniond inverse = new Quaterniond(this.body.orientation).conjugate();
+        Vector3d com = current.getCenterOfMass();
+        Vector3d origin = new Vector3d(eye.x - this.body.position.x,
+                eye.y - this.body.position.y, eye.z - this.body.position.z);
+        inverse.transform(origin);
+        // Grid coordinates: the local frame is shifted by the centre of mass.
+        origin.add(com);
+
+        Vector3d direction = new Vector3d(look.x, look.y, look.z);
+        inverse.transform(direction);
+        if (direction.lengthSquared() < 1.0E-9D) {
+            return null;
+        }
+        direction.normalize();
+
+        double bestT = Double.MAX_VALUE;
+        BlockPos bestCell = null;
+        int bestAxis = -1;
+        int bestSign = 0;
+
+        for (BlockPos cell : current.voxels().keySet()) {
+            double tMin = 0.0D;
+            double tMax = Double.MAX_VALUE;
+            int axis = -1;
+            int sign = 0;
+            boolean miss = false;
+
+            for (int a = 0; a < 3; a++) {
+                double o = axisValue(origin, a);
+                double d = axisValue(direction, a);
+                double min = axisValue(cell, a);
+                double max = min + 1.0D;
+
+                if (Math.abs(d) < 1.0E-9D) {
+                    if (o < min || o > max) {
+                        miss = true;
+                        break;
+                    }
+                    continue;
+                }
+
+                double t1 = (min - o) / d;
+                double t2 = (max - o) / d;
+                if (t1 > t2) {
+                    double swap = t1;
+                    t1 = t2;
+                    t2 = swap;
+                }
+                if (t1 > tMin) {
+                    tMin = t1;
+                    axis = a;
+                    sign = d > 0.0D ? -1 : 1;
+                }
+                if (t2 < tMax) {
+                    tMax = t2;
+                }
+                if (tMin > tMax) {
+                    miss = true;
+                    break;
+                }
+            }
+
+            if (miss || axis < 0 || tMin < 0.0D || tMin >= bestT) {
+                continue;
+            }
+            bestT = tMin;
+            bestCell = cell;
+            bestAxis = axis;
+            bestSign = sign;
+        }
+
+        if (bestCell == null || bestT > 6.0D) {
+            return null;
+        }
+        return switch (bestAxis) {
+            case 0 -> bestCell.offset(bestSign, 0, 0);
+            case 1 -> bestCell.offset(0, bestSign, 0);
+            default -> bestCell.offset(0, 0, bestSign);
+        };
+    }
+
+    private static double axisValue(Vector3d vector, int axis) {
+        return axis == 0 ? vector.x : axis == 1 ? vector.y : vector.z;
+    }
+
+    private static double axisValue(Vec3 vector, int axis) {
+        return axis == 0 ? vector.x : axis == 1 ? vector.y : vector.z;
+    }
+
+    private static double axisValue(BlockPos pos, int axis) {
+        return axis == 0 ? pos.getX() : axis == 1 ? pos.getY() : pos.getZ();
     }
 
     /**
