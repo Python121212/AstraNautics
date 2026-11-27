@@ -89,7 +89,7 @@ public final class EntityShipCollision {
                         Math.max(entity.getDeltaMovement().y, surfaceVelocity.y),
                         surfaceVelocity.z);
             } else {
-                Vector3d velocity = entity.getDeltaMovement();
+                net.minecraft.world.phys.Vec3 velocity = entity.getDeltaMovement();
                 entity.setDeltaMovement(
                         velocity.x + deepestNormal.x * 0.2D,
                         velocity.y + deepestNormal.y * 0.2D,
