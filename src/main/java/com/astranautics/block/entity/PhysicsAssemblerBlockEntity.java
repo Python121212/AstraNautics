@@ -1,5 +1,6 @@
 package com.astranautics.block.entity;
 
+import com.astranautics.AstraNautics;
 import com.astranautics.block.PhysicsAssemblerBlock;
 import com.astranautics.config.AstraConfig;
 import com.astranautics.entity.PhysicsShip;
@@ -15,20 +16,26 @@ import org.jetbrains.annotations.Nullable;
 import java.util.UUID;
 
 /**
- * Keeps the link between an anchor block and the ship it spawned.
+ * Keeps the link between a physics assembler block and the ship it spawned.
  *
  * <p>Every few ticks the block state is compared with the current ship:</p>
  * <ul>
  *     <li>{@code enabled} and no ship &rarr; assemble the connected structure</li>
  *     <li>{@code !enabled} and a ship &rarr; dissolve it back into the world</li>
  * </ul>
+ *
+ * <p>A failed assembly leaves the block enabled and logs why, so the state no
+ * longer flickers back off.</p>
  */
 public class PhysicsAssemblerBlockEntity extends BlockEntity {
     private static final int CHECK_INTERVAL = 4;
+    private static final long FAILURE_LOG_INTERVAL = 100L;
 
     @Nullable
     private UUID shipId;
-    private int failedAssemblies;
+    private int retryCooldown;
+    private long lastFailureLog = Long.MIN_VALUE;
+    private int lastBlockCount;
 
     public PhysicsAssemblerBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlockEntities.PHYSICS_ASSEMBLER.get(), pos, state);
@@ -39,7 +46,11 @@ public class PhysicsAssemblerBlockEntity extends BlockEntity {
         return shipId;
     }
 
-    public static void serverTick(Level level, BlockPos pos, BlockState state, PhysicsAssemblerBlockEntity anchor) {
+    public int getLastBlockCount() {
+        return lastBlockCount;
+    }
+
+    public static void serverTick(Level level, BlockPos pos, BlockState state, PhysicsAssemblerBlockEntity assembler) {
         if (!(level instanceof ServerLevel serverLevel)) {
             return;
         }
@@ -48,36 +59,54 @@ public class PhysicsAssemblerBlockEntity extends BlockEntity {
         }
 
         boolean enabled = state.getValue(PhysicsAssemblerBlock.ENABLED);
-        PhysicsShip ship = anchor.resolveShip(serverLevel);
+        PhysicsShip ship = assembler.resolveShip(serverLevel);
 
         if (enabled && ship == null) {
-            if (anchor.failedAssemblies > 0) {
-                // Avoid retrying every tick on a hopeless structure.
+            if (assembler.retryCooldown > 0) {
+                assembler.retryCooldown -= CHECK_INTERVAL;
                 return;
             }
-            PhysicsShip assembled = ShipAssembler.assemble(serverLevel, pos,
+
+            ShipAssembler.Result result = ShipAssembler.assemble(serverLevel, pos,
                     AstraConfig.ASSEMBLY_RADIUS.get(), AstraConfig.MAX_BLOCKS.get());
-            if (assembled != null) {
-                anchor.shipId = assembled.getUUID();
-                anchor.failedAssemblies = 0;
-                anchor.setChanged();
+            assembler.lastBlockCount = result.blocks();
+
+            if (result.ok() && result.ship() != null) {
+                assembler.shipId = result.ship().getUUID();
+                assembler.retryCooldown = 0;
+                assembler.setChanged();
+                AstraNautics.LOGGER.info("[astranautics] assembled {} blocks into a physics ship at {}",
+                        result.blocks(), pos);
             } else {
-                anchor.failedAssemblies = 20;
-                serverLevel.setBlock(pos, state.setValue(PhysicsAssemblerBlock.ENABLED, false), 3);
+                assembler.retryCooldown = 60;
+                assembler.logFailure(serverLevel, pos, result.reason());
             }
-        } else if (!enabled && ship != null) {
-            ship.dissolve(serverLevel);
-            anchor.shipId = null;
-            anchor.failedAssemblies = 0;
-            anchor.setChanged();
-        } else if (ship == null && anchor.shipId != null) {
-            anchor.shipId = null;
-            anchor.setChanged();
+            return;
         }
 
-        if (anchor.failedAssemblies > 0 && !enabled) {
-            anchor.failedAssemblies = 0;
+        if (!enabled && ship != null) {
+            ship.dissolve(serverLevel);
+            assembler.shipId = null;
+            assembler.retryCooldown = 0;
+            assembler.setChanged();
+            AstraNautics.LOGGER.info("[astranautics] dissolved the physics ship at {}", pos);
+            return;
         }
+
+        if (ship == null && assembler.shipId != null) {
+            assembler.shipId = null;
+            assembler.setChanged();
+        }
+    }
+
+    private void logFailure(ServerLevel level, BlockPos pos, String reason) {
+        long now = level.getGameTime();
+        if (now - lastFailureLog < FAILURE_LOG_INTERVAL) {
+            return;
+        }
+        lastFailureLog = now;
+        AstraNautics.LOGGER.warn("[astranautics] assembly at {} failed: {} (radius {}, max {} blocks)",
+                pos, reason, AstraConfig.ASSEMBLY_RADIUS.get(), AstraConfig.MAX_BLOCKS.get());
     }
 
     @Nullable
@@ -98,14 +127,14 @@ public class PhysicsAssemblerBlockEntity extends BlockEntity {
         super.saveAdditional(tag);
         if (shipId != null) {
             tag.putUUID("Ship", shipId);
-            tag.putInt("FailedAssemblies", failedAssemblies);
         }
+        tag.putInt("LastBlocks", lastBlockCount);
     }
 
     @Override
     public void load(CompoundTag tag) {
         super.load(tag);
         shipId = tag.hasUUID("Ship") ? tag.getUUID("Ship") : null;
-        failedAssemblies = tag.getInt("FailedAssemblies");
+        lastBlockCount = tag.getInt("LastBlocks");
     }
 }
