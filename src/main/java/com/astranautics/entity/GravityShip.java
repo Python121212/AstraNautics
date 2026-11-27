@@ -145,7 +145,12 @@ public class GravityShip extends Entity {
             this.structureSyncPending = false;
         }
 
-        int substeps = Math.max(1, AstraConfig.SUBSTEPS.get());
+        // Adaptive substepping: fast ships get more substeps so they cannot tunnel
+        // through the world between two collisions checks.
+        double speed = Math.max(this.body.linearVelocity.length(),
+                this.body.angularVelocity.length() * 4.0D);
+        int substeps = Math.max(AstraConfig.SUBSTEPS.get(),
+                Math.min(16, (int) Math.ceil(speed * (1.0D / 20.0D) / 0.4D)));
         double h = (1.0D / 20.0D) / substeps;
         for (int i = 0; i < substeps; i++) {
             ShipPhysics.step(level, this.body, this.structure, h);

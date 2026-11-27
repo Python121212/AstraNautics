@@ -18,7 +18,7 @@ import java.util.Set;
  * <p>Local coordinates are integer block positions anchored at the minimum corner
  * of the assembled region; the centre of mass is derived from per-block masses.</p>
  */
-public final class ShipStructure {
+public final class ShipStructure implements VoxelBody {
     private final Map<BlockPos, BlockState> voxels;
     private final Set<BlockPos> surfaceVoxels;
 
@@ -114,6 +114,7 @@ public final class ShipStructure {
         return voxels;
     }
 
+    @Override
     public Set<BlockPos> surfaceVoxels() {
         return surfaceVoxels;
     }
@@ -135,6 +136,7 @@ public final class ShipStructure {
     }
 
     /** Local-space centre of a voxel, relative to the centre of mass. */
+    @Override
     public Vector3d localCenterRelativeToCom(BlockPos local, Vector3d dest) {
         return dest.set(local.getX() + 0.5D - centerOfMass.x,
                 local.getY() + 0.5D - centerOfMass.y,

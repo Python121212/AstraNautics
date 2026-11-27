@@ -29,26 +29,35 @@ public final class ShipPhysics {
     private ShipPhysics() {
     }
 
-    public static void step(ServerLevel level, RigidBody body, ShipStructure structure, double h) {
+    /** Config-driven step used in game. */
+    public static void step(ServerLevel level, RigidBody body, VoxelBody voxelBody, double h) {
+        step(new LevelCollisionSource(level), body, voxelBody, h,
+                AstraConfig.GRAVITY.get(),
+                AstraConfig.FRICTION.get(),
+                AstraConfig.RESTITUTION.get(),
+                AstraConfig.LINEAR_DAMPING.get(),
+                AstraConfig.ANGULAR_DAMPING.get());
+    }
+
+    /** Explicit step used by unit tests and future config-free callers. */
+    public static void step(BlockCollisionSource source, RigidBody body, VoxelBody voxelBody, double h,
+                            double gravity, double friction, double restitution,
+                            double linearDamping, double angularDamping) {
         if (body.isKinematic()) {
             return;
         }
 
-        double gravity = AstraConfig.GRAVITY.get();
-
         body.applyForce(new Vector3d(0.0D, -gravity * body.getMass(), 0.0D));
-        body.integrateVelocities(h,
-                AstraConfig.LINEAR_DAMPING.get(),
-                AstraConfig.ANGULAR_DAMPING.get());
+        body.integrateVelocities(h, linearDamping, angularDamping);
 
-        List<Contact> contacts = CollisionDetector.collect(level, body, structure);
-        solveContacts(body, contacts, h, AstraConfig.FRICTION.get(), AstraConfig.RESTITUTION.get());
+        List<Contact> contacts = CollisionDetector.collect(source, body, voxelBody);
+        solveContacts(body, contacts, h, friction, restitution);
         body.integratePosition(h);
         applyPositionCorrection(body, contacts);
     }
 
-    static void solveContacts(RigidBody body, List<Contact> contacts, double h,
-                              double friction, double restitution) {
+    public static void solveContacts(RigidBody body, List<Contact> contacts, double h,
+                                     double friction, double restitution) {
         if (contacts.isEmpty()) {
             return;
         }

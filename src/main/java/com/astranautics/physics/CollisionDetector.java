@@ -1,11 +1,8 @@
 package com.astranautics.physics;
 
 import net.minecraft.core.BlockPos;
-import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.Mth;
-import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
-import net.minecraft.world.phys.shapes.VoxelShape;
 import org.joml.Vector3d;
 
 import java.util.ArrayList;
@@ -26,7 +23,7 @@ public final class CollisionDetector {
     private CollisionDetector() {
     }
 
-    public static List<Contact> collect(ServerLevel level, RigidBody body, ShipStructure structure) {
+    public static List<Contact> collect(BlockCollisionSource source, RigidBody body, VoxelBody voxelBody) {
         List<Contact> contacts = new ArrayList<>();
 
         Obb voxelObb = new Obb();
@@ -37,8 +34,8 @@ public final class CollisionDetector {
         Vector3d worldCenter = new Vector3d();
         Vector3d contactPoint = new Vector3d();
 
-        for (BlockPos localPos : structure.surfaceVoxels()) {
-            structure.localCenterRelativeToCom(localPos, localCenter);
+        for (BlockPos localPos : voxelBody.surfaceVoxels()) {
+            voxelBody.localCenterRelativeToCom(localPos, localCenter);
             body.toWorld(localCenter, worldCenter);
             voxelObb.set(worldCenter, body.getRotationMatrix(), 0.5D, 0.5D, 0.5D);
 
@@ -53,17 +50,7 @@ public final class CollisionDetector {
             for (int x = minX; x <= maxX; x++) {
                 for (int y = minY; y <= maxY; y++) {
                     for (int z = minZ; z <= maxZ; z++) {
-                        BlockPos worldPos = new BlockPos(x, y, z);
-                        BlockState state = level.getBlockState(worldPos);
-                        if (state.isAir()) {
-                            continue;
-                        }
-                        VoxelShape shape = state.getCollisionShape(level, worldPos);
-                        if (shape.isEmpty()) {
-                            continue;
-                        }
-                        for (AABB box : shape.toAabbs()) {
-                            AABB worldBox = box.move(worldPos.getX(), worldPos.getY(), worldPos.getZ());
+                        for (AABB worldBox : source.collisionBoxesAt(new BlockPos(x, y, z))) {
                             worldObb.setAabb(worldBox);
                             if (!Obb.intersect(voxelObb, worldObb, normal, penetration)) {
                                 continue;
