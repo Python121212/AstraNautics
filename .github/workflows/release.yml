@@ -80,10 +80,16 @@ jobs:
           tag_name: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
           name: AstraNautics ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }} (Minecraft 1.20.1 / Forge)
           body: |
-            Minecraft **1.20.1 / Forge 47.x** 用の load-only MOD です（読み込み確認用）。
+            Minecraft **1.20.1 / Forge 47.x** 用の MOD です。
 
             - Mod ID: `astranautics`
             - 対応: Minecraft `1.20.1` / Forge `47.x` / Java 17
+
+            ## 収録ブロック
+            - **グラビティ・アンカー**: ON の間、半径内のエンティティを中心へ引き寄せる
+            - **グラビティ・トグルスイッチ**: 隣接アンカーを右クリックで一括 ON/OFF
+
+            詳しい仕様・レシピ・コンフィグは [README](https://github.com/Python121212/AstraNautics#readme) を参照してください。
 
             ## 使い方
             1. Forge 1.20.1 (47.2.0) をインストールしたプロファイルを用意する
