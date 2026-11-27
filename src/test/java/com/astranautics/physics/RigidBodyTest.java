@@ -75,7 +75,7 @@ class RigidBodyTest {
             body.integratePosition(0.005D);
             body.updateRotationMatrix();
         }
-        assertEquals(1.0D, body.orientation.length(), 1.0E-9D);
+        assertEquals(1.0D, Math.sqrt(body.orientation.lengthSquared()), 1.0E-9D);
 
         // The rotation matrix must stay orthonormal (determinant 1).
         Matrix3d rotation = body.getRotationMatrix();
@@ -88,7 +88,7 @@ class RigidBodyTest {
     void worldLocalRoundTrip() {
         RigidBody body = cubeOfMass(1.0D);
         body.position.set(3.0D, 7.0D, -2.0D);
-        body.orientation.setAxisAngleDeg(0.0D, 1.0D, 0.0D, 37.0D);
+        body.orientation.rotationAxis(Math.toRadians(37.0D), 0.0D, 1.0D, 0.0D);
         body.updateRotationMatrix();
 
         Vector3d local = new Vector3d(0.5D, -1.25D, 2.0D);
@@ -103,9 +103,10 @@ class RigidBodyTest {
     @Test
     void quaternionSlerpIsNormalised() {
         Quaterniond start = new Quaterniond();
-        Quaterniond end = new Quaterniond().setAxisAngleDeg(0.0D, 0.0D, 1.0D, 90.0D);
+        Quaterniond end = new Quaterniond().rotationAxis(Math.toRadians(90.0D), 0.0D, 0.0D, 1.0D);
         Quaterniond mid = new Quaterniond(start).slerp(end, 0.5D);
-        assertEquals(1.0D, mid.length(), 1.0E-9D);
-        assertEquals(45.0D, Math.toDegrees(mid.angle()), 1.0E-6D);
+        assertEquals(1.0D, Math.sqrt(mid.lengthSquared()), 1.0E-9D);
+        double angle = 2.0D * Math.acos(Math.min(1.0D, Math.abs(mid.w)));
+        assertEquals(45.0D, Math.toDegrees(angle), 1.0E-6D);
     }
 }
