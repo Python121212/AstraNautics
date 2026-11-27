@@ -1,5 +1,6 @@
 package com.astranautics.physics;
 
+import com.astranautics.block.PhysicsSwitchBlock;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.state.BlockState;
@@ -21,6 +22,11 @@ public final class LevelCollisionSource implements BlockCollisionSource {
     public List<AABB> collisionBoxesAt(BlockPos pos) {
         BlockState state = level.getBlockState(pos);
         if (state.isAir()) {
+            return List.of();
+        }
+        // The control block is deliberately transparent to ships: a switch embedded in
+        // the hull would otherwise pin the structure in place.
+        if (state.getBlock() instanceof PhysicsSwitchBlock) {
             return List.of();
         }
         VoxelShape shape = state.getCollisionShape(level, pos);

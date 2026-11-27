@@ -8,9 +8,12 @@ import net.minecraftforge.common.ForgeConfigSpec;
 public final class AstraConfig {
     public static final ForgeConfigSpec SPEC;
 
-    // Physics assembler / assembly
+    // Assembly (the physics switch detaches the connected structure)
     public static final ForgeConfigSpec.IntValue ASSEMBLY_RADIUS;
     public static final ForgeConfigSpec.IntValue MAX_BLOCKS;
+
+    // Interaction
+    public static final ForgeConfigSpec.DoubleValue PUNCH_SPEED;
 
     // Rigid body solver
     public static final ForgeConfigSpec.DoubleValue GRAVITY;
@@ -33,16 +36,16 @@ public final class AstraConfig {
     static {
         ForgeConfigSpec.Builder builder = new ForgeConfigSpec.Builder();
 
-        builder.comment("Physics Assembler: which blocks get turned into a physics ship").push("physics_assembler");
+        builder.comment("Rigid body physics simulation").push("physics");
         ASSEMBLY_RADIUS = builder
-                .comment("Radius (in blocks) around the anchor that is scanned for the ship structure.")
-                .defineInRange("assemblyRadius", 8, 1, 32);
+                .comment("Radius (in blocks) around the physics switch that is scanned for the ship structure.")
+                .defineInRange("assemblyRadius", 10, 1, 32);
         MAX_BLOCKS = builder
                 .comment("Maximum number of blocks a single ship may contain.")
                 .defineInRange("maxBlocks", 512, 1, 4096);
-        builder.pop();
-
-        builder.comment("Rigid body physics simulation").push("physics");
+        PUNCH_SPEED = builder
+                .comment("How fast (blocks/second) a punch can push a ship. Heavier ships move less.")
+                .defineInRange("punchSpeed", 2.5D, 0.0D, 20.0D);
         GRAVITY = builder
                 .comment("Gravity in blocks/second^2 (vanilla feels like ~32).")
                 .defineInRange("gravity", 32.0D, 0.0D, 200.0D);

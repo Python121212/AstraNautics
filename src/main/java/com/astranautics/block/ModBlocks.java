@@ -11,11 +11,7 @@ public class ModBlocks {
     public static final DeferredRegister<Block> BLOCKS =
             DeferredRegister.create(ForgeRegistries.BLOCKS, AstraNautics.MODID);
 
-    /** Pulls entities towards itself while its physics simulation is enabled. */
-    public static final RegistryObject<Block> PHYSICS_ASSEMBLER =
-            BLOCKS.register("physics_assembler", PhysicsAssemblerBlock::new);
-
-    /** Small wall switch that toggles every adjacent physics assembler. */
+    /** The single control block: turning it on detaches the connected structure. */
     public static final RegistryObject<Block> PHYSICS_SWITCH =
             BLOCKS.register("physics_switch", PhysicsSwitchBlock::new);
 
