@@ -11,9 +11,13 @@ import java.util.List;
  *
  * <p>One call == one fixed physics substep. Ships are solved one at a time; ship
  * vs ship contacts and entity contacts are planned for a follow-up iteration.</p>
+ *
+ * <p>The solver accumulates per-contact impulses and clamps the <em>total</em>
+ * normal impulse to be non-negative. Clamping each iteration's delta instead
+ * makes resting structures slowly gain energy ("popcorning").</p>
  */
 public final class ShipPhysics {
-    private static final int SOLVER_ITERATIONS = 6;
+    private static final int SOLVER_ITERATIONS = 8;
     private static final double SLOP = 0.005D;
     private static final double BAUMGARTE = 0.2D;
     private static final double RUBBER_EPSILON = 1.0E-6D;
@@ -29,91 +33,100 @@ public final class ShipPhysics {
         }
 
         double gravity = AstraConfig.GRAVITY.get();
-        double friction = AstraConfig.FRICTION.get();
-        double restitution = AstraConfig.RESTITUTION.get();
 
-        // Gravity acts on the centre of mass.
         body.applyForce(new Vector3d(0.0D, -gravity * body.getMass(), 0.0D));
         body.integrateVelocities(h,
                 AstraConfig.LINEAR_DAMPING.get(),
                 AstraConfig.ANGULAR_DAMPING.get());
 
         List<Contact> contacts = CollisionDetector.collect(level, body, structure);
-        solveContacts(body, contacts, h, friction, restitution);
+        solveContacts(body, contacts, h, AstraConfig.FRICTION.get(), AstraConfig.RESTITUTION.get());
         body.integratePosition(h);
         applyPositionCorrection(body, contacts);
     }
 
     static void solveContacts(RigidBody body, List<Contact> contacts, double h,
-                                      double friction, double restitution) {
+                              double friction, double restitution) {
         if (contacts.isEmpty()) {
             return;
         }
 
-        Vector3d relativeVelocity = new Vector3d();
-        Vector3d lever = new Vector3d();
-        Vector3d leverCrossNormal = new Vector3d();
-        Vector3d angularTerm = new Vector3d();
-        Vector3d impulse = new Vector3d();
-        Vector3d tangential = new Vector3d();
+        for (Contact contact : contacts) {
+            contact.resetImpulses();
+        }
 
         for (int iteration = 0; iteration < SOLVER_ITERATIONS; iteration++) {
             for (Contact contact : contacts) {
-                body.velocityAt(contact.point, relativeVelocity);
-
-                double normalVelocity = relativeVelocity.dot(contact.normal);
-                boolean approaching = normalVelocity < 0.0D;
-                boolean penetrating = contact.penetration > SLOP;
-                if (!approaching && !penetrating) {
-                    continue;
-                }
-
-                lever.set(contact.point).sub(body.position);
-                lever.cross(contact.normal, leverCrossNormal);
-                body.getInverseInertiaWorld().transform(leverCrossNormal, angularTerm);
-                angularTerm.cross(lever, angularTerm);
-
-                double effectiveMass = body.getInverseMass() + angularTerm.dot(contact.normal);
-                if (effectiveMass < RUBBER_EPSILON) {
-                    continue;
-                }
-
-                double bias = BAUMGARTE / h * Math.max(contact.penetration - SLOP, 0.0D);
-                boolean bounce = normalVelocity < -RESTITUTION_THRESHOLD;
-                double target = -(1.0D + (bounce ? restitution : 0.0D)) * normalVelocity + bias;
-                double normalImpulse = target / effectiveMass;
-                if (normalImpulse <= 0.0D) {
-                    continue;
-                }
-
-                impulse.set(contact.normal).mul(normalImpulse);
-                body.applyImpulseAt(impulse, contact.point);
-
-                // Coulomb friction along the tangential direction.
-                body.velocityAt(contact.point, relativeVelocity);
-                tangential.set(relativeVelocity)
-                        .sub(new Vector3d(contact.normal).mul(relativeVelocity.dot(contact.normal)));
-                double tangentialSpeed = tangential.length();
-                if (tangentialSpeed < RUBBER_EPSILON) {
-                    continue;
-                }
-                tangential.div(tangentialSpeed);
-
-                lever.set(contact.point).sub(body.position);
-                lever.cross(tangential, leverCrossNormal);
-                body.getInverseInertiaWorld().transform(leverCrossNormal, angularTerm);
-                angularTerm.cross(lever, angularTerm);
-                double tangentialMass = body.getInverseMass() + angularTerm.dot(tangential);
-                if (tangentialMass < RUBBER_EPSILON) {
-                    continue;
-                }
-
-                double frictionImpulse = Math.min(tangentialSpeed / tangentialMass,
-                        friction * normalImpulse);
-                impulse.set(tangential).mul(-frictionImpulse);
-                body.applyImpulseAt(impulse, contact.point);
+                solveNormal(body, contact, h, restitution);
+                solveFriction(body, contact, friction);
             }
         }
+    }
+
+    private static void solveNormal(RigidBody body, Contact contact, double h, double restitution) {
+        Vector3d velocity = body.velocityAt(contact.point, new Vector3d());
+        double normalVelocity = velocity.dot(contact.normal);
+
+        double effectiveMass = effectiveMass(body, contact, contact.normal);
+        if (effectiveMass < RUBBER_EPSILON) {
+            return;
+        }
+
+        double bias = BAUMGARTE / h * Math.max(contact.penetration - SLOP, 0.0D);
+        double bounce = 0.0D;
+        if (!contact.restitutionApplied && normalVelocity < -RESTITUTION_THRESHOLD) {
+            bounce = restitution;
+            contact.restitutionApplied = true;
+        }
+
+        double delta = (-(1.0D + bounce) * normalVelocity + bias) / effectiveMass;
+        double previous = contact.normalImpulse;
+        contact.normalImpulse = Math.max(0.0D, previous + delta);
+        delta = contact.normalImpulse - previous;
+
+        if (delta != 0.0D) {
+            body.applyImpulseAt(new Vector3d(contact.normal).mul(delta), contact.point);
+        }
+    }
+
+    private static void solveFriction(RigidBody body, Contact contact, double friction) {
+        if (friction <= 0.0D) {
+            return;
+        }
+
+        Vector3d velocity = body.velocityAt(contact.point, new Vector3d());
+        Vector3d tangential = new Vector3d(velocity)
+                .sub(new Vector3d(contact.normal).mul(velocity.dot(contact.normal)));
+
+        double speed = tangential.length();
+        if (speed < RUBBER_EPSILON) {
+            return;
+        }
+        tangential.div(speed);
+
+        double effectiveMass = effectiveMass(body, contact, tangential);
+        if (effectiveMass < RUBBER_EPSILON) {
+            return;
+        }
+
+        double delta = -speed / effectiveMass;
+        double maxFriction = friction * contact.normalImpulse;
+        double previous = contact.tangentImpulse;
+        contact.tangentImpulse = Math.max(-maxFriction, Math.min(maxFriction, previous + delta));
+        delta = contact.tangentImpulse - previous;
+
+        if (delta != 0.0D) {
+            body.applyImpulseAt(new Vector3d(tangential).mul(delta), contact.point);
+        }
+    }
+
+    private static double effectiveMass(RigidBody body, Contact contact, Vector3d direction) {
+        Vector3d lever = new Vector3d(contact.point).sub(body.position);
+        Vector3d leverCrossDirection = lever.cross(direction, new Vector3d());
+        Vector3d angular = new Vector3d(leverCrossDirection);
+        body.getInverseInertiaWorld().transform(angular);
+        angular.cross(lever, angular);
+        return body.getInverseMass() + angular.dot(direction);
     }
 
     /** Small positional push so ships do not slowly sink into the ground. */
