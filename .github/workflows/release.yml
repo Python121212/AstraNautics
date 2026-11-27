@@ -48,6 +48,13 @@ jobs:
           set -o pipefail
           gradle build --stacktrace --no-daemon 2>&1 | tee forgegradle-build.log
 
+      - name: Report ForgeGradle failure
+        if: steps.forgegradle.outcome == 'failure'
+        run: |
+          msg=$(grep -A 8 -m 2 -E "What went wrong|Could not|FAILURE:" forgegradle-build.log \
+                | head -c 3000 | sed ':a;N;$!ba;s/\n/%0A/g')
+          echo "::error title=ForgeGradle build failed::${msg}"
+
       - name: Fallback build (offline jar builder)
         if: ${{ hashFiles('build/libs/*.jar') == '' }}
         run: |
