@@ -127,7 +127,8 @@ public class RigidBody {
     /** Velocity of the material point currently at {@code worldPoint}. */
     public Vector3d velocityAt(Vector3d worldPoint, Vector3d dest) {
         Vector3d lever = new Vector3d(worldPoint).sub(position);
-        lever.cross(angularVelocity, dest);
+        // v = omega x r + v_cm  (note the multiplication order!)
+        angularVelocity.cross(lever, dest);
         return dest.add(linearVelocity);
     }
 

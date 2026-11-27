@@ -62,8 +62,9 @@ class RigidBodyTest {
         body.applyImpulseAt(new Vector3d(0.0D, 0.0D, 1.0D), point);
 
         assertEquals(1.0D, body.linearVelocity.z, 1.0E-6D);
-        // torque = r x J = (0.5,0,0) x (0,0,1) = (0,-0.5,0) -> spin about -Y
-        assertEquals(-0.5D, body.angularVelocity.y, 1.0E-6D);
+        // torque = r x J = (0.5,0,0) x (0,0,1) = (0,-0.5,0);
+        // for a unit cube of mass 1 the inertia is 1/6, so omega = 6 * -0.5 = -3
+        assertEquals(-3.0D, body.angularVelocity.y, 1.0E-6D);
         assertEquals(0.0D, body.angularVelocity.x, 1.0E-9D);
     }
 
