@@ -124,7 +124,6 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
     public void setBlockEntityData(Map<BlockPos, CompoundTag> data) {
         this.blockEntities.clear();
         this.blockEntities.putAll(data);
-        this.setChanged();
     }
 
     /** Server-side: turn the structure into a dynamic rigid body at {@code worldCenterOfMass}. */
@@ -903,7 +902,6 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
         @Override
         public void setChanged() {
             writeItems(this.data, this.items);
-            PhysicsShip.this.setChanged();
         }
 
         @Override
