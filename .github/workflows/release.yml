@@ -1,0 +1,72 @@
+name: Build and Release
+
+# Creates a GitHub Release with the Forge 1.20.1 mod jar attached.
+#
+# The jar is built on GitHub's runners (which can reach maven.minecraftforge.net),
+# so the release asset is produced by a regular ForgeGradle `./gradlew build`.
+# If ForgeGradle cannot reach its repositories, the offline builder
+# `tools/build_jar.py` is used as a fallback so a load-only jar is still attached.
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (a tag named like v1.0.0 is created if it does not exist)'
+        required: true
+        default: 'v1.0.0'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Build with ForgeGradle
+        continue-on-error: true
+        run: |
+          chmod +x ./gradlew
+          ./gradlew build --stacktrace
+
+      - name: Fallback build (offline jar builder)
+        if: ${{ hashFiles('build/libs/*.jar') == '' }}
+        run: |
+          echo "ForgeGradle build did not produce a jar, using tools/build_jar.py"
+          python3 tools/build_jar.py --check
+
+      - name: Show artifacts
+        run: ls -l build/libs/
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+          name: AstraNautics ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }} (Minecraft 1.20.1 / Forge)
+          body: |
+            Minecraft **1.20.1 / Forge 47.x** 用の load-only MOD です（読み込み確認用）。
+
+            - Mod ID: `astranautics`
+            - 対応: Minecraft `1.20.1` / Forge `47.x` / Java 17
+
+            ## 使い方
+            1. Forge 1.20.1 (47.2.0) をインストールしたプロファイルを用意する
+            2. 添付の jar を `.minecraft/mods/` にコピーする
+            3. 起動してログに `AstraNautics loaded (Minecraft 1.20.1 / Forge)` が出れば読み込み成功
+          files: build/libs/*.jar
+          fail_on_unmatched_files: true
+          generate_release_notes: true
