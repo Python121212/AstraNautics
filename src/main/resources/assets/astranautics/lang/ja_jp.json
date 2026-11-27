@@ -5,5 +5,10 @@
   "message.astranautics.physics_switch.no_anchor": "このスイッチに隣接する物理アセンブラがありません",
   "message.astranautics.physics_switch.on": "物理演算 ON — アンカー %s 基を解放しました",
   "message.astranautics.physics_switch.off": "物理演算 OFF — アンカー %s 基を固定しました",
-  "itemGroup.astranautics": "AstraNautics"
+  "itemGroup.astranautics": "AstraNautics",
+  "message.astranautics.physics_assembler.assembled": "物理演算 ON — %s ブロックを剛体にしました",
+  "message.astranautics.physics_assembler.failed": "アセンブルできません: %s",
+  "message.astranautics.physics_assembler.dissolved": "物理演算 OFF — %s ブロックを元の位置に戻しました",
+  "message.astranautics.physics_assembler.no_ship": "戻すべき構造物がありません",
+  "message.astranautics.physics_assembler.status": "アセンブラ %s / 船 %s / 対象ブロック %s / 直近: %s"
 }

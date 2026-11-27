@@ -2,16 +2,15 @@ package com.astranautics.block.entity;
 
 import com.astranautics.block.PhysicsAssemblerBlock;
 import com.astranautics.block.PhysicsSwitchBlock;
-import com.astranautics.entity.PhysicsShip;
 import com.astranautics.entity.ModEntities;
-import com.astranautics.physics.BlockPhysics;
+import com.astranautics.entity.PhysicsShip;
 import com.astranautics.physics.ShipStructure;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.shapes.VoxelShape;
 import org.jetbrains.annotations.Nullable;
 import org.joml.Vector3d;
 
@@ -23,24 +22,31 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Detaches a connected blob of blocks around a physics assembler and turns it into a
- * {@link PhysicsShip}.
+ * Detaches a connected blob of blocks around a physics assembler and turns it into
+ * a {@link PhysicsShip}.
+ *
+ * <p>Every block is allowed into a structure, including creative-only blocks such
+ * as bedrock and blocks with a block entity (chest, command block, ...). Only air,
+ * blocks without a collision shape (flowers, torches, fluids) and the mod's own
+ * controller blocks are skipped. The contents of block entities are not preserved
+ * when the structure is detached.</p>
  */
 public final class ShipAssembler {
     private ShipAssembler() {
     }
 
-    /**
-     * Flood-fills the blocks connected to {@code anchorPos} and replaces them with a
-     * ship entity.
-     *
-     * @return the new ship, or {@code null} when nothing suitable was found
-     */
-    @Nullable
-    public static PhysicsShip assemble(ServerLevel level, BlockPos anchorPos, int radius, int maxBlocks) {
-        Set<BlockPos> found = floodFill(level, anchorPos, radius, maxBlocks);
+    /** Outcome of an assembly attempt, used for both the game logic and diagnostics. */
+    public record Result(@Nullable PhysicsShip ship, int blocks, String reason) {
+        public boolean ok() {
+            return ship != null;
+        }
+    }
+
+    public static Result assemble(ServerLevel level, BlockPos assemblerPos, int radius, int maxBlocks) {
+        Set<BlockPos> found = floodFill(level, assemblerPos, radius, maxBlocks);
         if (found.isEmpty()) {
-            return null;
+            return new Result(null, 0,
+                    "no connected blocks with a collision shape within " + radius + " blocks");
         }
 
         int minX = Integer.MAX_VALUE;
@@ -60,36 +66,43 @@ public final class ShipAssembler {
 
         ShipStructure structure = ShipStructure.of(localVoxels);
 
-        // World position of the centre of mass.
         Vector3d centerOfMass = structure.getCenterOfMass();
         Vector3d worldCenter = new Vector3d(
                 corner.getX() + centerOfMass.x,
                 corner.getY() + centerOfMass.y,
                 corner.getZ() + centerOfMass.z);
 
-        PhysicsShip ship = ModEntities.GRAVITY_SHIP.get().create(level);
+        PhysicsShip ship = ModEntities.PHYSICS_SHIP.get().create(level);
         if (ship == null) {
-            return null;
+            return new Result(null, found.size(), "could not create the ship entity (entity type missing?)");
         }
+
         ship.initialise(structure, worldCenter);
-        level.addFreshEntity(ship);
+        if (!level.addFreshEntity(ship)) {
+            return new Result(null, found.size(), "the server refused to spawn the ship entity");
+        }
 
         // Remove the source blocks only after the entity exists.
         for (BlockPos pos : found) {
-            level.setBlock(pos, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), 3);
+            level.setBlock(pos, Blocks.AIR.defaultBlockState(), 2 | 16);
         }
 
-        return ship;
+        return new Result(ship, found.size(), "ok");
     }
 
-    private static Set<BlockPos> floodFill(ServerLevel level, BlockPos anchorPos, int radius, int maxBlocks) {
+    /** How many blocks a structure would contain, without touching the world. */
+    public static int preview(ServerLevel level, BlockPos assemblerPos, int radius, int maxBlocks) {
+        return floodFill(level, assemblerPos, radius, maxBlocks).size();
+    }
+
+    private static Set<BlockPos> floodFill(ServerLevel level, BlockPos assemblerPos, int radius, int maxBlocks) {
         Set<BlockPos> visited = new LinkedHashSet<>();
         Deque<BlockPos> queue = new ArrayDeque<>();
         double radiusSq = (double) radius * radius;
 
         for (Direction direction : Direction.values()) {
-            BlockPos start = anchorPos.relative(direction);
-            if (isAssemblable(level, start) && start.distSqr(anchorPos) <= radiusSq) {
+            BlockPos start = assemblerPos.relative(direction);
+            if (isAssemblable(level, start) && start.distSqr(assemblerPos) <= radiusSq) {
                 queue.add(start);
             }
         }
@@ -102,13 +115,11 @@ public final class ShipAssembler {
             }
             for (Direction direction : Direction.values()) {
                 cursor.setWithOffset(pos, direction);
-                if (visited.contains(cursor)) {
-                    continue;
-                }
-                if (cursor.distSqr(anchorPos) > radiusSq) {
+                if (visited.contains(cursor) || cursor.distSqr(assemblerPos) > radiusSq) {
                     continue;
                 }
                 if (isAssemblable(level, cursor)) {
+                    // Copy: MutableBlockPos is reused for the next neighbour.
                     queue.add(cursor.immutable());
                 }
             }
@@ -117,31 +128,20 @@ public final class ShipAssembler {
         return visited;
     }
 
-    private static boolean isAssemblable(ServerLevel level, BlockPos pos) {
+    /**
+     * Everything is physical: no block-entity check, no hardness check. Only blocks
+     * the simulation cannot represent are skipped.
+     */
+    public static boolean isAssemblable(ServerLevel level, BlockPos pos) {
         BlockState state = level.getBlockState(pos);
-        if (!BlockPhysics.isSolid(level, pos, state)) {
+        if (state.isAir()) {
             return false;
         }
-        if (!state.getFluidState().isEmpty()) {
+        if (state.getBlock() instanceof PhysicsAssemblerBlock
+                || state.getBlock() instanceof PhysicsSwitchBlock) {
             return false;
         }
-        if (state.getBlock() instanceof PhysicsAssemblerBlock || state.getBlock() instanceof PhysicsSwitchBlock) {
-            return false;
-        }
-        BlockEntity blockEntity = level.getBlockEntity(pos);
-        return blockEntity == null;
-    }
-
-    /** Convenience for callers that only have the anchor's position. */
-    public static Vec3 cornerFor(Set<BlockPos> positions) {
-        int minX = Integer.MAX_VALUE;
-        int minY = Integer.MAX_VALUE;
-        int minZ = Integer.MAX_VALUE;
-        for (BlockPos pos : positions) {
-            minX = Math.min(minX, pos.getX());
-            minY = Math.min(minY, pos.getY());
-            minZ = Math.min(minZ, pos.getZ());
-        }
-        return new Vec3(minX, minY, minZ);
+        VoxelShape shape = state.getCollisionShape(level, pos);
+        return !shape.isEmpty();
     }
 }

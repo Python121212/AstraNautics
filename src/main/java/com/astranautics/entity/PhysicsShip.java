@@ -12,16 +12,21 @@ import com.astranautics.physics.VoxelSpatialIndex;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
+import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityDimensions;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.Pose;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.AABB;
+import net.minecraftforge.entity.IEntityAdditionalSpawnData;
 import org.jetbrains.annotations.Nullable;
 import org.joml.Matrix3d;
 import org.joml.Quaterniond;
@@ -36,7 +41,7 @@ import java.util.Map;
  * <p>The entity position is the centre of mass; the voxel grid is kept in local
  * coordinates and rendered with the synced orientation.</p>
  */
-public class PhysicsShip extends Entity {
+public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
     private static final EntityDataAccessor<String> DATA_STRUCTURE =
             SynchedEntityData.defineId(PhysicsShip.class, EntityDataSerializers.STRING);
     private static final EntityDataAccessor<Float> DATA_QX =
@@ -52,6 +57,10 @@ public class PhysicsShip extends Entity {
     private final ContactCache contactCache = new ContactCache();
     private ShipStructure structure;
     private boolean structureSyncPending;
+    /** Remaining ticks during which the structure is (re)sent, so late tracking still receives it. */
+    private int structureSyncTicks;
+    /** Half extents of the world-space bounding box, derived from the structure and rotation. */
+    private final Vector3d halfExtents = new Vector3d(0.5D, 0.5D, 0.5D);
     @Nullable
     private VoxelSpatialIndex spatialIndex;
 
@@ -91,9 +100,11 @@ public class PhysicsShip extends Entity {
         this.body.setKinematic(false);
         this.setPos(worldCenterOfMass.x, worldCenterOfMass.y, worldCenterOfMass.z);
         this.structureSyncPending = true;
+        this.structureSyncTicks = 20;
         this.spatialIndex = null;
         this.wake();
         this.pushOrientation();
+        this.updateBoundingExtents();
     }
 
     @Nullable
@@ -115,6 +126,63 @@ public class PhysicsShip extends Entity {
     public void wake() {
         this.sleeping = false;
         this.sleepTicks = 0;
+    }
+
+    @Override
+    public EntityDimensions getDimensions(Pose pose) {
+        float width = (float) Math.max(0.5D, Math.max(halfExtents.x, halfExtents.z) * 2.0D);
+        float height = (float) Math.max(0.5D, halfExtents.y * 2.0D);
+        return EntityDimensions.scalable(width, height);
+    }
+
+    @Override
+    protected AABB makeBoundingBox() {
+        return new AABB(getX() - halfExtents.x, getY() - halfExtents.y, getZ() - halfExtents.z,
+                getX() + halfExtents.x, getY() + halfExtents.y, getZ() + halfExtents.z);
+    }
+
+    /**
+     * Recomputes the axis-aligned world extents of the rotated structure so that
+     * culling, entity collisions and the ship-vs-ship broad phase all see the real
+     * size of the ship instead of a 1x1x1 box.
+     */
+    private void updateBoundingExtents() {
+        ShipStructure current = this.structure;
+        if (current == null) {
+            halfExtents.set(0.5D, 0.5D, 0.5D);
+            return;
+        }
+
+        AABB local = current.getLocalBounds();
+        Vector3d com = current.getCenterOfMass();
+        double hx = Math.max(Math.abs(local.minX - com.x), Math.abs(local.maxX - com.x));
+        double hy = Math.max(Math.abs(local.minY - com.y), Math.abs(local.maxY - com.y));
+        double hz = Math.max(Math.abs(local.minZ - com.z), Math.abs(local.maxZ - com.z));
+
+        Matrix3d rotation = this.body.getRotationMatrix();
+        halfExtents.set(
+                Math.abs(rotation.m00) * hx + Math.abs(rotation.m01) * hy + Math.abs(rotation.m02) * hz,
+                Math.abs(rotation.m10) * hx + Math.abs(rotation.m11) * hy + Math.abs(rotation.m12) * hz,
+                Math.abs(rotation.m20) * hx + Math.abs(rotation.m21) * hy + Math.abs(rotation.m22) * hz);
+        this.setBoundingBox(makeBoundingBox());
+    }
+
+    // The structure is part of the spawn packet, so a player who starts tracking an
+    // already assembled ship still sees its blocks (previously the ship was invisible
+    // until the entity was recreated).
+    @Override
+    public void writeSpawnData(FriendlyByteBuf buffer) {
+        buffer.writeUtf(this.structure == null ? "" : ShipStructureCodec.encode(this.structure), 1 << 21);
+    }
+
+    @Override
+    public void readSpawnData(FriendlyByteBuf buffer) {
+        String data = buffer.readUtf(1 << 21);
+        if (!data.isEmpty()) {
+            this.structure = ShipStructureCodec.decode(data);
+            this.spatialIndex = null;
+            this.updateBoundingExtents();
+        }
     }
 
     /** Rebuilds the per-tick broad-phase index used by collisions and rendering. */
@@ -160,6 +228,7 @@ public class PhysicsShip extends Entity {
         if (this.level().isClientSide && DATA_STRUCTURE.equals(key)) {
             this.structure = ShipStructureCodec.decode(this.entityData.get(DATA_STRUCTURE));
             this.spatialIndex = null;
+            this.updateBoundingExtents();
         }
     }
 
@@ -171,6 +240,7 @@ public class PhysicsShip extends Entity {
             this.previousClientOrientation.set(this.currentClientOrientation);
             this.currentClientOrientation.set(readSyncedOrientation());
             this.clientOrientationKnown = true;
+            this.updateBoundingExtents();
             return;
         }
 
@@ -182,9 +252,12 @@ public class PhysicsShip extends Entity {
             return;
         }
 
-        if (this.structureSyncPending) {
+        if (this.structureSyncPending || this.structureSyncTicks > 0) {
             this.entityData.set(DATA_STRUCTURE, ShipStructureCodec.encode(this.structure));
             this.structureSyncPending = false;
+            if (this.structureSyncTicks > 0) {
+                this.structureSyncTicks--;
+            }
         }
 
         if (this.sleeping) {
@@ -207,6 +280,7 @@ public class PhysicsShip extends Entity {
 
         this.setPos(body.position.x, body.position.y, body.position.z);
         this.pushOrientation();
+        this.updateBoundingExtents();
         this.spatialIndex = null;
         this.updateSleepState();
 
@@ -289,6 +363,9 @@ public class PhysicsShip extends Entity {
             this.body.updateRotationMatrix();
             this.setPos(body.position.x, body.position.y, body.position.z);
         }
+
+        this.structureSyncTicks = 20;
+        this.updateBoundingExtents();
     }
 
     @Override

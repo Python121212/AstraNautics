@@ -2,10 +2,10 @@
 """Generate the 16x16 block textures for AstraNautics (pure Python, no Pillow).
 
 Writes:
-  textures/block/physics_assembler.png          anchor, physics OFF (dormant)
-  textures/block/physics_assembler_active.png   anchor, physics ON (lit rings)
-  textures/block/physics_switch_off.png      toggle switch, OFF
-  textures/block/physics_switch_on.png       toggle switch, ON
+  textures/block/physics_assembler.png          assembler, idle
+  textures/block/physics_assembler_active.png   assembler, running (lit core)
+  textures/block/physics_switch_off.png         switch, OFF
+  textures/block/physics_switch_on.png          switch, ON
 
 Run from the repository root:
     python3 tools/gen_textures.py
@@ -24,19 +24,21 @@ OUT_DIR = os.path.join(
     "src", "main", "resources", "assets", "astranautics", "textures", "block",
 )
 
+Color = tuple[int, int, int]
+Pixel = tuple[int, int, int, int]
+Canvas = list[list[Color]]
 
-def write_png(path: str, pixels: list[list[tuple[int, int, int, int]]]) -> None:
+
+# --------------------------------------------------------------------------- png
+def write_png(path: str, canvas: Canvas) -> None:
     raw = b"".join(
-        b"\x00" + b"".join(struct.pack("4B", *px) for px in row) for row in pixels
+        b"\x00" + b"".join(struct.pack("4B", r, g, b, 255) for (r, g, b) in row)
+        for row in canvas
     )
 
     def chunk(tag: bytes, data: bytes) -> bytes:
-        return (
-            struct.pack(">I", len(data))
-            + tag
-            + data
-            + struct.pack(">I", zlib.crc32(tag + data) & 0xFFFFFFFF)
-        )
+        return (struct.pack(">I", len(data)) + tag + data
+                + struct.pack(">I", zlib.crc32(tag + data) & 0xFFFFFFFF))
 
     png = (
         b"\x89PNG\r\n\x1a\n"
@@ -49,112 +51,170 @@ def write_png(path: str, pixels: list[list[tuple[int, int, int, int]]]) -> None:
         handle.write(png)
 
 
+# ------------------------------------------------------------------------ helpers
 def clamp(value: float) -> int:
     return max(0, min(255, int(round(value))))
 
 
-def mix(a: tuple[int, int, int], b: tuple[int, int, int], t: float) -> tuple[int, int, int]:
+def mix(a: Color, b: Color, t: float) -> Color:
     t = max(0.0, min(1.0, t))
-    return tuple(clamp(a[i] + (b[i] - a[i]) * t) for i in range(3))  # type: ignore[return-value]
+    return (clamp(a[0] + (b[0] - a[0]) * t),
+            clamp(a[1] + (b[1] - a[1]) * t),
+            clamp(a[2] + (b[2] - a[2]) * t))
 
 
-def anchor_texture(active: bool) -> list[list[tuple[int, int, int, int]]]:
-    """Dark metal cube with concentric rings and a glowing core."""
-    base = (26, 20, 38)
-    edge = (46, 34, 62)
-    ring_cold = (92, 74, 128)
-    ring_hot = (128, 246, 255)
-    core_hot = (206, 250, 255)
+def blank(color: Color) -> Canvas:
+    return [[color for _ in range(SIZE)] for _ in range(SIZE)]
 
-    pixels = []
-    center = (SIZE - 1) / 2.0
+
+def put(canvas: Canvas, x: int, y: int, color: Color) -> None:
+    if 0 <= x < SIZE and 0 <= y < SIZE:
+        canvas[y][x] = color
+
+
+def rect(canvas: Canvas, x0: int, y0: int, x1: int, y1: int, color: Color) -> None:
+    for y in range(y0, y1 + 1):
+        for x in range(x0, x1 + 1):
+            put(canvas, x, y, color)
+
+
+def frame(canvas: Canvas, color: Color, inset: int = 0) -> None:
+    rect(canvas, inset, inset, SIZE - 1 - inset, inset, color)
+    rect(canvas, inset, SIZE - 1 - inset, SIZE - 1 - inset, SIZE - 1 - inset, color)
+    rect(canvas, inset, inset, inset, SIZE - 1 - inset, color)
+    rect(canvas, SIZE - 1 - inset, inset, SIZE - 1 - inset, SIZE - 1 - inset, color)
+
+
+def disc(canvas: Canvas, cx: float, cy: float, radius: float, color: Color, blend: float = 1.0) -> None:
     for y in range(SIZE):
-        row = []
         for x in range(SIZE):
-            dx, dy = x - center, y - center
-            dist = math.hypot(dx, dy)
-            shade = 1.0 - 0.35 * (dist / center) if dist <= center else 0.65
-            color = mix(base, edge, 0.15 + 0.85 * (1.0 - shade))
-
-            # bevel border
-            if x in (0, SIZE - 1) or y in (0, SIZE - 1):
-                color = mix(color, (18, 14, 26), 0.7)
-            elif x in (1, SIZE - 2) or y in (1, SIZE - 2):
-                color = mix(color, (60, 46, 82), 0.35)
-
-            # concentric rings
-            for ring_radius in (3.2, 5.4, 7.4):
-                if abs(dist - ring_radius) < 0.55:
-                    t = 0.85 if active else 0.55
-                    color = mix(color, ring_hot if active else ring_cold, t)
-
-            # core
-            if dist < 1.8:
-                color = mix(color, core_hot if active else ring_cold, 0.95 if active else 0.5)
-            elif dist < 2.6:
-                color = mix(color, ring_hot if active else ring_cold, 0.5)
-
-            # faint star speckles
-            if (x * 7 + y * 13) % 29 == 0:
-                color = mix(color, (200, 210, 255), 0.25 if active else 0.12)
-
-            row.append((color[0], color[1], color[2], 255))
-        pixels.append(row)
-    return pixels
+            if math.hypot(x + 0.5 - cx, y + 0.5 - cy) <= radius:
+                canvas[y][x] = mix(canvas[y][x], color, blend)
 
 
-def switch_texture(on: bool) -> list[tuple[list[tuple[int, int, int, int]]]]:
-    """Brushed metal plate with a round indicator lamp and a lever slot."""
-    plate = (74, 78, 86)
-    plate_dark = (44, 47, 53)
-    plate_light = (104, 109, 119)
-    lamp_off = (94, 34, 34)
-    lamp_on = (86, 255, 150)
-    lamp_glow = (198, 255, 222)
-
-    pixels = []
+def ring(canvas: Canvas, cx: float, cy: float, radius: float, width: float,
+         color: Color, blend: float = 1.0) -> None:
     for y in range(SIZE):
-        row = []
         for x in range(SIZE):
-            # brushed metal base
-            noise = ((x * 31 + y * 17) % 11) / 11.0
-            color = mix(plate, plate_light, 0.20 * noise)
-            color = mix(color, plate_dark, 0.15 * (y / SIZE))
+            distance = math.hypot(x + 0.5 - cx, y + 0.5 - cy)
+            if abs(distance - radius) <= width * 0.5:
+                canvas[y][x] = mix(canvas[y][x], color, blend)
 
-            # frame
-            if x in (0, SIZE - 1) or y in (0, SIZE - 1):
-                color = mix(plate_dark, (24, 25, 28), 0.6)
-            elif x in (1, SIZE - 2) or y in (1, SIZE - 2):
-                color = mix(color, plate_light, 0.35)
 
-            # vertical lever slot in the middle-left
-            if 5 <= x <= 6 and 3 <= y <= 12:
-                color = mix(plate_dark, (16, 16, 20), 0.8)
-            if x == 7 and 3 <= y <= 12:
-                color = mix(color, plate_light, 0.25)
+def rivets(canvas: Canvas, color: Color, light: Color) -> None:
+    for (x, y) in ((2, 2), (13, 2), (2, 13), (13, 13)):
+        canvas[y][x] = color
+        canvas[y][x + (1 if x < 8 else -1)] = mix(color, light, 0.35)
 
-            # lever knob: up when ON, down when OFF
-            knob_y = 4 if on else 11
-            if abs(x - 5.5) <= 1.6 and abs(y - knob_y) <= 1.6:
-                color = (176, 180, 190) if on else (126, 130, 140)
 
-            # indicator lamp on the right
-            dist = math.hypot(x - 11.5, y - 8.0)
-            if dist < 2.9:
-                color = mix(color, lamp_on if on else lamp_off, 0.9)
-            elif dist < 3.6:
-                color = mix(color, lamp_glow if on else (60, 24, 24), 0.5)
+def noise(canvas: Canvas, seed: int, strength: float) -> None:
+    for y in range(SIZE):
+        for x in range(SIZE):
+            value = ((x * 31 + y * 17 + seed * 13) % 13) / 13.0
+            edge = 1.0 - value * strength
+            r, g, b = canvas[y][x]
+            canvas[y][x] = (clamp(r * edge), clamp(g * edge), clamp(b * edge))
 
-            row.append((color[0], color[1], color[2], 255))
-        pixels.append(row)
-    return pixels
+
+# --------------------------------------------------------------------- assembler
+def assembler(active: bool) -> Canvas:
+    steel_dark = (34, 30, 44)
+    steel = (58, 52, 76)
+    steel_light = (86, 78, 108)
+    bolt = (26, 24, 34)
+
+    core_cold = (96, 84, 128)
+    core_hot = (122, 243, 255)
+    core_white = (222, 252, 255)
+
+    canvas = blank(steel)
+    for y in range(SIZE):
+        for x in range(SIZE):
+            vertical = y / (SIZE - 1)
+            canvas[y][x] = mix(steel_light, steel_dark, 0.25 + 0.6 * vertical)
+
+    noise(canvas, 7, 0.18)
+
+    # outer bevel + inner plate
+    frame(canvas, bolt)
+    frame(canvas, (20, 18, 26), 1)
+    rect(canvas, 2, 2, SIZE - 3, SIZE - 3, mix(steel, steel_dark, 0.35))
+    frame(canvas, steel_light, 2)
+    rect(canvas, 3, 3, SIZE - 4, SIZE - 4, mix(steel_dark, steel, 0.5))
+
+    rivets(canvas, bolt, steel_light)
+
+    # gravity rings
+    ring(canvas, 8.0, 8.0, 5.4, 1.0, core_cold if not active else mix(core_hot, core_cold, 0.4), 0.75)
+    ring(canvas, 8.0, 8.0, 3.6, 1.0, core_cold if not active else core_hot, 0.85)
+
+    # four anchor lugs on the diagonals
+    for (dx, dy) in ((-1, -1), (1, -1), (-1, 1), (1, 1)):
+        put(canvas, 8 + int(dx * 6), 8 + int(dy * 6), mix(steel_light, (18, 16, 24), 0.5))
+
+    # core
+    disc(canvas, 8.0, 8.0, 2.1, core_cold if not active else mix(core_white, core_hot, 0.5), 0.95)
+    disc(canvas, 8.0, 8.0, 1.2, core_white if active else mix(core_cold, (200, 205, 230), 0.35), 0.95)
+    if active:
+        disc(canvas, 8.0, 8.0, 6.2, core_hot, 0.16)
+    else:
+        disc(canvas, 8.0, 8.0, 6.2, core_cold, 0.10)
+
+    return canvas
+
+
+# ------------------------------------------------------------------------ switch
+def switch(on: bool) -> Canvas:
+    plate = (66, 70, 78)
+    plate_dark = (38, 40, 46)
+    plate_light = (104, 110, 120)
+    metal = (166, 172, 184)
+    led_off = (108, 32, 32)
+    led_on = (96, 255, 148)
+    led_glow = (206, 255, 226)
+
+    canvas = blank(plate)
+    for y in range(SIZE):
+        for x in range(SIZE):
+            brushed = ((x * 7 + y * 3) % 9) / 9.0
+            canvas[y][x] = mix(plate, plate_light, 0.12 + 0.18 * brushed)
+
+    noise(canvas, 3, 0.16)
+
+    frame(canvas, (22, 24, 28))
+    frame(canvas, plate_dark, 1)
+    rect(canvas, 2, 2, SIZE - 3, SIZE - 3, plate)
+    frame(canvas, plate_light, 2)
+
+    # recessed switch channel
+    rect(canvas, 4, 3, 6, 12, plate_dark)
+    rect(canvas, 5, 3, 5, 12, (18, 18, 22))
+    rect(canvas, 3, 3, 3, 12, plate_light)
+
+    # lever knob (top = ON, bottom = OFF)
+    knob_y = 4 if on else 11
+    rect(canvas, 4, knob_y - 1, 6, knob_y + 1, metal)
+    put(canvas, 4, knob_y - 1, mix(metal, (255, 255, 255), 0.4))
+    put(canvas, 6, knob_y + 1, mix(metal, (60, 62, 70), 0.5))
+
+    # indicator lamp
+    disc(canvas, 11.5, 8.0, 2.6, plate_dark, 0.8)
+    disc(canvas, 11.5, 8.0, 2.1, led_on if on else led_off, 0.95)
+    disc(canvas, 11.5, 8.0, 1.1, led_glow if on else mix(led_off, (255, 180, 180), 0.35), 0.85)
+    if on:
+        disc(canvas, 11.5, 8.0, 3.6, led_glow, 0.16)
+
+    # tiny label notch under the lamp
+    rect(canvas, 10, 12, 13, 12, mix(plate_dark, (0, 0, 0), 0.3))
+
+    return canvas
 
 
 def main() -> int:
-    write_png(os.path.join(OUT_DIR, "physics_assembler.png"), anchor_texture(active=False))
-    write_png(os.path.join(OUT_DIR, "physics_assembler_active.png"), anchor_texture(active=True))
-    write_png(os.path.join(OUT_DIR, "physics_switch_off.png"), switch_texture(on=False))
-    write_png(os.path.join(OUT_DIR, "physics_switch_on.png"), switch_texture(on=True))
+    write_png(os.path.join(OUT_DIR, "physics_assembler.png"), assembler(active=False))
+    write_png(os.path.join(OUT_DIR, "physics_assembler_active.png"), assembler(active=True))
+    write_png(os.path.join(OUT_DIR, "physics_switch_off.png"), switch(on=False))
+    write_png(os.path.join(OUT_DIR, "physics_switch_on.png"), switch(on=True))
     print(f"wrote 4 textures to {os.path.relpath(OUT_DIR)}")
     return 0
 

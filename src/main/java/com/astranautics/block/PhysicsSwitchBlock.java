@@ -1,5 +1,6 @@
 package com.astranautics.block;
 
+import com.astranautics.block.entity.PhysicsAssemblerBlockEntity;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
@@ -49,7 +50,7 @@ public class PhysicsSwitchBlock extends Block {
         boolean newState = !state.getValue(ENABLED);
         level.setBlock(pos, state.setValue(ENABLED, newState), 3);
 
-        int toggled = toggleAdjacentAnchors(level, pos, newState);
+        int toggled = toggleAdjacentAssemblers(level, pos, newState, player);
 
         level.playSound(null, pos, SoundEvents.LEVER_CLICK, SoundSource.BLOCKS, 0.6F,
                 newState ? 1.0F : 0.6F);
@@ -57,25 +58,18 @@ public class PhysicsSwitchBlock extends Block {
         if (toggled == 0) {
             player.displayClientMessage(
                     Component.translatable("message.astranautics.physics_switch.no_anchor"), true);
-        } else {
-            player.displayClientMessage(
-                    Component.translatable(newState
-                                    ? "message.astranautics.physics_switch.on"
-                                    : "message.astranautics.physics_switch.off",
-                            toggled), true);
         }
 
         return InteractionResult.CONSUME;
     }
 
-    private int toggleAdjacentAnchors(Level level, BlockPos pos, boolean enabled) {
+    private int toggleAdjacentAssemblers(Level level, BlockPos pos, boolean enabled, Player player) {
         int toggled = 0;
         for (Direction direction : Direction.values()) {
             BlockPos neighbourPos = pos.relative(direction);
             BlockState neighbour = level.getBlockState(neighbourPos);
             if (neighbour.getBlock() instanceof PhysicsAssemblerBlock) {
-                level.setBlock(neighbourPos,
-                        neighbour.setValue(PhysicsAssemblerBlock.ENABLED, enabled), 3);
+                PhysicsAssemblerBlockEntity.onSwitched(level, neighbourPos, enabled, player);
                 level.playSound(null, neighbourPos,
                         enabled ? SoundEvents.BEACON_ACTIVATE : SoundEvents.BEACON_DEACTIVATE,
                         SoundSource.BLOCKS, 0.7F, enabled ? 1.4F : 0.7F);

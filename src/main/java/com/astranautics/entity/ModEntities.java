@@ -12,7 +12,7 @@ public class ModEntities {
     public static final DeferredRegister<EntityType<?>> ENTITIES =
             DeferredRegister.create(ForgeRegistries.ENTITY_TYPES, AstraNautics.MODID);
 
-    public static final RegistryObject<EntityType<PhysicsShip>> GRAVITY_SHIP =
+    public static final RegistryObject<EntityType<PhysicsShip>> PHYSICS_SHIP =
             ENTITIES.register("physics_ship", () -> EntityType.Builder
                     .<PhysicsShip>of(PhysicsShip::new, MobCategory.MISC)
                     .sized(1.0F, 1.0F)

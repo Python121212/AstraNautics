@@ -5,5 +5,10 @@
   "message.astranautics.physics_switch.no_anchor": "No Physics Assembler is adjacent to this switch",
   "message.astranautics.physics_switch.on": "Physics ON - %s anchor(s) released",
   "message.astranautics.physics_switch.off": "Physics OFF - %s anchor(s) frozen",
-  "itemGroup.astranautics": "AstraNautics"
+  "itemGroup.astranautics": "AstraNautics",
+  "message.astranautics.physics_assembler.assembled": "Physics ON - %s block(s) assembled",
+  "message.astranautics.physics_assembler.failed": "Assembly failed: %s",
+  "message.astranautics.physics_assembler.dissolved": "Physics OFF - %s block(s) restored",
+  "message.astranautics.physics_assembler.no_ship": "No assembled structure to restore",
+  "message.astranautics.physics_assembler.status": "Assembler %s / ship %s / blocks %s / last: %s"
 }
