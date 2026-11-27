@@ -141,9 +141,6 @@ public final class ShipAssembler {
                 || state.getBlock() instanceof PhysicsSwitchBlock) {
             return false;
         }
-        if (state.getBlock() == Blocks.BEDROCK && false) {
-            return false; // bedrock is fully supported; kept explicit for clarity
-        }
         VoxelShape shape = state.getCollisionShape(level, pos);
         return !shape.isEmpty();
     }

@@ -3,6 +3,10 @@ package com.astranautics.block;
 import com.astranautics.block.entity.PhysicsAssemblerBlockEntity;
 import com.astranautics.block.entity.ModBlockEntities;
 import net.minecraft.core.BlockPos;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.BaseEntityBlock;
 import net.minecraft.world.level.block.Block;
@@ -16,6 +20,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BooleanProperty;
 import net.minecraft.world.level.material.MapColor;
+import net.minecraft.world.phys.BlockHitResult;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -61,6 +66,33 @@ public class PhysicsAssemblerBlock extends BaseEntityBlock {
         }
         return createTickerHelper(type, ModBlockEntities.PHYSICS_ASSEMBLER.get(),
                 PhysicsAssemblerBlockEntity::serverTick);
+    }
+
+    /** Right-clicking with an empty hand prints the current assembler state. */
+    @Override
+    public InteractionResult use(BlockState state, Level level, BlockPos pos, Player player,
+                                 InteractionHand hand, BlockHitResult hit) {
+        if (!player.getItemInHand(hand).isEmpty()) {
+            return InteractionResult.PASS;
+        }
+        if (level.isClientSide) {
+            return InteractionResult.SUCCESS;
+        }
+        if (level.getBlockEntity(pos) instanceof PhysicsAssemblerBlockEntity assembler) {
+            assembler.sendStatus(player);
+        }
+        return InteractionResult.CONSUME;
+    }
+
+    /** Breaking the assembler puts an already assembled ship back into the world. */
+    @Override
+    public void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
+        if (!state.is(newState.getBlock()) && !level.isClientSide
+                && level instanceof ServerLevel serverLevel
+                && level.getBlockEntity(pos) instanceof PhysicsAssemblerBlockEntity assembler) {
+            assembler.dissolveOnRemoval(serverLevel);
+        }
+        super.onRemove(state, level, pos, newState, movedByPiston);
     }
 
     @Override
