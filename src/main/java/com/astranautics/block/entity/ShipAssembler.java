@@ -10,6 +10,7 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
@@ -61,7 +62,7 @@ public final class ShipAssembler {
         }
 
         public Component message() {
-            Component text = switch (this.reason) {
+            MutableComponent text = switch (this.reason) {
                 case NONE -> Component.translatable("message.astranautics.reason.none");
                 case OK -> Component.translatable(
                         "message.astranautics.physics_assembler.assembled", this.blocks);
