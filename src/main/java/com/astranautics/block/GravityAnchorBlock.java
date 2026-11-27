@@ -3,7 +3,6 @@ package com.astranautics.block;
 import com.astranautics.block.entity.GravityAnchorBlockEntity;
 import com.astranautics.block.entity.ModBlockEntities;
 import net.minecraft.core.BlockPos;
-import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.BaseEntityBlock;
 import net.minecraft.world.level.block.Block;
@@ -20,11 +19,10 @@ import net.minecraft.world.level.material.MapColor;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * The gravity anchor. While {@link #ENABLED} is true the block entity runs the
- * "physics simulation": every entity inside the configured radius is accelerated
- * towards the anchor.
+ * The gravity anchor.
  *
- * <p>The state is flipped by an adjacent {@link GravitySwitchBlock}.</p>
+ * <p>Switching it on detaches the connected structure around it and hands it to the
+ * rigid body physics simulation; switching it off puts the blocks back.</p>
  */
 public class GravityAnchorBlock extends BaseEntityBlock {
     public static final BooleanProperty ENABLED = BooleanProperty.create("enabled");
@@ -58,7 +56,6 @@ public class GravityAnchorBlock extends BaseEntityBlock {
     @Override
     public <T extends BlockEntity> BlockEntityTicker<T> getTicker(Level level, BlockState state,
                                                                  BlockEntityType<T> type) {
-        // The physics simulation only runs on the logical server.
         if (level.isClientSide) {
             return null;
         }
@@ -74,10 +71,5 @@ public class GravityAnchorBlock extends BaseEntityBlock {
     @Override
     public int getAnalogOutputSignal(BlockState state, Level level, BlockPos pos) {
         return state.getValue(ENABLED) ? 15 : 0;
-    }
-
-    @Override
-    public boolean propagatesSkylightDown(BlockState state, BlockGetter level, BlockPos pos) {
-        return false;
     }
 }
