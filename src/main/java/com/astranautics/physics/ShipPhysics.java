@@ -2,22 +2,24 @@ package com.astranautics.physics;
 
 import com.astranautics.config.AstraConfig;
 import net.minecraft.server.level.ServerLevel;
+import org.jetbrains.annotations.Nullable;
 import org.joml.Vector3d;
 
 import java.util.List;
 
 /**
- * Sequential-impulse rigid body solver for one ship against the static world.
+ * Sequential-impulse solver for ships against the static world and against each
+ * other.
  *
- * <p>One call == one fixed physics substep. Ships are solved one at a time; ship
- * vs ship contacts and entity contacts are planned for a follow-up iteration.</p>
+ * <p>One call == one fixed physics substep. Contacts accumulate impulses and the
+ * <em>total</em> normal impulse is clamped to be non-negative; clamping each
+ * iteration's delta instead makes resting structures slowly gain energy.</p>
  *
- * <p>The solver accumulates per-contact impulses and clamps the <em>total</em>
- * normal impulse to be non-negative. Clamping each iteration's delta instead
- * makes resting structures slowly gain energy ("popcorning").</p>
+ * <p>Contact impulses are carried across steps ({@link ContactCache}) so the solver
+ * converges in a handful of iterations — warm starting is the main reason the
+ * simulation stays cheap with hundreds of voxels.</p>
  */
 public final class ShipPhysics {
-    private static final int SOLVER_ITERATIONS = 8;
     private static final double SLOP = 0.005D;
     private static final double BAUMGARTE = 0.2D;
     private static final double RUBBER_EPSILON = 1.0E-6D;
@@ -29,35 +31,43 @@ public final class ShipPhysics {
     private ShipPhysics() {
     }
 
-    /** Config-driven step used in game. */
-    public static void step(ServerLevel level, RigidBody body, VoxelBody voxelBody, double h) {
-        step(new LevelCollisionSource(level), body, voxelBody, h,
-                AstraConfig.GRAVITY.get(),
-                AstraConfig.FRICTION.get(),
-                AstraConfig.RESTITUTION.get(),
-                AstraConfig.LINEAR_DAMPING.get(),
-                AstraConfig.ANGULAR_DAMPING.get());
+    public static void step(ServerLevel level, RigidBody body, VoxelBody voxelBody, double h,
+                            PhysicsParams params, @Nullable ContactCache cache) {
+        step(new LevelCollisionSource(level), body, voxelBody, h, params, cache);
     }
 
-    /** Explicit step used by unit tests and future config-free callers. */
+    /** Explicit step used by unit tests and by config-free callers. */
     public static void step(BlockCollisionSource source, RigidBody body, VoxelBody voxelBody, double h,
-                            double gravity, double friction, double restitution,
-                            double linearDamping, double angularDamping) {
+                            PhysicsParams params, @Nullable ContactCache cache) {
         if (body.isKinematic()) {
             return;
         }
 
-        body.applyForce(new Vector3d(0.0D, -gravity * body.getMass(), 0.0D));
-        body.integrateVelocities(h, linearDamping, angularDamping);
+        body.applyForce(new Vector3d(0.0D, -params.gravity * body.getMass(), 0.0D));
+        body.integrateVelocities(h, params.linearDamping, params.angularDamping);
 
         List<Contact> contacts = CollisionDetector.collect(source, body, voxelBody);
-        solveContacts(body, contacts, h, friction, restitution);
+        solveContacts(body, null, contacts, h, params, cache);
         body.integratePosition(h);
         applyPositionCorrection(body, contacts);
+
+        if (cache != null) {
+            cache.swap();
+        }
     }
 
-    public static void solveContacts(RigidBody body, List<Contact> contacts, double h,
-                                     double friction, double restitution) {
+    /** Convenience overload for a single pair contact batch without warm starting. */
+    public static void solveContacts(RigidBody bodyA, @Nullable RigidBody bodyB,
+                                     List<Contact> contacts, double h, PhysicsParams params) {
+        solveContacts(bodyA, bodyB, contacts, h, params, null);
+    }
+
+    /**
+     * @param bodyA   the ship whose voxels produced the contacts
+     * @param bodyB   the other body, or {@code null} when colliding with the world
+     */
+    public static void solveContacts(RigidBody bodyA, @Nullable RigidBody bodyB, List<Contact> contacts,
+                                     double h, PhysicsParams params, @Nullable ContactCache cache) {
         if (contacts.isEmpty()) {
             return;
         }
@@ -66,19 +76,64 @@ public final class ShipPhysics {
             contact.resetImpulses();
         }
 
-        for (int iteration = 0; iteration < SOLVER_ITERATIONS; iteration++) {
+        if (cache != null) {
+            warmStart(bodyA, bodyB, contacts, cache);
+        }
+
+        for (int iteration = 0; iteration < params.iterations; iteration++) {
             for (Contact contact : contacts) {
-                solveNormal(body, contact, h, restitution);
-                solveFriction(body, contact, friction);
+                solveNormal(bodyA, bodyB, contact, h, params.restitution);
+                solveFriction(bodyA, bodyB, contact, params.friction);
+            }
+        }
+
+        if (cache != null) {
+            for (Contact contact : contacts) {
+                cache.put(ContactCache.keyOf(contact.point, contact.normal),
+                        contact.normalImpulse, contact.tangentImpulse,
+                        contact.tangent.x, contact.tangent.y, contact.tangent.z);
             }
         }
     }
 
-    private static void solveNormal(RigidBody body, Contact contact, double h, double restitution) {
-        Vector3d velocity = body.velocityAt(contact.point, new Vector3d());
-        double normalVelocity = velocity.dot(contact.normal);
+    private static void warmStart(RigidBody bodyA, @Nullable RigidBody bodyB,
+                                  List<Contact> contacts, ContactCache cache) {
+        for (Contact contact : contacts) {
+            long key = ContactCache.keyOf(contact.point, contact.normal);
+            double[] cached = cache.get(key);
+            if (cached == null) {
+                continue;
+            }
+            double normalImpulse = cached[0];
+            double tangentImpulse = cached[1];
+            if (normalImpulse == 0.0D && tangentImpulse == 0.0D) {
+                continue;
+            }
 
-        double effectiveMass = effectiveMass(body, contact, contact.normal);
+            Vector3d impulse = new Vector3d(contact.normal).mul(normalImpulse);
+            if (tangentImpulse != 0.0D) {
+                contact.tangent.set(cached[2], cached[3], cached[4]);
+                if (contact.tangent.lengthSquared() > RUBBER_EPSILON) {
+                    contact.tangentInitialised = true;
+                    impulse.fma(tangentImpulse, contact.tangent);
+                }
+            }
+
+            bodyA.applyImpulseAt(impulse, contact.point);
+            if (bodyB != null) {
+                bodyB.applyImpulseAt(new Vector3d(impulse).negate(), contact.point);
+            }
+            contact.normalImpulse = normalImpulse;
+            contact.tangentImpulse = contact.tangentInitialised ? tangentImpulse : 0.0D;
+        }
+    }
+
+    private static void solveNormal(RigidBody bodyA, @Nullable RigidBody bodyB, Contact contact,
+                                    double h, double restitution) {
+        Vector3d relative = relativeVelocity(bodyA, bodyB, contact.point);
+        double normalVelocity = relative.dot(contact.normal);
+
+        double effectiveMass = effectiveMass(bodyA, bodyB, contact, contact.normal);
         if (effectiveMass < RUBBER_EPSILON) {
             return;
         }
@@ -96,18 +151,23 @@ public final class ShipPhysics {
         delta = contact.normalImpulse - previous;
 
         if (delta != 0.0D) {
-            body.applyImpulseAt(new Vector3d(contact.normal).mul(delta), contact.point);
+            Vector3d impulse = new Vector3d(contact.normal).mul(delta);
+            bodyA.applyImpulseAt(impulse, contact.point);
+            if (bodyB != null) {
+                bodyB.applyImpulseAt(new Vector3d(impulse).negate(), contact.point);
+            }
         }
     }
 
-    private static void solveFriction(RigidBody body, Contact contact, double friction) {
+    private static void solveFriction(RigidBody bodyA, @Nullable RigidBody bodyB, Contact contact,
+                                      double friction) {
         if (friction <= 0.0D) {
             return;
         }
 
-        Vector3d velocity = body.velocityAt(contact.point, new Vector3d());
-        Vector3d tangential = new Vector3d(velocity)
-                .sub(new Vector3d(contact.normal).mul(velocity.dot(contact.normal)));
+        Vector3d relative = relativeVelocity(bodyA, bodyB, contact.point);
+        Vector3d tangential = new Vector3d(relative)
+                .sub(new Vector3d(contact.normal).mul(relative.dot(contact.normal)));
 
         // Freeze the friction direction on the first solver iteration: letting it
         // chase the velocity every iteration makes resting structures slide away.
@@ -118,14 +178,13 @@ public final class ShipPhysics {
             contact.tangent.set(tangential).normalize();
             contact.tangentInitialised = true;
         }
-        tangential.set(contact.tangent);
 
-        double speed = velocity.dot(tangential);
+        double speed = relative.dot(contact.tangent);
         if (Math.abs(speed) < RUBBER_EPSILON) {
             return;
         }
 
-        double effectiveMass = effectiveMass(body, contact, tangential);
+        double effectiveMass = effectiveMass(bodyA, bodyB, contact, contact.tangent);
         if (effectiveMass < RUBBER_EPSILON) {
             return;
         }
@@ -137,17 +196,38 @@ public final class ShipPhysics {
         delta = contact.tangentImpulse - previous;
 
         if (delta != 0.0D) {
-            body.applyImpulseAt(new Vector3d(tangential).mul(delta), contact.point);
+            Vector3d impulse = new Vector3d(contact.tangent).mul(delta);
+            bodyA.applyImpulseAt(impulse, contact.point);
+            if (bodyB != null) {
+                bodyB.applyImpulseAt(new Vector3d(impulse).negate(), contact.point);
+            }
         }
     }
 
-    private static double effectiveMass(RigidBody body, Contact contact, Vector3d direction) {
-        Vector3d lever = new Vector3d(contact.point).sub(body.position);
+    private static Vector3d relativeVelocity(RigidBody bodyA, @Nullable RigidBody bodyB, Vector3d point) {
+        Vector3d velocity = bodyA.velocityAt(point, new Vector3d());
+        if (bodyB != null) {
+            velocity.sub(bodyB.velocityAt(point, new Vector3d()));
+        }
+        return velocity;
+    }
+
+    private static double effectiveMass(RigidBody bodyA, @Nullable RigidBody bodyB,
+                                        Contact contact, Vector3d direction) {
+        double mass = bodyA.getInverseMass() + angularTerm(bodyA, contact.point, direction);
+        if (bodyB != null) {
+            mass += bodyB.getInverseMass() + angularTerm(bodyB, contact.point, direction);
+        }
+        return mass;
+    }
+
+    private static double angularTerm(RigidBody body, Vector3d point, Vector3d direction) {
+        Vector3d lever = new Vector3d(point).sub(body.position);
         Vector3d leverCrossDirection = lever.cross(direction, new Vector3d());
         Vector3d angular = new Vector3d(leverCrossDirection);
         body.getInverseInertiaWorld().transform(angular);
         angular.cross(lever, angular);
-        return body.getInverseMass() + angular.dot(direction);
+        return angular.dot(direction);
     }
 
     /** Small positional push so ships do not slowly sink into the ground. */

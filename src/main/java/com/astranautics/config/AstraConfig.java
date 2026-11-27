@@ -19,6 +19,16 @@ public final class AstraConfig {
     public static final ForgeConfigSpec.DoubleValue RESTITUTION;
     public static final ForgeConfigSpec.DoubleValue LINEAR_DAMPING;
     public static final ForgeConfigSpec.DoubleValue ANGULAR_DAMPING;
+    public static final ForgeConfigSpec.IntValue SOLVER_ITERATIONS;
+
+    // Sleeping (idle ships are skipped entirely)
+    public static final ForgeConfigSpec.DoubleValue SLEEP_LINEAR_THRESHOLD;
+    public static final ForgeConfigSpec.DoubleValue SLEEP_ANGULAR_THRESHOLD;
+    public static final ForgeConfigSpec.IntValue SLEEP_TICKS;
+
+    // Collision layers
+    public static final ForgeConfigSpec.BooleanValue ENABLE_SHIP_COLLISIONS;
+    public static final ForgeConfigSpec.BooleanValue ENABLE_ENTITY_COLLISIONS;
 
     static {
         ForgeConfigSpec.Builder builder = new ForgeConfigSpec.Builder();
@@ -51,6 +61,30 @@ public final class AstraConfig {
         ANGULAR_DAMPING = builder
                 .comment("Per-tick angular damping factor applied to angular velocity.")
                 .defineInRange("angularDamping", 0.995D, 0.5D, 1.0D);
+        SOLVER_ITERATIONS = builder
+                .comment("Solver iterations per substep. Lower is cheaper; impulses are warm started between steps.")
+                .defineInRange("solverIterations", 4, 1, 16);
+        builder.pop();
+
+        builder.comment("Sleeping: settled ships skip physics entirely until something wakes them").push("sleeping");
+        SLEEP_LINEAR_THRESHOLD = builder
+                .comment("Linear speed (blocks/second) below which a ship counts as idle.")
+                .defineInRange("linearThreshold", 0.05D, 0.0D, 1.0D);
+        SLEEP_ANGULAR_THRESHOLD = builder
+                .comment("Angular speed (radians/second) below which a ship counts as idle.")
+                .defineInRange("angularThreshold", 0.05D, 0.0D, 1.0D);
+        SLEEP_TICKS = builder
+                .comment("Consecutive idle ticks before a ship falls asleep.")
+                .defineInRange("idleTicks", 40, 1, 400);
+        builder.pop();
+
+        builder.comment("Collision layers").push("collisions");
+        ENABLE_SHIP_COLLISIONS = builder
+                .comment("Ships collide with each other.")
+                .define("shipVsShip", true);
+        ENABLE_ENTITY_COLLISIONS = builder
+                .comment("Entities are pushed out of ships and can stand on them.")
+                .define("shipVsEntity", true);
         builder.pop();
 
         SPEC = builder.build();

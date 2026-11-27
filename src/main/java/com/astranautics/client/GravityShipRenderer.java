@@ -16,7 +16,6 @@ import org.joml.Quaterniond;
 import org.joml.Quaternionf;
 import org.joml.Vector3d;
 
-import java.util.Map;
 
 /**
  * Renders a physics ship by drawing every voxel with the ship's orientation.
@@ -50,15 +49,20 @@ public class GravityShipRenderer extends EntityRenderer<GravityShip> {
         poseStack.mulPose(new Quaternionf((float) orientation.x, (float) orientation.y,
                 (float) orientation.z, (float) orientation.w));
 
-        for (Map.Entry<BlockPos, BlockState> entry : structure.voxels().entrySet()) {
-            BlockPos local = entry.getKey();
+        // Only surface voxels can be seen - rendering the interior would multiply the
+        // draw calls of a solid structure for pixels that are always hidden.
+        for (BlockPos local : structure.surfaceVoxels()) {
+            BlockState state = structure.voxels().get(local);
+            if (state == null) {
+                continue;
+            }
             poseStack.pushPose();
             poseStack.translate(
                     local.getX() + 0.5D - centerOfMass.x,
                     local.getY() + 0.5D - centerOfMass.y,
                     local.getZ() + 0.5D - centerOfMass.z);
             poseStack.translate(-0.5D, -0.5D, -0.5D);
-            dispatcher.renderSingleBlock(entry.getValue(), poseStack, bufferSource,
+            dispatcher.renderSingleBlock(state, poseStack, bufferSource,
                     packedLight, OverlayTexture.NO_OVERLAY);
             poseStack.popPose();
         }

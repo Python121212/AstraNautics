@@ -4,6 +4,8 @@ import com.astranautics.block.ModBlocks;
 import com.astranautics.block.entity.ModBlockEntities;
 import com.astranautics.config.AstraConfig;
 import com.astranautics.entity.ModEntities;
+import com.astranautics.physics.ShipPhysicsTicker;
+import com.astranautics.physics.ShipWorld;
 import com.astranautics.item.ModItems;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.eventbus.api.IEventBus;
@@ -40,6 +42,7 @@ public class AstraNautics {
         ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, AstraConfig.SPEC);
 
         MinecraftForge.EVENT_BUS.register(this);
+        MinecraftForge.EVENT_BUS.register(ShipPhysicsTicker.class);
     }
 
     private void commonSetup(final FMLCommonSetupEvent event) {

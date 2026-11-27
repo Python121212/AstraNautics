@@ -19,11 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class SolverSimulationTest {
     private static final double H = 1.0D / 60.0D;
-    private static final double GRAVITY = 32.0D;
-    private static final double FRICTION = 0.6D;
-    private static final double RESTITUTION = 0.05D;
-    private static final double LINEAR_DAMPING = 0.999D;
-    private static final double ANGULAR_DAMPING = 0.995D;
+    private static final PhysicsParams PARAMS = PhysicsParams.defaults();
 
     /** A synthetic world made of full blocks. */
     static final class FakeWorld implements BlockCollisionSource {
@@ -77,9 +73,9 @@ class SolverSimulationTest {
     }
 
     private static void simulate(BlockCollisionSource world, RigidBody body, VoxelBody voxels, int steps) {
+        ContactCache cache = new ContactCache();
         for (int i = 0; i < steps; i++) {
-            ShipPhysics.step(world, body, voxels, H, GRAVITY, FRICTION, RESTITUTION,
-                    LINEAR_DAMPING, ANGULAR_DAMPING);
+            ShipPhysics.step(world, body, voxels, H, PARAMS, cache);
         }
     }
 
@@ -119,9 +115,9 @@ class SolverSimulationTest {
 
         // 1/60 s substeps with adaptive substepping in game; here we simply use a
         // fine step so the test stays deterministic.
+        ContactCache cache = new ContactCache();
         for (int i = 0; i < 400; i++) {
-            ShipPhysics.step(world, body, new SingleCube(), 1.0D / 240.0D, GRAVITY, FRICTION,
-                    RESTITUTION, LINEAR_DAMPING, ANGULAR_DAMPING);
+            ShipPhysics.step(world, body, new SingleCube(), 1.0D / 240.0D, PARAMS, cache);
         }
 
         assertTrue(body.position.y > 1.0D, "tunnelled through the floor: " + body.position);
