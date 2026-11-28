@@ -58,14 +58,16 @@ public final class HullRedstone {
         while (!queue.isEmpty()) {
             BlockPos pos = queue.poll();
             int strength = power.getOrDefault(pos, 0);
-            if (strength <= 1) {
+            // A source feeds the dust next to it at full strength (as a redstone block does in
+            // vanilla); from there on every block costs one.
+            int carried = kinds.get(pos) == Kind.SOURCE ? MAX_POWER : strength - 1;
+            if (carried <= 0) {
                 continue;
             }
             for (BlockPos next : neighbours(pos)) {
                 if (kinds.get(next) != Kind.WIRE) {
                     continue;
                 }
-                int carried = strength - 1;
                 if (carried > power.getOrDefault(next, 0)) {
                     power.put(next, carried);
                     queue.add(next);

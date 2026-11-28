@@ -56,14 +56,15 @@ class HullRedstoneTest {
     }
 
     @Test
-    void aWireFifteenBlocksFromAnySourceIsDead() {
+    void aWireSixteenBlocksFromAnySourceIsDead() {
         put(0, 0, 0, HullRedstone.Kind.SOURCE);
-        for (int i = 1; i <= 15; i++) {
+        for (int i = 1; i <= 16; i++) {
             put(i, 0, 0, HullRedstone.Kind.WIRE);
         }
         Map<BlockPos, Integer> power = HullRedstone.strengths(this.kinds);
-        // 15 - 15 = 0, so the fifteenth wire carries nothing and nothing past it is powered.
-        assertFalse(HullRedstone.powered(power, new BlockPos(16, 0, 0)));
+        // The source feeds the first dust at 15, so fifteen blocks later there is nothing left.
+        assertEquals(Integer.valueOf(1), power.get(new BlockPos(15, 0, 0)));
+        assertFalse(HullRedstone.powered(power, new BlockPos(17, 0, 0)));
     }
 
     @Test
