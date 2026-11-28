@@ -39,7 +39,7 @@ import sys
 import zipfile
 
 MOD_ID = "astranautics"
-MOD_VERSION = "3.5.1"
+MOD_VERSION = "3.5.2"
 MOD_NAME = "AstraNautics"
 MOD_AUTHORS = "Python121212"
 MOD_DESCRIPTION = (

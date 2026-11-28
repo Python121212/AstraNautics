@@ -6,10 +6,12 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
+import org.jetbrains.annotations.Nullable;
 import org.joml.Vector3d;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Predicate;
 
 /**
  * Makes entities interact with a ship: they are pushed out of the hull, can stand and
@@ -52,14 +54,29 @@ public final class EntityShipCollision {
     private static final double TICK_SECONDS = 0.05D;
     /** Corrections larger than this (blocks) are synced with a teleport packet. */
     private static final double TELEPORT_THRESHOLD_SQ = 0.4D * 0.4D;
+    /**
+     * Velocity changes smaller than this are not sent to the client. The server resolves
+     * the exact same contacts, so the client reaches the same velocity on its own; a
+     * motion packet every tick would only stomp the player's own movement.
+     */
+    private static final double VELOCITY_PACKET_THRESHOLD_SQ = 0.1D * 0.1D;
 
     private EntityShipCollision() {
     }
 
     public static void resolve(Level level, PhysicsShip ship, VoxelSpatialIndex index) {
+        resolve(level, ship, index, null);
+    }
+
+    /**
+     * @param extraFilter additional filter (e.g. only the local player on a client), may be null
+     */
+    public static void resolve(Level level, PhysicsShip ship, VoxelSpatialIndex index,
+                              @Nullable Predicate<Entity> extraFilter) {
         AABB area = ship.getBoundingBox().inflate(1.5D);
         List<Entity> entities = level.getEntities(ship, area,
-                entity -> !(entity instanceof PhysicsShip) && entity.isAlive() && !entity.isSpectator());
+                entity -> !(entity instanceof PhysicsShip) && entity.isAlive() && !entity.isSpectator()
+                        && (extraFilter == null || extraFilter.test(entity)));
         if (entities.isEmpty()) {
             return;
         }
@@ -138,7 +155,7 @@ public final class EntityShipCollision {
         double vx = velocity.x;
         double vy = velocity.y;
         double vz = velocity.z;
-        boolean velocityChanged = false;
+        double velocityDeltaSq = 0.0D;
         boolean moved = false;
 
         // --- support: stand on the deck -------------------------------------------
@@ -151,8 +168,8 @@ public final class EntityShipCollision {
             moved = true;
 
             if (vy < 0.0D) {
+                velocityDeltaSq += vy * vy;
                 vy = 0.0D;
-                velocityChanged = true;
             }
             entity.fallDistance = 0.0F;
             entity.setOnGround(true);
@@ -172,8 +189,8 @@ public final class EntityShipCollision {
             targetY -= Math.min(ceilingPen + CONTACT_SKIN, MAX_PUSH);
             moved = true;
             if (vy > 0.0D) {
+                velocityDeltaSq += vy * vy;
                 vy = 0.0D;
-                velocityChanged = true;
             }
         }
 
@@ -190,9 +207,9 @@ public final class EntityShipCollision {
 
                 double into = vx * nx + vz * nz;
                 if (into < 0.0D) {
+                    velocityDeltaSq += into * into;
                     vx -= nx * into;
                     vz -= nz * into;
-                    velocityChanged = true;
                 }
             }
         }
@@ -201,11 +218,13 @@ public final class EntityShipCollision {
             return false;
         }
 
-        if (velocityChanged) {
+        if (velocityDeltaSq > 0.0D) {
             entity.setDeltaMovement(vx, vy, vz);
-            // Only tell the client about a real velocity change: a packet every tick
-            // stomps the local player's own movement and shows up as stutter.
-            entity.hurtMarked = true;
+            if (velocityDeltaSq > VELOCITY_PACKET_THRESHOLD_SQ) {
+                // Only tell the client about a real velocity change: a motion packet every
+                // tick stomps the player's own movement and shows up as stutter.
+                entity.hurtMarked = true;
+            }
         }
 
         double dx = targetX - entity.getX();
