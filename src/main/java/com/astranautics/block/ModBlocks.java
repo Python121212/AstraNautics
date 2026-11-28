@@ -51,6 +51,10 @@ public class ModBlocks {
     public static final RegistryObject<Block> ANCHOR =
             BLOCKS.register("anchor", AnchorBlock::new);
 
+    /** A lifting hook: right-click it and the hull is carried along with the player. */
+    public static final RegistryObject<Block> HOOK =
+            BLOCKS.register("hook", HookBlock::new);
+
     public static void register(IEventBus eventBus) {
         BLOCKS.register(eventBus);
     }

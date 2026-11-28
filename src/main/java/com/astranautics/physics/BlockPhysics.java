@@ -1,5 +1,6 @@
 package com.astranautics.physics;
 
+import com.astranautics.config.AstraConfig;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.block.state.BlockState;
@@ -18,11 +19,7 @@ public final class BlockPhysics {
      * very heavy so that ships made of them behave sensibly.
      */
     public static double massOf(BlockState state) {
-        float hardness = state.getBlock().defaultDestroyTime();
-        if (hardness < 0.0F) {
-            return 10.0D;
-        }
-        return Math.min(6.0D, 0.4D + 0.35D * hardness);
+        return BlockMasses.massOf(state, AstraConfig.MASS_SCALE.get());
     }
 
     /** True when the block has a solid collision shape that participates in physics. */

@@ -43,6 +43,9 @@ public class ModItems {
     public static final RegistryObject<Item> ANCHOR = ITEMS.register("anchor",
             () -> new BlockItem(ModBlocks.ANCHOR.get(), new Item.Properties()));
 
+    public static final RegistryObject<Item> HOOK = ITEMS.register("hook",
+            () -> new BlockItem(ModBlocks.HOOK.get(), new Item.Properties()));
+
     public static void register(IEventBus eventBus) {
         ITEMS.register(eventBus);
     }

@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/cube_bottom_top",
+  "textures": {
+    "top": "astranautics:block/hook_top",
+    "bottom": "astranautics:block/hook_side",
+    "side": "astranautics:block/hook_side"
+  }
+}

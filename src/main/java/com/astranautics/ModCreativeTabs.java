@@ -32,6 +32,7 @@ public class ModCreativeTabs {
                         output.accept(ModItems.YAW_ROTATOR.get());
                         output.accept(ModItems.PITCH_ROTATOR.get());
                         output.accept(ModItems.ANCHOR.get());
+                        output.accept(ModItems.HOOK.get());
                     })
                     .build());
 

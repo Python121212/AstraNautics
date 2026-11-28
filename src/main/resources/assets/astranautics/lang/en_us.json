@@ -78,5 +78,14 @@
   "ponder.astranautics.anchor.title.0": "Welding a hull to the world",
   "ponder.astranautics.anchor.body.0": "Bolting one on links the hull to the world: gravity, collisions and shoves can no longer move it. If it stopped at a fraction of a block, it snaps to the block grid as it locks.",
   "ponder.astranautics.anchor.title.1": "Releasing it",
-  "ponder.astranautics.anchor.body.1": "Right-click to link or release; breaking it releases the hull too. Keep it locked and turn it with a rotator to get a turntable that stays exactly where it is."
+  "ponder.astranautics.anchor.body.1": "Right-click to link or release; breaking it releases the hull too. Keep it locked and turn it with a rotator to get a turntable that stays exactly where it is.",
+  "block.astranautics.hook": "Hook Block",
+  "message.astranautics.hook.lifted": "Hull lifted (mass %s) - right-click, sneak or walk away to put it down",
+  "message.astranautics.hook.released": "Hull put down",
+  "message.astranautics.hook.slipped": "You walked too far: the hull slipped off the hook",
+  "message.astranautics.hook.too_heavy": "Too heavy to lift (%s / limit %s)",
+  "ponder.astranautics.hook.title.0": "Carrying a hull",
+  "ponder.astranautics.hook.body.0": "Bolt one on a physical hull and right-click: you lift it and carry it with you. Right-click again, sneak, or walk away to put it down.",
+  "ponder.astranautics.hook.title.1": "About weight",
+  "ponder.astranautics.hook.body.1": "Every block has its own mass (iron is heavy, wool is almost nothing). A hull above the limit (60 by default) cannot be lifted, and a heavy one follows more slowly."
 }

@@ -51,6 +51,13 @@ public final class AstraConfig {
 
     public static final ForgeConfigSpec.BooleanValue ENABLE_ROTATORS;
     public static final ForgeConfigSpec.DoubleValue ROTATOR_SPEED;
+    public static final ForgeConfigSpec.DoubleValue MASS_SCALE;
+
+    public static final ForgeConfigSpec.DoubleValue HOOK_MAX_MASS;
+    public static final ForgeConfigSpec.DoubleValue HOOK_STIFFNESS;
+    public static final ForgeConfigSpec.DoubleValue HOOK_MAX_SPEED;
+    public static final ForgeConfigSpec.DoubleValue HOOK_RANGE;
+    public static final ForgeConfigSpec.DoubleValue HOOK_DISTANCE;
     public static final ForgeConfigSpec.DoubleValue WATER_DENSITY;
     public static final ForgeConfigSpec.DoubleValue WATER_DRAG;
 
@@ -88,6 +95,10 @@ public final class AstraConfig {
         SOLVER_ITERATIONS = builder
                 .comment("Solver iterations per substep. Lower is cheaper; impulses are warm started between steps.")
                 .defineInRange("solverIterations", 4, 1, 16);
+        MASS_SCALE = builder
+                .comment("Multiplier on every block's density (see BlockMasses). Raise it to make ships",
+                        "heavier across the board without changing the ratios between blocks.")
+                .defineInRange("massScale", 0.55D, 0.01D, 20.0D);
         builder.pop();
 
         builder.comment("Sleeping: settled ships skip physics entirely until something wakes them").push("sleeping");
@@ -153,6 +164,24 @@ public final class AstraConfig {
         WATER_DRAG = builder
                 .comment("Extra linear damping while the hull is under water.")
                 .defineInRange("waterDrag", 3.0D, 0.0D, 50.0D);
+        builder.pop();
+
+        builder.push("hook");
+        HOOK_MAX_MASS = builder
+                .comment("Heaviest hull a hook block can lift.")
+                .defineInRange("maxMass", 120.0D, 0.1D, 100000.0D);
+        HOOK_STIFFNESS = builder
+                .comment("How hard the hook pulls. Higher = the hull follows you more tightly.")
+                .defineInRange("stiffness", 6.0D, 0.5D, 60.0D);
+        HOOK_MAX_SPEED = builder
+                .comment("Speed limit while carried, in blocks per second.")
+                .defineInRange("maxSpeed", 14.0D, 0.5D, 100.0D);
+        HOOK_RANGE = builder
+                .comment("Distance at which a carried hull slips off the hook.")
+                .defineInRange("range", 9.0D, 1.0D, 64.0D);
+        HOOK_DISTANCE = builder
+                .comment("How far in front of the player a carried hull hangs.")
+                .defineInRange("distance", 3.5D, 1.0D, 16.0D);
         builder.pop();
 
         builder.push("engines");
