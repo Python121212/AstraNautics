@@ -2,7 +2,6 @@ package com.astranautics.physics;
 
 import com.astranautics.entity.PhysicsShip;
 import net.minecraft.resources.ResourceKey;
-import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
 
 import java.util.ArrayList;
@@ -23,23 +22,27 @@ public final class ShipWorld {
     }
 
     public static void add(PhysicsShip ship) {
-        if (!(ship.level() instanceof ServerLevel serverLevel)) {
+        // Client levels are tracked as well: the local player's hull collision needs the
+        // ships of the current dimension without scanning every entity of the level.
+        Level level = ship.level();
+        if (level == null) {
             return;
         }
-        SHIPS.computeIfAbsent(serverLevel.dimension(), key -> new ArrayList<>()).add(ship);
+        SHIPS.computeIfAbsent(level.dimension(), key -> new ArrayList<>()).add(ship);
     }
 
     public static void remove(PhysicsShip ship) {
-        if (!(ship.level() instanceof ServerLevel serverLevel)) {
+        Level level = ship.level();
+        if (level == null) {
             return;
         }
-        List<PhysicsShip> ships = SHIPS.get(serverLevel.dimension());
+        List<PhysicsShip> ships = SHIPS.get(level.dimension());
         if (ships != null) {
             ships.remove(ship);
         }
     }
 
-    public static List<PhysicsShip> ships(ServerLevel level) {
+    public static List<PhysicsShip> ships(Level level) {
         return SHIPS.getOrDefault(level.dimension(), List.of());
     }
 

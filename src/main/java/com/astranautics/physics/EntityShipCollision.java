@@ -112,15 +112,23 @@ public final class EntityShipCollision {
      * entity hovering for one tick every time the deck drops from under it.
      */
     public static boolean isSupported(Entity entity, long gameTime) {
+        return !Double.isNaN(supportHeight(entity, gameTime));
+    }
+
+    /**
+     * Height the entity was standing at in the previous tick, or {@code NaN} when it is not
+     * standing on a hull any more (or has moved away from that height).
+     */
+    public static double supportHeight(Entity entity, long gameTime) {
         Support support = SUPPORTED.get(entity);
         if (support == null || gameTime < support.tick || gameTime - support.tick > 2L) {
-            return false;
+            return Double.NaN;
         }
         if (Math.abs(entity.getY() - support.y) > 0.08D) {
             SUPPORTED.remove(entity);
-            return false;
+            return Double.NaN;
         }
-        return true;
+        return support.y;
     }
 
     public static void clearSupported() {

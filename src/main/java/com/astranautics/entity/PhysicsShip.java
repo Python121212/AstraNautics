@@ -115,9 +115,7 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
     public PhysicsShip(EntityType<?> type, Level level) {
         super(type, level);
         this.noCulling = true;
-        if (!level.isClientSide) {
-            ShipWorld.add(this);
-        }
+        ShipWorld.add(this);
     }
 
     @Override
