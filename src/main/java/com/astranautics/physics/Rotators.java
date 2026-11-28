@@ -79,8 +79,8 @@ public final class Rotators {
             case Z -> new Vector3d(0.0D, 0.0D, 1.0D);
         };
         Quaterniond rotation = new Quaterniond().fromAxisAngleRad(unit, Math.toRadians(degrees));
-        // premultiply = apply in world space, which is what a turntable does.
-        orientation.premultiply(rotation).normalize();
+        // A turntable applies the rotation in world space: new = rotation * old.
+        orientation.set(rotation.mul(orientation)).normalize();
     }
 
     /** Wraps an angle into [0, 360). */
