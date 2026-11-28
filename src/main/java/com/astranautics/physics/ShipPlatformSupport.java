@@ -3,7 +3,6 @@ package com.astranautics.physics;
 import com.astranautics.AstraNautics;
 import com.astranautics.config.AstraConfig;
 import net.minecraft.world.effect.MobEffects;
-import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.event.TickEvent;
@@ -27,6 +26,8 @@ import net.minecraftforge.fml.common.Mod;
  */
 @Mod.EventBusSubscriber(modid = AstraNautics.MODID, bus = Mod.EventBusSubscriber.Bus.FORGE)
 public final class ShipPlatformSupport {
+    /** Vanilla applies this much gravity per tick in {@code LivingEntity#travel}. */
+    private static final double GRAVITY_PER_TICK = 0.08D;
     /** Slow falling replaces the gravity per tick with this. */
     private static final double SLOW_FALLING_GRAVITY = 0.01D;
 
@@ -55,10 +56,10 @@ public final class ShipPlatformSupport {
             return;
         }
 
-        // Exactly the value vanilla subtracts this tick, so the net vertical motion is zero.
+        // Exactly the value vanilla subtracts this tick, so the net vertical motion is zero
+        // (1.20.1 uses the literal 0.08 in LivingEntity#travel, no gravity attribute).
         double gravity = player.hasEffect(MobEffects.SLOW_FALLING)
-                ? SLOW_FALLING_GRAVITY
-                : player.getAttributeValue(Attributes.GRAVITY);
+                ? SLOW_FALLING_GRAVITY : GRAVITY_PER_TICK;
         player.setDeltaMovement(velocity.x, gravity, velocity.z);
         player.setOnGround(true);
         player.fallDistance = 0.0F;
