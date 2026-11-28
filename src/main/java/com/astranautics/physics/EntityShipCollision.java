@@ -61,6 +61,12 @@ public final class EntityShipCollision {
      * speed is cancelled, which feels like "moves a little, stops, moves again".</p>
      */
     private static final double FEET_CLEARANCE = 0.12D;
+    /**
+     * Ceiling contacts are tested against the box trimmed by this much at the head, for the
+     * same reason as {@link #FEET_CLEARANCE}: brushing a block above (an overhang, a low
+     * deck of the hull) must not shove the entity down every tick.
+     */
+    private static final double HEAD_CLEARANCE = 0.12D;
     /** One tick in seconds. */
     private static final double TICK_SECONDS = 0.05D;
     /** Corrections larger than this (blocks) are synced with a teleport packet. */
@@ -73,15 +79,38 @@ public final class EntityShipCollision {
     private static final double VELOCITY_PACKET_THRESHOLD_SQ = 0.1D * 0.1D;
 
     /** Entities that had a support contact in the last resolution (weak keys, no leak). */
-    private static final Map<Entity, Long> SUPPORTED = new WeakHashMap<>();
+    private static final Map<Entity, Support> SUPPORTED = new WeakHashMap<>();
+
+    /** Where an entity stood on a hull, so the next tick can tell whether it still does. */
+    private static final class Support {
+        private final long tick;
+        private final double y;
+
+        private Support(long tick, double y) {
+            this.tick = tick;
+            this.y = y;
+        }
+    }
 
     private EntityShipCollision() {
     }
 
-    /** True if {@code entity} stood on a hull in the previous tick. */
+    /**
+     * True if {@code entity} stood on a hull in the previous tick <em>and has not moved
+     * away from it since</em>. The height check matters when walking down a step or off a
+     * falling hull: without it the gravity cancel of {@code ShipPlatformSupport} keeps the
+     * entity hovering for one tick every time the deck drops from under it.
+     */
     public static boolean isSupported(Entity entity, long gameTime) {
-        Long tick = SUPPORTED.get(entity);
-        return tick != null && gameTime >= tick && gameTime - tick <= 2L;
+        Support support = SUPPORTED.get(entity);
+        if (support == null || gameTime < support.tick || gameTime - support.tick > 2L) {
+            return false;
+        }
+        if (Math.abs(entity.getY() - support.y) > 0.08D) {
+            SUPPORTED.remove(entity);
+            return false;
+        }
+        return true;
     }
 
     public static void clearSupported() {
@@ -109,6 +138,7 @@ public final class EntityShipCollision {
         Obb voxelObb = new Obb();
         Obb entityObb = new Obb();
         Obb bodyObb = new Obb();
+        Obb headObb = new Obb();
         Vector3d normal = new Vector3d();
         double[] penetration = new double[1];
         Vector3d queryCenter = new Vector3d();
@@ -117,8 +147,8 @@ public final class EntityShipCollision {
         for (Entity entity : entities) {
             SUPPORTED.remove(entity);
             for (int iteration = 0; iteration < MAX_ITERATIONS; iteration++) {
-                if (!resolveOne(level, body, index, entity, voxelObb, entityObb, bodyObb, normal,
-                        penetration, queryCenter, nearby)) {
+                if (!resolveOne(level, body, index, entity, voxelObb, entityObb, bodyObb, headObb,
+                        normal, penetration, queryCenter, nearby)) {
                     break;
                 }
             }
@@ -128,7 +158,8 @@ public final class EntityShipCollision {
     /** One push-out step. Returns true when a deep contact may need another pass. */
     private static boolean resolveOne(Level level, RigidBody body, VoxelSpatialIndex index,
                                       Entity entity, Obb voxelObb, Obb entityObb, Obb bodyObb,
-                                      Vector3d normal, double[] penetration, Vector3d queryCenter,
+                                      Obb headObb, Vector3d normal, double[] penetration,
+                                      Vector3d queryCenter,
                                       List<VoxelSpatialIndex.Entry> nearby) {
         AABB box = entity.getBoundingBox();
         queryCenter.set((box.minX + box.maxX) * 0.5D, (box.minY + box.maxY) * 0.5D,
@@ -142,6 +173,8 @@ public final class EntityShipCollision {
         entityObb.setAabb(box);
         double bodyMinY = Math.min(box.minY + FEET_CLEARANCE, box.maxY - 0.01D);
         bodyObb.setAabb(new AABB(box.minX, bodyMinY, box.minZ, box.maxX, box.maxY, box.maxZ));
+        double headMaxY = Math.max(box.maxY - HEAD_CLEARANCE, box.minY + 0.01D);
+        headObb.setAabb(new AABB(box.minX, box.minY, box.minZ, box.maxX, headMaxY, box.maxZ));
         double supportPen = 0.0D;
         Vector3d supportNormal = null;
         VoxelSpatialIndex.Entry supportEntry = null;
@@ -165,7 +198,11 @@ public final class EntityShipCollision {
                     supportEntry = entry;
                 }
             } else if (normal.y < -VERTICAL_NORMAL) {
-                ceilingPen = Math.max(ceilingPen, pen);
+                // Same reasoning as the wall case: only count the block above when it
+                // really is in the way of the body, not when the head grazes it.
+                if (Obb.intersect(headObb, voxelObb, normal, penetration)) {
+                    ceilingPen = Math.max(ceilingPen, penetration[0]);
+                }
             } else {
                 // Confirm the side contact against the trimmed body box so the few
                 // centimetres the feet sink into the deck do not read as a wall.
@@ -195,9 +232,6 @@ public final class EntityShipCollision {
 
         // --- support: stand on the deck -------------------------------------------
         if (supportNormal != null) {
-            // Remember the support even when the separation is already zero: the tick
-            // handler uses it to cancel the player's own gravity (see ShipPlatformSupport).
-            SUPPORTED.put(entity, level.getGameTime());
             entity.fallDistance = 0.0F;
             entity.setOnGround(true);
         }
@@ -225,8 +259,10 @@ public final class EntityShipCollision {
         }
 
         // --- ceiling: pushed down by the hull above -------------------------------
-        if (ceilingPen > CONTACT_SKIN) {
-            targetY -= Math.min(ceilingPen + CONTACT_SKIN, MAX_PUSH);
+        // The support wins when both are present (standing in a low hold of the hull):
+        // pushing down while the deck pushes up is a guaranteed oscillation.
+        if (ceilingPen > CONTACT_SKIN && supportNormal == null) {
+            targetY -= Math.min(ceilingPen + SUPPORT_SKIN, MAX_PUSH);
             moved = true;
             if (vy > 0.0D) {
                 velocityDeltaSq += vy * vy;
@@ -255,6 +291,10 @@ public final class EntityShipCollision {
         }
 
         if (!moved) {
+            // Nothing to separate, but the entity may still be resting exactly on the deck:
+            // record the support, otherwise the gravity cancel would alternate on and off
+            // every other tick (a 10 Hz bob) instead of being continuous.
+            recordSupport(level, entity, supportNormal);
             return false;
         }
 
@@ -273,8 +313,21 @@ public final class EntityShipCollision {
         if (dx * dx + dy * dy + dz * dz > 1.0E-10D) {
             moveEntity(level, entity, targetX, targetY, targetZ);
         }
+
+        recordSupport(level, entity, supportNormal);
         // Another pass is only useful when the entity was still deep inside the hull.
         return supportPen > CONTACT_SKIN || wallPen > 0.25D || ceilingPen > CONTACT_SKIN;
+    }
+
+    /**
+     * Remembers that the entity stands on a hull (and at which height), so
+     * {@code ShipPlatformSupport} can cancel its gravity during the next tick.
+     */
+    private static void recordSupport(Level level, Entity entity, @Nullable Vector3d supportNormal) {
+        if (supportNormal == null) {
+            return;
+        }
+        SUPPORTED.put(entity, new Support(level.getGameTime(), entity.getY()));
     }
 
     private static void moveEntity(Level level, Entity entity, double x, double y, double z) {
