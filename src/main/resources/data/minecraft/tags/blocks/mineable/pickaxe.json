@@ -9,6 +9,7 @@
     "astranautics:steam_engine",
     "astranautics:yaw_rotator",
     "astranautics:pitch_rotator",
-    "astranautics:anchor"
+    "astranautics:anchor",
+    "astranautics:hook"
   ]
 }

@@ -29,6 +29,7 @@ public final class PonderRegistry {
         register("yaw_rotator", ModItems.YAW_ROTATOR.get(), 2);
         register("pitch_rotator", ModItems.PITCH_ROTATOR.get(), 2);
         register("anchor", ModItems.ANCHOR.get(), 2);
+        register("hook", ModItems.HOOK.get(), 2);
     }
 
     private PonderRegistry() {

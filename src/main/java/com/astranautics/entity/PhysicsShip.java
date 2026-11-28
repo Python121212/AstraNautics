@@ -2,6 +2,7 @@ package com.astranautics.entity;
 
 import com.astranautics.AstraNautics;
 import com.astranautics.block.AnchorBlock;
+import com.astranautics.block.HookBlock;
 import com.astranautics.block.PhysicsSwitchBlock;
 import com.astranautics.block.PropellerBlock;
 import com.astranautics.block.RotatorBlock;
@@ -156,6 +157,12 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
     private boolean anchored;
     private final Vector3d anchorPosition = new Vector3d();
     private final Quaterniond anchorOrientation = new Quaterniond();
+    /** The player currently carrying this hull by a hook block, if any. */
+    @Nullable
+    private UUID carriedBy;
+    /** Scratch vector for the carry spring (no allocation per tick). */
+    private final Vector3d carryTarget = new Vector3d();
+    private final Vector3d carryDelta = new Vector3d();
 
     // Sleeping (perf): a settled ship skips the solver until something wakes it.
     private boolean sleeping;
@@ -439,7 +446,11 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
         this.tickEngines(level);
         this.tickRotators(level);
 
-        if (this.anchored) {
+        // Being carried: the hook sets the velocity, and everything below still runs, so the
+        // hull collides with the world instead of floating through it.
+        boolean carried = this.tickCarried(level);
+
+        if (!carried && this.anchored) {
             // Welded to the world: no gravity, no sliding, no being shoved. The pose is the one
             // captured when the hull was linked; a rotator may have turned it since, so that is
             // folded back into the anchor before it is restored.
@@ -456,7 +467,7 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
             return;
         }
 
-        if (this.sleeping) {
+        if (!carried && this.sleeping) {
             if (this.enginesRunning()) {
                 this.wake();
             } else if (Aerodynamics.liftsItself(this.body, this.structure)) {
@@ -470,9 +481,11 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
 
         PhysicsParams params = PhysicsParams.fromConfig();
 
-        // Lift, thrust, buoyancy and drag for this tick. Applied as impulses here, once,
-        // so the substepped solver below sees them exactly once instead of per substep.
-        Aerodynamics.apply(level, this.body, this.structure, params, this.rpmSource);
+        if (!carried) {
+            // Lift, thrust, buoyancy and drag for this tick. Applied as impulses here, once,
+            // so the substepped solver below sees them exactly once instead of per substep.
+            Aerodynamics.apply(level, this.body, this.structure, params, this.rpmSource);
+        }
 
         // Adaptive substepping: fast ships get more substeps so they cannot tunnel
         // through the world between two collision checks.
@@ -489,7 +502,9 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
         this.setPos(body.position.x, body.position.y, body.position.z);
         this.pushOrientation();
         this.updateBoundingExtents();
-        this.updateSleepState();
+        if (!carried) {
+            this.updateSleepState();
+        }
 
         if (body.position.y < level.getMinBuildHeight() - 48.0D) {
             dissolve(level);
@@ -536,6 +551,9 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
                 BlockPos target = BlockPos.containing(world.x, world.y, world.z);
                 BlockState state = entry.getValue();
                 CompoundTag storedData = this.blockEntities.get(entry.getKey());
+                if (state.getBlock() instanceof HookBlock) {
+                    state = state.setValue(HookBlock.ENGAGED, false);
+                }
                 if (state.getBlock() instanceof AnchorBlock) {
                     state = state.setValue(AnchorBlock.LINKED, false);
                 }
@@ -609,6 +627,14 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
             }
         }
 
+        if (tag.hasUUID("CarriedBy")) {
+            this.carriedBy = tag.getUUID("CarriedBy");
+        }
+        if (this.structure != null && this.carriedBy == null) {
+            // A hook saved while glowing, but nobody is holding it any more.
+            this.setHookVisuals(false);
+        }
+
         this.syncEngines();
         this.structureSyncTicks = STRUCTURE_SYNC_TICKS;
         this.structureDirty = true;
@@ -620,6 +646,9 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
         this.flushEngines();
         if (this.structure != null) {
             tag.putString("Structure", ShipStructureCodec.encode(this.structure));
+        }
+        if (this.carriedBy != null) {
+            tag.putUUID("CarriedBy", this.carriedBy);
         }
 
         CompoundTag bodyTag = new CompoundTag();
@@ -709,6 +738,40 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
                     SoundEvents.BEACON_DEACTIVATE, SoundSource.BLOCKS, 0.5F, 0.7F);
             player.displayClientMessage(Component.translatable(
                     "message.astranautics.ship.switched_off", blocks).withStyle(ChatFormatting.GRAY), false);
+            return InteractionResult.CONSUME;
+        }
+
+        // A hook block picks the hull up: the player carries it, and right-clicking again (or
+        // sneak, or walking away) puts it down.
+        if (hit != null && isHullHook(hit.cell())) {
+            if (this.carriedBy != null) {
+                this.releaseCarry();
+                player.displayClientMessage(Component.translatable("message.astranautics.hook.released")
+                        .withStyle(ChatFormatting.GRAY), true);
+                return InteractionResult.CONSUME;
+            }
+            double mass = this.body.getMass();
+            double limit = AstraConfig.HOOK_MAX_MASS.get();
+            if (mass > limit) {
+                player.displayClientMessage(Component.translatable("message.astranautics.hook.too_heavy",
+                                String.format("%.1f", mass), String.format("%.1f", limit))
+                        .withStyle(ChatFormatting.RED), true);
+                return InteractionResult.CONSUME;
+            }
+            if (this.anchored) {
+                // A welded hull cannot be lifted until it is released.
+                this.setAnchored(false);
+            }
+            this.carriedBy = player.getUUID();
+            this.sleeping = false;
+            this.sleepTicks = 0;
+            this.setHookVisuals(true);
+            Vector3d at = new Vector3d();
+            this.voxelWorldCenter(hit.cell(), at);
+            level.playSound(null, at.x, at.y, at.z, SoundEvents.CHAIN_BREAK, SoundSource.BLOCKS, 0.6F, 1.4F);
+            player.displayClientMessage(Component.translatable("message.astranautics.hook.lifted",
+                            String.format("%.1f", mass))
+                    .withStyle(ChatFormatting.AQUA), true);
             return InteractionResult.CONSUME;
         }
 
@@ -1117,6 +1180,118 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
         return false;
     }
 
+    /** True while a player is carrying this hull by a hook block. */
+    public boolean isCarried() {
+        return this.carriedBy != null;
+    }
+
+    /** Lets go of the hull: the player let go, walked away, or the hook was broken. */
+    private void releaseCarry() {
+        if (this.carriedBy == null) {
+            return;
+        }
+        this.carriedBy = null;
+        this.setHookVisuals(false);
+        this.wake();
+        this.updateSleepState();
+    }
+
+    /**
+     * Drags the hull towards a point in front of whoever is carrying it.
+     *
+     * <p>A spring, not a teleport: the velocity is aimed at the target every tick and the
+     * solver still runs, so the hull bumps into the world instead of passing through it. The
+     * carry distance is measured from the player's eyes along the look vector, so aiming up
+     * lifts it.</p>
+     *
+     * @return true when the hull is carried (the caller then skips the normal forces)
+     */
+    private boolean tickCarried(ServerLevel level) {
+        if (this.carriedBy == null || this.structure == null) {
+            return false;
+        }
+        if (!(level.getEntity(this.carriedBy) instanceof Player player) || !player.isAlive()
+                || player.level() != level || player.isSpectator()) {
+            this.releaseCarry();
+            return false;
+        }
+        // Keep the hull's own bulk out of the player's face: a big hull hangs further away, so
+        // the cargo does not sit inside the camera.
+        double hullRadius = Math.max(this.getBbWidth(), this.getBbHeight()) * 0.5D;
+        double range = AstraConfig.HOOK_RANGE.get() + hullRadius;
+        double distanceToPlayer = player.distanceTo(this);
+        if (player.isShiftKeyDown() || distanceToPlayer > range) {
+            this.releaseCarry();
+            player.displayClientMessage(Component.translatable(distanceToPlayer > range
+                            ? "message.astranautics.hook.slipped"
+                            : "message.astranautics.hook.released")
+                    .withStyle(ChatFormatting.GRAY), true);
+            return false;
+        }
+
+        Vector3d look = new Vector3d(player.getLookAngle().x, player.getLookAngle().y, player.getLookAngle().z);
+        if (look.lengthSquared() < 1.0E-6D) {
+            look.set(0.0D, 1.0D, 0.0D);
+        }
+        look.normalize();
+        double distance = AstraConfig.HOOK_DISTANCE.get() + hullRadius;
+        this.carryTarget.set(player.getX(), player.getY() + player.getEyeHeight() - 0.4D, player.getZ())
+                .fma(distance, look);
+
+        this.carryDelta.set(this.carryTarget).sub(this.body.position);
+        // A heavy hull follows more reluctantly: the same pull moves a light one briskly and a
+        // loaded one like a barge. Never below a third, or it would stop responding at all.
+        double response = Math.max(0.35D, Math.min(1.0D, 12.0D / Math.max(1.0D, this.body.getMass())));
+        double maxSpeed = AstraConfig.HOOK_MAX_SPEED.get() * response;
+        this.body.linearVelocity.set(this.carryDelta)
+                .mul(AstraConfig.HOOK_STIFFNESS.get() * response);
+        double speed = this.body.linearVelocity.length();
+        if (speed > maxSpeed) {
+            this.body.linearVelocity.mul(maxSpeed / speed);
+        }
+        // A carried hull should not spin wildly, but it should still settle flat-ish.
+        this.body.angularVelocity.mul(0.82D);
+        this.sleeping = false;
+        this.sleepTicks = 0;
+        return true;
+    }
+
+    /** True when the given local cell holds a hook block. */
+    private boolean isHullHook(BlockPos cell) {
+        BlockState state = this.structure == null ? null : this.structure.voxels().get(cell);
+        return state != null && state.getBlock() instanceof HookBlock;
+    }
+
+    /** Mirrors the carried state onto the hook blocks, so they glow while lifting. */
+    private void setHookVisuals(boolean engaged) {
+        ShipStructure current = this.structure;
+        if (current == null) {
+            return;
+        }
+        Map<BlockPos, BlockState> voxels = new LinkedHashMap<>(current.voxels());
+        boolean changed = false;
+        for (Map.Entry<BlockPos, BlockState> entry : current.voxels().entrySet()) {
+            BlockState state = entry.getValue();
+            if (state.getBlock() instanceof HookBlock && state.hasProperty(HookBlock.ENGAGED)
+                    && state.getValue(HookBlock.ENGAGED) != engaged) {
+                voxels.put(entry.getKey(), state.setValue(HookBlock.ENGAGED, engaged));
+                changed = true;
+            }
+        }
+        if (changed) {
+            this.applyVoxels(ShipStructure.of(voxels));
+        }
+    }
+
+    private static boolean hasHook(ShipStructure structure) {
+        for (BlockState state : structure.voxels().values()) {
+            if (state.getBlock() instanceof HookBlock) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /** True when this hull is welded in place by an anchor block. */
     public boolean isAnchored() {
         return this.anchored;
@@ -1332,6 +1507,9 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
         this.structure = rebuilt;
         if (this.anchored && rebuilt.anchors().isEmpty()) {
             this.anchored = false;
+        }
+        if (this.carriedBy != null && !hasHook(rebuilt)) {
+            this.carriedBy = null;
         }
         this.syncEngines();
         this.structureSyncPending = true;

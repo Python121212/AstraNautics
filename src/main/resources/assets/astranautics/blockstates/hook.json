@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "engaged=false": {
+      "model": "astranautics:block/hook"
+    },
+    "engaged=true": {
+      "model": "astranautics:block/hook_lit"
+    }
+  }
+}
