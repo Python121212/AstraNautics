@@ -80,8 +80,20 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
 
     private final RigidBody body = new RigidBody();
     private final ContactCache contactCache = new ContactCache();
+    /**
+     * How many ticks the encoded structure is re-sent after it changes. Newly tracking
+     * clients receive synched entity data on start-tracking anyway, so a handful of ticks
+     * is plenty; it used to be 20, which re-encoded every block 20 times per change.
+     */
+    private static final int STRUCTURE_SYNC_TICKS = 3;
+
     private ShipStructure structure;
     private boolean structureSyncPending;
+    /** Encoded structure, reused while it is unchanged (encoding costs one pass per voxel). */
+    @Nullable
+    private String structureSync;
+    /** Set when {@link #structureSync} no longer matches the structure. */
+    private boolean structureDirty = true;
 
     /** Last punch of a player, so a click that becomes a hold can be taken back. */
     @Nullable
@@ -102,6 +114,17 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
     private Vector3d halfExtents;
     @Nullable
     private VoxelSpatialIndex spatialIndex;
+    /**
+     * Pose the index was built for. Rebuilding it costs one object per surface voxel, so it
+     * is only redone when the hull actually moved: a ship that is asleep (or a client-side
+     * ship that is not moving) reuses the index for as long as its pose is unchanged.
+     */
+    private final Vector3d indexPosition = new Vector3d();
+    private final Quaterniond indexOrientation = new Quaterniond();
+    /** Set when the voxel content changed, which invalidates the index regardless of pose. */
+    private boolean indexStale = true;
+    /** True when the last refresh found the pose unchanged (the index is still current). */
+    private boolean poseSettled;
 
     // Sleeping (perf): a settled ship skips the solver until something wakes it.
     private boolean sleeping;
@@ -143,8 +166,9 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
         this.body.setKinematic(false);
         this.setPos(worldCenterOfMass.x, worldCenterOfMass.y, worldCenterOfMass.z);
         this.structureSyncPending = true;
-        this.structureSyncTicks = 20;
-        this.spatialIndex = null;
+        this.structureSyncTicks = STRUCTURE_SYNC_TICKS;
+        this.structureDirty = true;
+        this.indexStale = true;
         this.wake();
         this.pushOrientation();
         this.updateBoundingExtents();
@@ -236,22 +260,52 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
         String data = buffer.readUtf(1 << 21);
         if (!data.isEmpty()) {
             this.structure = ShipStructureCodec.decode(data);
-            this.spatialIndex = null;
+            this.indexStale = true;
             this.updateBoundingExtents();
         }
     }
 
-    /** Rebuilds the per-tick broad-phase index used by collisions and rendering. */
+    /**
+     * Rebuilds the broad-phase index used by collisions and rendering, but only when the
+     * hull's pose or content actually changed since it was built.
+     */
     public void refreshSpatialIndex() {
         ShipStructure current = getStructure();
-        this.spatialIndex = current == null ? null : VoxelSpatialIndex.build(this.body, current);
+        if (current == null) {
+            this.spatialIndex = null;
+            this.indexStale = true;
+            this.poseSettled = false;
+            return;
+        }
+        if (!this.indexStale && this.spatialIndex != null && samePoseAsIndex()) {
+            this.poseSettled = true;
+            return;
+        }
+        this.spatialIndex = VoxelSpatialIndex.build(this.body, current);
+        this.indexPosition.set(this.body.position);
+        this.indexOrientation.set(this.body.orientation);
+        this.indexStale = false;
+        this.poseSettled = false;
+    }
+
+    private boolean samePoseAsIndex() {
+        if (this.indexPosition.distanceSquared(this.body.position) > 1.0E-10D) {
+            return false;
+        }
+        Quaterniond q = this.body.orientation;
+        Quaterniond built = this.indexOrientation;
+        double dot = q.x * built.x + q.y * built.y + q.z * built.z + q.w * built.w;
+        return Math.abs(dot) > 0.9999999D;
+    }
+
+    /** True when the hull has not moved since the collision index was last built. */
+    public boolean isPoseSettled() {
+        return this.poseSettled;
     }
 
     @Nullable
     public VoxelSpatialIndex getSpatialIndex() {
-        if (this.spatialIndex == null) {
-            refreshSpatialIndex();
-        }
+        refreshSpatialIndex();
         return this.spatialIndex;
     }
 
@@ -283,7 +337,7 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
         super.onSyncedDataUpdated(key);
         if (this.level().isClientSide && DATA_STRUCTURE.equals(key)) {
             this.structure = ShipStructureCodec.decode(this.entityData.get(DATA_STRUCTURE));
-            this.spatialIndex = null;
+            this.indexStale = true;
             this.updateBoundingExtents();
         }
     }
@@ -308,7 +362,6 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
             // tick (after the player ticked), not here: entity tick order is by id, and a
             // correction that runs before the player's own gravity makes them sink and snap
             // back every tick.
-            this.spatialIndex = null;
             return;
         }
 
@@ -338,7 +391,11 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
         }
 
         if (this.structureSyncPending || this.structureSyncTicks > 0) {
-            this.entityData.set(DATA_STRUCTURE, ShipStructureCodec.encode(this.structure));
+            if (this.structureDirty || this.structureSync == null) {
+                this.structureSync = ShipStructureCodec.encode(this.structure);
+                this.structureDirty = false;
+            }
+            this.entityData.set(DATA_STRUCTURE, this.structureSync);
             this.structureSyncPending = false;
             if (this.structureSyncTicks > 0) {
                 this.structureSyncTicks--;
@@ -366,7 +423,6 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
         this.setPos(body.position.x, body.position.y, body.position.z);
         this.pushOrientation();
         this.updateBoundingExtents();
-        this.spatialIndex = null;
         this.updateSleepState();
 
         if (body.position.y < level.getMinBuildHeight() - 48.0D) {
@@ -472,7 +528,8 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
             }
         }
 
-        this.structureSyncTicks = 20;
+        this.structureSyncTicks = STRUCTURE_SYNC_TICKS;
+        this.structureDirty = true;
         this.updateBoundingExtents();
     }
 
@@ -679,8 +736,9 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
 
         this.structure = rebuilt;
         this.structureSyncPending = true;
-        this.structureSyncTicks = 20;
-        this.spatialIndex = null;
+        this.structureSyncTicks = STRUCTURE_SYNC_TICKS;
+        this.structureDirty = true;
+        this.indexStale = true;
         this.setPos(this.body.position.x, this.body.position.y, this.body.position.z);
         this.updateBoundingExtents();
         this.wake();
@@ -979,7 +1037,6 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
         this.wake();
         Vector3d impulse = new Vector3d(direction).mul(impulseMagnitude);
         this.body.applyImpulseAt(impulse, point);
-        this.spatialIndex = null;
 
         if (attacker instanceof Player player) {
             this.lastPunchPlayer = player.getUUID();
@@ -1013,7 +1070,6 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
             return false;
         }
         this.body.applyImpulseAt(new Vector3d(this.lastPunchImpulse).negate(), this.lastPunchPoint);
-        this.spatialIndex = null;
         return true;
     }
 
