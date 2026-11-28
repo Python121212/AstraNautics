@@ -27,6 +27,9 @@ public final class ShipPhysics {
     private static final double RESTITUTION_THRESHOLD = 1.0D;
     /** Below this tangential speed a contact is treated as static friction. */
     private static final double STATIC_FRICTION_EPSILON = 0.02D;
+    /** A supporting body slower than this (m/s) is treated as resting and bled off. */
+    private static final double REST_LINEAR = 0.05D;
+    private static final double REST_ANGULAR = 0.1D;
 
     private ShipPhysics() {
     }
@@ -50,9 +53,42 @@ public final class ShipPhysics {
         solveContacts(body, null, contacts, h, params, cache);
         body.integratePosition(h);
         applyPositionCorrection(body, contacts);
+        settleRestingBody(body, contacts);
 
         if (cache != null) {
             cache.swap();
+        }
+    }
+
+    /**
+     * Bleeds off the residual velocity a body keeps when it is resting on something.
+     *
+     * <p>The solver leaves a few mm/s of motion on a body that should be lying still, because
+     * the normal impulses and gravity are never balanced to the last bit. Nobody sees the hull
+     * itself move, but a hull that stays awake and micro-moves drags anything standing on it
+     * along, which reads as the whole view shaking; it also never reaches the idle tick count
+     * that puts it to sleep. Bleeding that residue off makes the contact settle for real, after
+     * which the sleep logic freezes the body completely.</p>
+     *
+     * <p>Only purely supporting contact sets are damped: a box tipping over an edge has
+     * side-facing contacts and must keep its motion.</p>
+     */
+    static void settleRestingBody(RigidBody body, List<Contact> contacts) {
+        if (contacts.isEmpty()) {
+            return;
+        }
+        for (Contact contact : contacts) {
+            if (contact.normal.y < 0.5D) {
+                return;
+            }
+        }
+        if (Math.abs(body.linearVelocity.y) < REST_LINEAR) {
+            body.linearVelocity.y *= 0.2D;
+        }
+        if (body.linearVelocity.length() < REST_LINEAR * 1.2D
+                && body.angularVelocity.length() < REST_ANGULAR) {
+            body.linearVelocity.mul(0.35D);
+            body.angularVelocity.mul(0.35D);
         }
     }
 
