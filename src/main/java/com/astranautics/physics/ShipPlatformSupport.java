@@ -26,7 +26,7 @@ import net.minecraftforge.fml.common.Mod;
  */
 @Mod.EventBusSubscriber(modid = AstraNautics.MODID, bus = Mod.EventBusSubscriber.Bus.FORGE)
 public final class ShipPlatformSupport {
-    /** Vanilla gravity per tick for living entities. */
+    /** Vanilla applies this much gravity per tick in {@code LivingEntity#travel}. */
     private static final double GRAVITY_PER_TICK = 0.08D;
     /** Slow falling replaces the gravity per tick with this. */
     private static final double SLOW_FALLING_GRAVITY = 0.01D;
@@ -56,6 +56,8 @@ public final class ShipPlatformSupport {
             return;
         }
 
+        // Exactly the value vanilla subtracts this tick, so the net vertical motion is zero
+        // (1.20.1 uses the literal 0.08 in LivingEntity#travel, no gravity attribute).
         double gravity = player.hasEffect(MobEffects.SLOW_FALLING)
                 ? SLOW_FALLING_GRAVITY : GRAVITY_PER_TICK;
         player.setDeltaMovement(velocity.x, gravity, velocity.z);

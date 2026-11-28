@@ -50,6 +50,16 @@ public final class EntityShipCollision {
     private static final double CONTACT_SKIN = 0.02D;
     /** Penetrations below this are treated as already separated for support contacts. */
     private static final double SUPPORT_SKIN = 0.004D;
+    /**
+     * How far below the feet a hull block still counts as "standing on it" (blocks).
+     *
+     * <p>Standing is detected by overlap, and an entity that stands exactly on a deck
+     * overlaps it by zero. Without this probe the support alternates every other tick
+     * (tick A: hovering, no overlap so the support is lost; tick B: gravity sinks 0.078,
+     * overlap, support found and lifted out), which is a 10 Hz vertical bob of the
+     * camera - exactly the "the viewpoint moves up and down" report.</p>
+     */
+    private static final double SUPPORT_PROBE = 0.06D;
     /** A normal with at least this much Y is a support (or ceiling) contact. */
     private static final double VERTICAL_NORMAL = 0.5D;
     /**
@@ -139,6 +149,7 @@ public final class EntityShipCollision {
         Obb entityObb = new Obb();
         Obb bodyObb = new Obb();
         Obb headObb = new Obb();
+        Obb probeObb = new Obb();
         Vector3d normal = new Vector3d();
         double[] penetration = new double[1];
         Vector3d queryCenter = new Vector3d();
@@ -148,7 +159,7 @@ public final class EntityShipCollision {
             SUPPORTED.remove(entity);
             for (int iteration = 0; iteration < MAX_ITERATIONS; iteration++) {
                 if (!resolveOne(level, body, index, entity, voxelObb, entityObb, bodyObb, headObb,
-                        normal, penetration, queryCenter, nearby)) {
+                        probeObb, normal, penetration, queryCenter, nearby)) {
                     break;
                 }
             }
@@ -158,8 +169,8 @@ public final class EntityShipCollision {
     /** One push-out step. Returns true when a deep contact may need another pass. */
     private static boolean resolveOne(Level level, RigidBody body, VoxelSpatialIndex index,
                                       Entity entity, Obb voxelObb, Obb entityObb, Obb bodyObb,
-                                      Obb headObb, Vector3d normal, double[] penetration,
-                                      Vector3d queryCenter,
+                                      Obb headObb, Obb probeObb, Vector3d normal,
+                                      double[] penetration, Vector3d queryCenter,
                                       List<VoxelSpatialIndex.Entry> nearby) {
         AABB box = entity.getBoundingBox();
         queryCenter.set((box.minX + box.maxX) * 0.5D, (box.minY + box.maxY) * 0.5D,
@@ -175,6 +186,8 @@ public final class EntityShipCollision {
         bodyObb.setAabb(new AABB(box.minX, bodyMinY, box.minZ, box.maxX, box.maxY, box.maxZ));
         double headMaxY = Math.max(box.maxY - HEAD_CLEARANCE, box.minY + 0.01D);
         headObb.setAabb(new AABB(box.minX, box.minY, box.minZ, box.maxX, headMaxY, box.maxZ));
+        probeObb.setAabb(new AABB(box.minX, box.minY - SUPPORT_PROBE, box.minZ,
+                box.maxX, box.maxY, box.maxZ));
         double supportPen = 0.0D;
         Vector3d supportNormal = null;
         VoxelSpatialIndex.Entry supportEntry = null;
@@ -184,7 +197,10 @@ public final class EntityShipCollision {
 
         for (VoxelSpatialIndex.Entry entry : nearby) {
             voxelObb.set(entry.center, body.getRotationMatrix(), 0.5D, 0.5D, 0.5D);
-            if (!Obb.intersect(entityObb, voxelObb, normal, penetration)) {
+            // The probe box (feet extended downwards) is a superset of the real box, so a
+            // contact is never missed. Only the support depth is measured against the real
+            // feet position; the other directions re-test with their own trimmed boxes.
+            if (!Obb.intersect(probeObb, voxelObb, normal, penetration)) {
                 continue;
             }
             double pen = penetration[0];
@@ -192,8 +208,9 @@ public final class EntityShipCollision {
                 continue;
             }
             if (normal.y > VERTICAL_NORMAL) {
-                if (pen > supportPen) {
-                    supportPen = pen;
+                double real = Math.max(0.0D, pen - SUPPORT_PROBE);
+                if (supportNormal == null || real > supportPen) {
+                    supportPen = real;
                     supportNormal = new Vector3d(normal);
                     supportEntry = entry;
                 }
@@ -231,7 +248,8 @@ public final class EntityShipCollision {
         boolean moved = false;
 
         // --- support: stand on the deck -------------------------------------------
-        if (supportNormal != null) {
+        boolean atRest = velocity.y <= 0.02D;
+        if (supportNormal != null && atRest) {
             entity.fallDistance = 0.0F;
             entity.setOnGround(true);
         }
@@ -239,7 +257,8 @@ public final class EntityShipCollision {
             // Separate straight up by the vertical distance needed to clear the block:
             // correct for a tilted hull (unlike snapping to "voxel centre + 0.5", which
             // jumps between blocks) and it does not slide the entity sideways.
-            double lift = Math.min(supportPen / Math.max(0.7D, supportNormal.y) + SUPPORT_SKIN, MAX_PUSH);
+            // No skin bias here: an upward bias per correction makes the camera creep up.
+            double lift = Math.min(supportPen / Math.max(0.7D, supportNormal.y) + 0.001D, MAX_PUSH);
             targetY += lift;
             moved = true;
 
@@ -294,7 +313,7 @@ public final class EntityShipCollision {
             // Nothing to separate, but the entity may still be resting exactly on the deck:
             // record the support, otherwise the gravity cancel would alternate on and off
             // every other tick (a 10 Hz bob) instead of being continuous.
-            recordSupport(level, entity, supportNormal);
+            recordSupport(level, entity, supportNormal, atRest);
             return false;
         }
 
@@ -314,7 +333,7 @@ public final class EntityShipCollision {
             moveEntity(level, entity, targetX, targetY, targetZ);
         }
 
-        recordSupport(level, entity, supportNormal);
+        recordSupport(level, entity, supportNormal, atRest);
         // Another pass is only useful when the entity was still deep inside the hull.
         return supportPen > CONTACT_SKIN || wallPen > 0.25D || ceilingPen > CONTACT_SKIN;
     }
@@ -323,8 +342,9 @@ public final class EntityShipCollision {
      * Remembers that the entity stands on a hull (and at which height), so
      * {@code ShipPlatformSupport} can cancel its gravity during the next tick.
      */
-    private static void recordSupport(Level level, Entity entity, @Nullable Vector3d supportNormal) {
-        if (supportNormal == null) {
+    private static void recordSupport(Level level, Entity entity, @Nullable Vector3d supportNormal,
+                                      boolean atRest) {
+        if (supportNormal == null || !atRest) {
             return;
         }
         SUPPORTED.put(entity, new Support(level.getGameTime(), entity.getY()));
