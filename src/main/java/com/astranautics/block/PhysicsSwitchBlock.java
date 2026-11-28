@@ -2,12 +2,14 @@ package com.astranautics.block;
 
 import com.astranautics.block.entity.ModBlockEntities;
 import com.astranautics.block.entity.PhysicsSwitchBlockEntity;
+import com.astranautics.entity.PhysicsShip;
 import net.minecraft.core.BlockPos;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.BaseEntityBlock;
 import net.minecraft.world.level.block.Block;
@@ -68,6 +70,37 @@ public class PhysicsSwitchBlock extends BaseEntityBlock {
         }
         return createTickerHelper(type, ModBlockEntities.PHYSICS_SWITCH.get(),
                 PhysicsSwitchBlockEntity::serverTick);
+    }
+
+    /**
+     * A switch placed next to a hull that is already physical starts ON and takes control of
+     * that hull, so the block shows the state of the world it is sitting in.
+     *
+     * <p>Breaking the switch of a hull leaves the hull physical (that is deliberate); before
+     * this, placing a new switch next to it looked switched off even though the structure was
+     * still a rigid body, and clicking it tried to assemble a second time.</p>
+     */
+    @Override
+    public void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean isMoving) {
+        super.onPlace(state, level, pos, oldState, isMoving);
+        if (level.isClientSide || !(level instanceof ServerLevel serverLevel)) {
+            return;
+        }
+        // Only a freshly placed switch: a state update of the same block (turning it off,
+        // for example) must not be treated as a placement, or it could never be switched off.
+        if (oldState.getBlock() instanceof PhysicsSwitchBlock || state.getValue(ENABLED)) {
+            return;
+        }
+        PhysicsShip nearby = PhysicsSwitchBlockEntity.findNearbyShip(serverLevel, pos);
+        if (nearby == null || !PhysicsSwitchBlockEntity.isShipWithin(nearby, pos, 2.0D)) {
+            // Only a switch that really sits on/inside a hull adopts it; anything further
+            // away is a fresh control for a new structure.
+            return;
+        }
+        if (level.getBlockEntity(pos) instanceof PhysicsSwitchBlockEntity switchEntity) {
+            switchEntity.linkShip(nearby.getUUID());
+        }
+        level.setBlock(pos, state.setValue(ENABLED, true), 3);
     }
 
     @Override

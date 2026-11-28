@@ -696,6 +696,11 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
         if (current == null) {
             return false;
         }
+        if (state.getBlock() instanceof PhysicsSwitchBlock && state.hasProperty(PhysicsSwitchBlock.ENABLED)) {
+            // A switch bolted onto a hull mirrors it: the hull is physical, so the switch
+            // shows its ON model (and glows) instead of looking switched off.
+            state = state.setValue(PhysicsSwitchBlock.ENABLED, true);
+        }
         if (current.voxels().size() >= AstraConfig.MAX_BLOCKS.get()) {
             return false;
         }
