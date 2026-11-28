@@ -1,14 +1,19 @@
 package com.astranautics.physics;
 
+import com.astranautics.block.BalloonBlock;
+import com.astranautics.block.PropellerBlock;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import org.joml.Matrix3d;
 import org.joml.Vector3d;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -28,10 +33,29 @@ public final class ShipStructure implements VoxelBody {
     private final double mass;
     private final Matrix3d inertiaLocal = new Matrix3d();
     private final AABB localBounds;
+    /** Aerodynamics cache: recomputed only when the hull changes, not every tick. */
+    private final int balloonCount;
+    private final Vector3d balloonCentroid = new Vector3d();
+    private final List<ThrustSource> thrusters;
+    private final int enclosedVolume;
+
+    /** A powered propeller: where it sits (local, relative to the centre of mass) and which
+     * way it pushes (also local, so the world direction follows the hull's rotation). */
+    public static final class ThrustSource {
+        public final Vector3d localCenter;
+        public final Vector3d localDirection;
+
+        public ThrustSource(Vector3d localCenter, Vector3d localDirection) {
+            this.localCenter = localCenter;
+            this.localDirection = localDirection;
+        }
+    }
 
     private ShipStructure(Map<BlockPos, BlockState> voxels, double mass,
                           Vector3d centerOfMass, Matrix3d inertiaLocal, AABB localBounds,
-                          Set<BlockPos> surfaceVoxels, Map<BlockPos, AABB> collisionBoxes) {
+                          Set<BlockPos> surfaceVoxels, Map<BlockPos, AABB> collisionBoxes,
+                          int balloonCount, Vector3d balloonCentroid, List<ThrustSource> thrusters,
+                          int enclosedVolume) {
         this.voxels = Collections.unmodifiableMap(voxels);
         this.collisionBoxes = Collections.unmodifiableMap(collisionBoxes);
         this.mass = mass;
@@ -39,6 +63,10 @@ public final class ShipStructure implements VoxelBody {
         this.inertiaLocal.set(inertiaLocal);
         this.localBounds = localBounds;
         this.surfaceVoxels = Collections.unmodifiableSet(surfaceVoxels);
+        this.balloonCount = balloonCount;
+        this.balloonCentroid.set(balloonCentroid);
+        this.thrusters = Collections.unmodifiableList(thrusters);
+        this.enclosedVolume = enclosedVolume;
     }
 
     public static ShipStructure of(Map<BlockPos, BlockState> voxels) {
@@ -102,12 +130,33 @@ public final class ShipStructure implements VoxelBody {
         }
 
         Map<BlockPos, AABB> collisionBoxes = new LinkedHashMap<>();
+        int balloonCount = 0;
+        Vector3d balloonSum = new Vector3d();
+        List<ThrustSource> thrusters = new ArrayList<>();
         for (Map.Entry<BlockPos, BlockState> entry : voxels.entrySet()) {
-            collisionBoxes.put(entry.getKey(), VoxelShapes.collisionBox(entry.getValue()));
+            BlockPos pos = entry.getKey();
+            BlockState state = entry.getValue();
+            collisionBoxes.put(pos, VoxelShapes.collisionBox(state));
+
+            double lx = pos.getX() + 0.5D - com.x;
+            double ly = pos.getY() + 0.5D - com.y;
+            double lz = pos.getZ() + 0.5D - com.z;
+            if (state.getBlock() instanceof BalloonBlock) {
+                balloonCount++;
+                balloonSum.add(lx, ly, lz);
+            } else if (state.getBlock() instanceof PropellerBlock
+                    && state.getValue(PropellerBlock.POWERED)) {
+                Direction facing = state.getValue(PropellerBlock.FACING);
+                thrusters.add(new ThrustSource(new Vector3d(lx, ly, lz),
+                        new Vector3d(facing.getStepX(), 0.0D, facing.getStepZ())));
+            }
         }
+        Vector3d balloonCentroid = balloonCount == 0 ? new Vector3d()
+                : new Vector3d(balloonSum).div(balloonCount);
 
         return new ShipStructure(new LinkedHashMap<>(voxels), totalMass, com, inertia, bounds, surface,
-                collisionBoxes);
+                collisionBoxes, balloonCount, balloonCentroid, thrusters,
+                HullVolume.enclosedCells(voxels.keySet()));
     }
 
     private static boolean isSurface(Map<BlockPos, BlockState> voxels, BlockPos pos) {
@@ -136,6 +185,30 @@ public final class ShipStructure implements VoxelBody {
     public AABB collisionBox(BlockPos local) {
         AABB box = this.collisionBoxes.get(local);
         return box == null ? VoxelShapes.FULL : box;
+    }
+
+    /** Number of balloon blocks in the hull. */
+    public int balloonCount() {
+        return this.balloonCount;
+    }
+
+    /** Local (centre of mass relative) centroid of the balloons, where their lift acts. */
+    public Vector3d balloonCentroid() {
+        return this.balloonCentroid;
+    }
+
+    /** Powered propellers only: an idle propeller costs nothing. */
+    public List<ThrustSource> thrusters() {
+        return this.thrusters;
+    }
+
+    /** Air sealed inside the hull, in blocks - the volume a floating hull displaces. */
+    public int enclosedVolume() {
+        return this.enclosedVolume;
+    }
+
+    public int voxelCount() {
+        return this.voxels.size();
     }
 
     public double getMass() {

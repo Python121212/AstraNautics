@@ -33,6 +33,14 @@ public final class AstraConfig {
     public static final ForgeConfigSpec.BooleanValue ENABLE_SHIP_COLLISIONS;
     public static final ForgeConfigSpec.BooleanValue ENABLE_ENTITY_COLLISIONS;
 
+    // Aerodynamics (lift, thrust, buoyancy, drag)
+    public static final ForgeConfigSpec.BooleanValue ENABLE_AERODYNAMICS;
+    public static final ForgeConfigSpec.DoubleValue BALLOON_LIFT;
+    public static final ForgeConfigSpec.DoubleValue PROPELLER_THRUST;
+    public static final ForgeConfigSpec.DoubleValue AIR_DRAG;
+    public static final ForgeConfigSpec.DoubleValue WATER_DENSITY;
+    public static final ForgeConfigSpec.DoubleValue WATER_DRAG;
+
     static {
         ForgeConfigSpec.Builder builder = new ForgeConfigSpec.Builder();
 
@@ -88,6 +96,31 @@ public final class AstraConfig {
         ENABLE_ENTITY_COLLISIONS = builder
                 .comment("Entities are pushed out of ships and can stand on them.")
                 .define("shipVsEntity", true);
+        builder.pop();
+
+        builder.comment("Aerodynamics: balloon lift, propeller thrust, water buoyancy and drag")
+                .push("aerodynamics");
+        ENABLE_AERODYNAMICS = builder
+                .comment("Master switch for lift, thrust, buoyancy and drag.")
+                .define("enabled", true);
+        BALLOON_LIFT = builder
+                .comment("Mass units one balloon block holds up. A balloon itself weighs ~0.5,",
+                        "so 1.5 lifts about one extra block of wood per balloon.")
+                .defineInRange("balloonLift", 1.5D, 0.0D, 100.0D);
+        PROPELLER_THRUST = builder
+                .comment("Push of one powered propeller, in mass units * blocks/second^2.",
+                        "Two propellers at 80 accelerate a 30 unit hull at roughly 5 blocks/s^2.")
+                .defineInRange("propellerThrust", 80.0D, 0.0D, 10000.0D);
+        AIR_DRAG = builder
+                .comment("Air drag coefficient (F = -k * area * speed^2). Bigger = lower top speed.")
+                .defineInRange("airDrag", 0.01D, 0.0D, 1.0D);
+        WATER_DENSITY = builder
+                .comment("Mass of one block of displaced water. Buoyancy = displaced * density.",
+                        "Sealed air inside the hull counts as displaced volume too.")
+                .defineInRange("waterDensity", 1.0D, 0.0D, 100.0D);
+        WATER_DRAG = builder
+                .comment("Extra linear damping while the hull is under water.")
+                .defineInRange("waterDrag", 3.0D, 0.0D, 50.0D);
         builder.pop();
 
         SPEC = builder.build();

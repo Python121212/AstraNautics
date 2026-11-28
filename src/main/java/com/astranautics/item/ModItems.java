@@ -16,6 +16,12 @@ public class ModItems {
     public static final RegistryObject<Item> PHYSICS_SWITCH = ITEMS.register("physics_switch",
             () -> new BlockItem(ModBlocks.PHYSICS_SWITCH.get(), new Item.Properties()));
 
+    public static final RegistryObject<Item> BALLOON = ITEMS.register("balloon",
+            () -> new BlockItem(ModBlocks.BALLOON.get(), new Item.Properties()));
+
+    public static final RegistryObject<Item> PROPELLER = ITEMS.register("propeller",
+            () -> new BlockItem(ModBlocks.PROPELLER.get(), new Item.Properties()));
+
     public static void register(IEventBus eventBus) {
         ITEMS.register(eventBus);
     }
