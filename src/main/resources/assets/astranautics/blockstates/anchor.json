@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "linked=false": {
+      "model": "astranautics:block/anchor"
+    },
+    "linked=true": {
+      "model": "astranautics:block/anchor_linked"
+    }
+  }
+}

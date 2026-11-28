@@ -1,5 +1,6 @@
 package com.astranautics.physics;
 
+import com.astranautics.block.AnchorBlock;
 import com.astranautics.block.BalloonBlock;
 import com.astranautics.block.CogwheelBlock;
 import com.astranautics.block.FlywheelBlock;
@@ -9,6 +10,9 @@ import com.astranautics.block.ShaftBlock;
 import com.astranautics.block.SteamEngineBlock;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.world.level.block.LeverBlock;
+import net.minecraft.world.level.block.RedStoneWireBlock;
+import net.minecraft.world.level.block.RedstoneTorchBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import org.joml.Matrix3d;
@@ -48,6 +52,10 @@ public final class ShipStructure implements VoxelBody {
     private final int flywheels;
     /** Rotator blocks: where they are, which way they turn, and to what angle. */
     private final List<RotatorSource> rotators;
+    /** Redstone power inside the hull, cell by cell. Empty when the hull has none. */
+    private final Map<BlockPos, Integer> redstone;
+    /** Anchor blocks: a non-empty list means "this hull is welded to the world". */
+    private final List<BlockPos> anchors;
 
     /** A powered propeller: where it sits (local, relative to the centre of mass) and which
      * way it pushes (also local, so the world direction follows the hull's rotation). */
@@ -77,7 +85,8 @@ public final class ShipStructure implements VoxelBody {
                           Set<BlockPos> surfaceVoxels, Map<BlockPos, AABB> collisionBoxes,
                           int balloonCount, Vector3d balloonCentroid, List<ThrustSource> thrusters,
                           int enclosedVolume, List<BlockPos> engines, int flywheels,
-                          List<RotatorSource> rotators) {
+                          List<RotatorSource> rotators, Map<BlockPos, Integer> redstone,
+                          List<BlockPos> anchors) {
         this.voxels = Collections.unmodifiableMap(voxels);
         this.collisionBoxes = Collections.unmodifiableMap(collisionBoxes);
         this.mass = mass;
@@ -92,6 +101,8 @@ public final class ShipStructure implements VoxelBody {
         this.engines = Collections.unmodifiableList(engines);
         this.flywheels = flywheels;
         this.rotators = Collections.unmodifiableList(rotators);
+        this.redstone = Collections.unmodifiableMap(redstone);
+        this.anchors = Collections.unmodifiableList(anchors);
     }
 
     public static ShipStructure of(Map<BlockPos, BlockState> voxels) {
@@ -165,7 +176,22 @@ public final class ShipStructure implements VoxelBody {
         }
         RotationalNetwork.Drivetrain drivetrain = RotationalNetwork.resolve(drivetrainNodes);
 
+        Map<BlockPos, HullRedstone.Kind> redstoneKinds = new LinkedHashMap<>();
+        List<BlockPos> anchors = new ArrayList<>();
         List<RotatorSource> rotators = new ArrayList<>();
+        for (Map.Entry<BlockPos, BlockState> entry : voxels.entrySet()) {
+            BlockPos pos = entry.getKey();
+            BlockState state = entry.getValue();
+            if (state.getBlock() instanceof AnchorBlock) {
+                anchors.add(pos);
+            }
+            HullRedstone.Kind kind = redstoneKindOf(state);
+            if (kind != HullRedstone.Kind.OTHER) {
+                redstoneKinds.put(pos, kind);
+            }
+        }
+        Map<BlockPos, Integer> redstone = redstoneKinds.isEmpty()
+                ? Map.of() : HullRedstone.strengths(redstoneKinds);
         for (Map.Entry<BlockPos, BlockState> entry : voxels.entrySet()) {
             if (entry.getValue().getBlock() instanceof RotatorBlock rotator) {
                 rotators.add(new RotatorSource(entry.getKey(), rotator.mode(),
@@ -202,7 +228,23 @@ public final class ShipStructure implements VoxelBody {
         return new ShipStructure(new LinkedHashMap<>(voxels), totalMass, com, inertia, bounds, surface,
                 collisionBoxes, balloonCount, balloonCentroid, thrusters,
                 HullVolume.enclosedCells(voxels.keySet()), drivetrain.engines(), drivetrain.flywheels(),
-                rotators);
+                rotators, redstone, anchors);
+    }
+
+    /** Which part of the on-hull redstone this state is. */
+    private static HullRedstone.Kind redstoneKindOf(BlockState state) {
+        if (state.getBlock() instanceof RedstoneTorchBlock) {
+            return state.getValue(RedstoneTorchBlock.LIT) ? HullRedstone.Kind.SOURCE : HullRedstone.Kind.OTHER;
+        }
+        if (state.getBlock() instanceof LeverBlock) {
+            return state.getValue(LeverBlock.POWERED) ? HullRedstone.Kind.SOURCE : HullRedstone.Kind.OTHER;
+        }
+        if (state.getBlock() instanceof RedStoneWireBlock) {
+            return HullRedstone.Kind.WIRE;
+        }
+        // A block of redstone, or anything else that is always a full-strength source.
+        return state.is(net.minecraft.world.level.block.Blocks.REDSTONE_BLOCK)
+                ? HullRedstone.Kind.SOURCE : HullRedstone.Kind.OTHER;
     }
 
     /** Which part of the drivetrain (if any) this state is, and along which axis it spins. */
@@ -277,6 +319,19 @@ public final class ShipStructure implements VoxelBody {
     /** Engine cells of the hull, in local coordinates. */
     public List<BlockPos> engines() {
         return this.engines;
+    }
+
+    /** Anchor blocks on the hull: while there is one, the hull is fixed in the world. */
+    public List<BlockPos> anchors() {
+        return this.anchors;
+    }
+
+    /**
+     * True when this cell is powered by redstone that lives on the hull itself - a redstone
+     * block or a torch next to it, or a wire running to one.
+     */
+    public boolean poweredAt(BlockPos cell) {
+        return !this.redstone.isEmpty() && HullRedstone.powered(this.redstone, cell);
     }
 
     /** Rotator blocks of the hull, with the angle each one is set to. */

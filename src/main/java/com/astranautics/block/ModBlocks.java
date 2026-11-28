@@ -47,6 +47,10 @@ public class ModBlocks {
     public static final RegistryObject<Block> PITCH_ROTATOR =
             BLOCKS.register("pitch_rotator", () -> new RotatorBlock(com.astranautics.physics.Rotators.Mode.PITCH));
 
+    /** Welds a hull to the world: with one of these bolted on, it cannot move any more. */
+    public static final RegistryObject<Block> ANCHOR =
+            BLOCKS.register("anchor", AnchorBlock::new);
+
     public static void register(IEventBus eventBus) {
         BLOCKS.register(eventBus);
     }

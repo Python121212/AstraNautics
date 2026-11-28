@@ -551,6 +551,40 @@ indexStale = true; wake(); pushOrientation(); updateBoundingExtents();
 **そのブロックが居る位置**（hull 変換で求めたワールド座標）と、その**6 近傍**で評価します。
 つまり**船体の外壁に接したレバー／線**がそのまま信号源になります。
 
+## 船体上のレッドストーン（v3.11.0）
+
+`ShipStructure.of` の中で、船体のボクセルを `HullRedstone.Kind`（`SOURCE` / `WIRE` / `OTHER`）に
+分類し、`HullRedstone.strengths` で BFS します。
+
+* **SOURCE**: レッドストーンブロック、点灯したトーチ、ON のレバー → 15
+* **WIRE**: レッドストーンの線 → 供給元は 15、以降は 1 ずつ減る（バニラと同じ）
+* あるセルが「通電」しているか = **自分か 6 近傍が 0 より大きい**
+* 結果は `ShipStructure#poweredAt(cell)`。回転ブロックはまずこれを引き、無ければワールド側の
+  `getBestNeighborSignal`（外壁に接したレバー用）を見ます
+* レバーは船体上で右クリックすると `POWERED` を反転して構造を組み直します（ブロックとしての
+  `use` は呼ばれないため）
+
+コストは**組み直し時の 1 回だけ**です。
+
+## 連結ブロック（v3.11.0）
+
+`AnchorBlock` を 1 つでも積んだ船体は**連結状態**になります（`PhysicsShip#anchored`）。
+
+```java
+// tick の最後（回転ブロックの後）
+anchorOrientation.set(body.orientation);   // 回転ブロックの操作は anchor にも反映
+body.position.set(anchorPosition);         // 並進は完全固定
+body.orientation.set(anchorOrientation);
+body.linearVelocity.zero(); body.angularVelocity.zero();
+return;                                    // 空力もソルバも走らせない
+```
+
+* 連結時、姿勢が軸に揃っていれば**ブロック格子へスナップ**
+  （`pos' = com + round(pos - com)`）してから固定します
+* 最後の 1 個を壊すと自動的に解除（`applyVoxels`）
+* 回転ブロックでの回転は許可: 固定したまま回るターンテーブルになります
+* `LINKED` ブロック状態は見た目（発光）用で、連結中だけ true
+
 ## 互換性（v3.5.9）
 
 * **非フルブロック**: `VoxelShapes` が `BlockState#getCollisionShape` から各ボクセルの
