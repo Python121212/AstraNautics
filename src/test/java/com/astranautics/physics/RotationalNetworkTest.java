@@ -71,7 +71,7 @@ class RotationalNetworkTest {
     void aCogwheelTurnsTheCorner() {
         put(0, 0, 0, RotationalNetwork.Kind.ENGINE, X);
         put(1, 0, 0, RotationalNetwork.Kind.SHAFT, X);
-        put(2, 0, 0, RotationalNetwork.Kind.COGWHEEL, X);
+        put(2, 0, 0, RotationalNetwork.Kind.GEAR, X);
         put(2, 1, 0, RotationalNetwork.Kind.SHAFT, Y);
         put(2, 2, 0, RotationalNetwork.Kind.PROPELLER, Y);
 
