@@ -203,7 +203,7 @@ public final class Aerodynamics {
 
     /** Multiplier on a propeller's base thrust from the fastest engine driving it. */
     static double thrustPower(RpmSource rpm, ShipStructure.ThrustSource thruster) {
-        if (rpm == null || thruster.engineCells.isEmpty()) {
+        if (rpm == null || thruster.engineCells.isEmpty() || !AstraConfig.ENABLE_ENGINES.get()) {
             return 1.0D;
         }
         double top = 0.0D;
