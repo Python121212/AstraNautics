@@ -4,7 +4,6 @@ import com.astranautics.AstraNautics;
 import com.astranautics.block.PhysicsSwitchBlock;
 import com.astranautics.config.AstraConfig;
 import com.astranautics.physics.ContactCache;
-import com.astranautics.physics.EntityShipCollision;
 import com.astranautics.physics.PhysicsParams;
 import com.astranautics.physics.RigidBody;
 import com.astranautics.physics.ShipPhysics;
@@ -307,16 +306,11 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
             this.body.updateRotationMatrix();
             this.updateBoundingExtents();
 
-            if (AstraConfig.ENABLE_ENTITY_COLLISIONS.get()) {
-                this.spatialIndex = null;
-                VoxelSpatialIndex index = this.getSpatialIndex();
-                if (index != null) {
-                    // Resolve locally as well: the local player is simulated by its own
-                    // client, so this is what makes the hull feel like solid blocks
-                    // instead of being yanked around by server corrections.
-                    EntityShipCollision.resolve(this.level(), this, index);
-                }
-            }
+            // The local player is resolved by ClientShipCollision at the END of the client
+            // tick (after the player ticked), not here: entity tick order is by id, and a
+            // correction that runs before the player's own gravity makes them sink and snap
+            // back every tick.
+            this.spatialIndex = null;
             return;
         }
 
