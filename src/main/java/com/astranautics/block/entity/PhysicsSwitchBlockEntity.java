@@ -42,6 +42,12 @@ public class PhysicsSwitchBlockEntity extends BlockEntity {
 
     @Nullable
     private UUID shipId;
+    /**
+     * True when this switch merely adopts a hull that someone else assembled. Such a switch
+     * mirrors that hull: when the hull goes away it turns itself off instead of assembling
+     * the restored blocks all over again.
+     */
+    private boolean linked;
     private int retryCooldown;
     private long lastFailureLog = Long.MIN_VALUE;
     private int lastBlockCount;
@@ -64,6 +70,19 @@ public class PhysicsSwitchBlockEntity extends BlockEntity {
 
     public ShipAssembler.Reason getLastReason() {
         return this.lastReason;
+    }
+
+    /**
+     * Links this switch to a hull that is already physical, so it becomes that hull's
+     * control instead of starting a new assembly.
+     */
+    public void linkShip(UUID id) {
+        this.shipId = id;
+        this.linked = true;
+        this.retryCooldown = 0;
+        this.lastReason = ShipAssembler.Reason.OK;
+        this.lastDetail = "linked to an existing hull";
+        this.setChanged();
     }
 
     /** Chat-ready form of the last outcome. */
@@ -166,6 +185,14 @@ public class PhysicsSwitchBlockEntity extends BlockEntity {
         return best;
     }
 
+    /** True when the hull's bounding box is within {@code distance} blocks of the position. */
+    public static boolean isShipWithin(PhysicsShip ship, BlockPos pos, double distance) {
+        double x = pos.getX() + 0.5D;
+        double y = pos.getY() + 0.5D;
+        double z = pos.getZ() + 0.5D;
+        return distanceSqToBox(ship.getBoundingBox(), x, y, z) <= distance * distance;
+    }
+
     private static double distanceSqToBox(AABB box, double x, double y, double z) {
         double dx = Math.max(0.0D, Math.max(box.minX - x, x - box.maxX));
         double dy = Math.max(0.0D, Math.max(box.minY - y, y - box.maxY));
@@ -190,6 +217,7 @@ public class PhysicsSwitchBlockEntity extends BlockEntity {
 
         if (result.ok() && result.ship() != null) {
             this.shipId = result.ship().getUUID();
+            this.linked = false;
             this.retryCooldown = 0;
             this.setChanged();
             AstraNautics.LOGGER.info("[astranautics] assembled {} blocks into a physics ship at {}",
@@ -278,6 +306,16 @@ public class PhysicsSwitchBlockEntity extends BlockEntity {
         PhysicsShip ship = switchEntity.resolveShip(serverLevel);
 
         if (enabled && ship == null) {
+            if (switchEntity.linked) {
+                // The hull this switch was mirroring is gone: go back to OFF instead of
+                // assembling the blocks it just put down.
+                switchEntity.linked = false;
+                switchEntity.shipId = null;
+                switchEntity.setChanged();
+                serverLevel.setBlock(switchEntity.getBlockPos(),
+                        state.setValue(PhysicsSwitchBlock.ENABLED, false), 3);
+                return;
+            }
             if (switchEntity.retryCooldown > 0) {
                 switchEntity.retryCooldown -= CHECK_INTERVAL;
                 return;
@@ -332,12 +370,14 @@ public class PhysicsSwitchBlockEntity extends BlockEntity {
         tag.putString("LastReason", this.lastReason.name());
         tag.putInt("LastReasonArg", this.lastReasonArg);
         tag.putString("LastDetail", this.lastDetail);
+        tag.putBoolean("Linked", this.linked);
     }
 
     @Override
     public void load(CompoundTag tag) {
         super.load(tag);
         this.shipId = tag.hasUUID("Ship") ? tag.getUUID("Ship") : null;
+        this.linked = tag.getBoolean("Linked");
         this.lastBlockCount = tag.getInt("LastBlocks");
         if (tag.contains("LastReason")) {
             try {
