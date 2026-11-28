@@ -130,7 +130,7 @@ public class PonderScreen extends Screen {
         this.page = Math.floorMod(this.page + step, count);
         if (this.minecraft != null) {
             this.minecraft.getSoundManager().play(net.minecraft.client.resources.sounds.SimpleSoundInstance
-                    .forUI(SoundEvents.BOOK_PAGE_TURN));
+                    .forUI(SoundEvents.BOOK_PAGE_TURN, 1.0F));
         }
         return true;
     }

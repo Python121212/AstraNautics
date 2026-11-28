@@ -1,6 +1,6 @@
 package com.astranautics.client;
 
-import com.astranautics.block.ModBlocks;
+import com.astranautics.item.ModItems;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 
@@ -19,13 +19,13 @@ public final class PonderRegistry {
     private static final Map<Item, PonderEntry> ENTRIES = new LinkedHashMap<>();
 
     static {
-        register("physics_switch", ModBlocks.PHYSICS_SWITCH.get(), 2);
-        register("balloon", ModBlocks.BALLOON.get(), 2);
-        register("propeller", ModBlocks.PROPELLER.get(), 2);
-        register("steam_engine", ModBlocks.STEAM_ENGINE.get(), 2);
-        register("shaft", ModBlocks.SHAFT.get(), 2);
-        register("cogwheel", ModBlocks.COGWHEEL.get(), 2);
-        register("flywheel", ModBlocks.FLYWHEEL.get(), 2);
+        register("physics_switch", ModItems.PHYSICS_SWITCH.get(), 2);
+        register("balloon", ModItems.BALLOON.get(), 2);
+        register("propeller", ModItems.PROPELLER.get(), 2);
+        register("steam_engine", ModItems.STEAM_ENGINE.get(), 2);
+        register("shaft", ModItems.SHAFT.get(), 2);
+        register("cogwheel", ModItems.COGWHEEL.get(), 2);
+        register("flywheel", ModItems.FLYWHEEL.get(), 2);
     }
 
     private PonderRegistry() {
