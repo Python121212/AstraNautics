@@ -4,6 +4,7 @@ import com.astranautics.block.BalloonBlock;
 import com.astranautics.block.CogwheelBlock;
 import com.astranautics.block.FlywheelBlock;
 import com.astranautics.block.PropellerBlock;
+import com.astranautics.block.RotatorBlock;
 import com.astranautics.block.ShaftBlock;
 import com.astranautics.block.SteamEngineBlock;
 import net.minecraft.core.BlockPos;
@@ -45,6 +46,8 @@ public final class ShipStructure implements VoxelBody {
     /** Drivetrain: engines in the hull and how many flywheels slow their response. */
     private final List<BlockPos> engines;
     private final int flywheels;
+    /** Rotator blocks: where they are, which way they turn, and to what angle. */
+    private final List<RotatorSource> rotators;
 
     /** A powered propeller: where it sits (local, relative to the centre of mass) and which
      * way it pushes (also local, so the world direction follows the hull's rotation). */
@@ -65,11 +68,16 @@ public final class ShipStructure implements VoxelBody {
         }
     }
 
+    /** A rotator bolted to the hull and the angle its dial is set to. */
+    public record RotatorSource(BlockPos cell, Rotators.Mode mode, int targetDegrees) {
+    }
+
     private ShipStructure(Map<BlockPos, BlockState> voxels, double mass,
                           Vector3d centerOfMass, Matrix3d inertiaLocal, AABB localBounds,
                           Set<BlockPos> surfaceVoxels, Map<BlockPos, AABB> collisionBoxes,
                           int balloonCount, Vector3d balloonCentroid, List<ThrustSource> thrusters,
-                          int enclosedVolume, List<BlockPos> engines, int flywheels) {
+                          int enclosedVolume, List<BlockPos> engines, int flywheels,
+                          List<RotatorSource> rotators) {
         this.voxels = Collections.unmodifiableMap(voxels);
         this.collisionBoxes = Collections.unmodifiableMap(collisionBoxes);
         this.mass = mass;
@@ -83,6 +91,7 @@ public final class ShipStructure implements VoxelBody {
         this.enclosedVolume = enclosedVolume;
         this.engines = Collections.unmodifiableList(engines);
         this.flywheels = flywheels;
+        this.rotators = Collections.unmodifiableList(rotators);
     }
 
     public static ShipStructure of(Map<BlockPos, BlockState> voxels) {
@@ -156,6 +165,14 @@ public final class ShipStructure implements VoxelBody {
         }
         RotationalNetwork.Drivetrain drivetrain = RotationalNetwork.resolve(drivetrainNodes);
 
+        List<RotatorSource> rotators = new ArrayList<>();
+        for (Map.Entry<BlockPos, BlockState> entry : voxels.entrySet()) {
+            if (entry.getValue().getBlock() instanceof RotatorBlock rotator) {
+                rotators.add(new RotatorSource(entry.getKey(), rotator.mode(),
+                        RotatorBlock.degrees(entry.getValue())));
+            }
+        }
+
         Map<BlockPos, AABB> collisionBoxes = new LinkedHashMap<>();
         int balloonCount = 0;
         Vector3d balloonSum = new Vector3d();
@@ -184,7 +201,8 @@ public final class ShipStructure implements VoxelBody {
 
         return new ShipStructure(new LinkedHashMap<>(voxels), totalMass, com, inertia, bounds, surface,
                 collisionBoxes, balloonCount, balloonCentroid, thrusters,
-                HullVolume.enclosedCells(voxels.keySet()), drivetrain.engines(), drivetrain.flywheels());
+                HullVolume.enclosedCells(voxels.keySet()), drivetrain.engines(), drivetrain.flywheels(),
+                rotators);
     }
 
     /** Which part of the drivetrain (if any) this state is, and along which axis it spins. */
@@ -259,6 +277,11 @@ public final class ShipStructure implements VoxelBody {
     /** Engine cells of the hull, in local coordinates. */
     public List<BlockPos> engines() {
         return this.engines;
+    }
+
+    /** Rotator blocks of the hull, with the angle each one is set to. */
+    public List<RotatorSource> rotators() {
+        return this.rotators;
     }
 
     /** Flywheels on the hull: the more of them, the lazier the engines respond. */

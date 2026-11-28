@@ -29,6 +29,8 @@ public class ModCreativeTabs {
                         output.accept(ModItems.SHAFT.get());
                         output.accept(ModItems.COGWHEEL.get());
                         output.accept(ModItems.FLYWHEEL.get());
+                        output.accept(ModItems.YAW_ROTATOR.get());
+                        output.accept(ModItems.PITCH_ROTATOR.get());
                     })
                     .build());
 

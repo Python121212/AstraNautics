@@ -34,6 +34,12 @@ public class ModItems {
     public static final RegistryObject<Item> FLYWHEEL = ITEMS.register("flywheel",
             () -> new BlockItem(ModBlocks.FLYWHEEL.get(), new Item.Properties()));
 
+    public static final RegistryObject<Item> YAW_ROTATOR = ITEMS.register("yaw_rotator",
+            () -> new BlockItem(ModBlocks.YAW_ROTATOR.get(), new Item.Properties()));
+
+    public static final RegistryObject<Item> PITCH_ROTATOR = ITEMS.register("pitch_rotator",
+            () -> new BlockItem(ModBlocks.PITCH_ROTATOR.get(), new Item.Properties()));
+
     public static void register(IEventBus eventBus) {
         ITEMS.register(eventBus);
     }

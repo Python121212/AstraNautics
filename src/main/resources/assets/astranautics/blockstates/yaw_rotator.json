@@ -1,0 +1,148 @@
+{
+  "variants": {
+    "angle=0,powered=false": {
+      "model": "astranautics:block/yaw_rotator"
+    },
+    "angle=1,powered=false": {
+      "model": "astranautics:block/yaw_rotator"
+    },
+    "angle=2,powered=false": {
+      "model": "astranautics:block/yaw_rotator"
+    },
+    "angle=3,powered=false": {
+      "model": "astranautics:block/yaw_rotator"
+    },
+    "angle=4,powered=false": {
+      "model": "astranautics:block/yaw_rotator"
+    },
+    "angle=5,powered=false": {
+      "model": "astranautics:block/yaw_rotator"
+    },
+    "angle=6,powered=false": {
+      "model": "astranautics:block/yaw_rotator"
+    },
+    "angle=7,powered=false": {
+      "model": "astranautics:block/yaw_rotator"
+    },
+    "angle=8,powered=false": {
+      "model": "astranautics:block/yaw_rotator"
+    },
+    "angle=9,powered=false": {
+      "model": "astranautics:block/yaw_rotator"
+    },
+    "angle=10,powered=false": {
+      "model": "astranautics:block/yaw_rotator"
+    },
+    "angle=11,powered=false": {
+      "model": "astranautics:block/yaw_rotator"
+    },
+    "angle=12,powered=false": {
+      "model": "astranautics:block/yaw_rotator"
+    },
+    "angle=13,powered=false": {
+      "model": "astranautics:block/yaw_rotator"
+    },
+    "angle=14,powered=false": {
+      "model": "astranautics:block/yaw_rotator"
+    },
+    "angle=15,powered=false": {
+      "model": "astranautics:block/yaw_rotator"
+    },
+    "angle=16,powered=false": {
+      "model": "astranautics:block/yaw_rotator"
+    },
+    "angle=17,powered=false": {
+      "model": "astranautics:block/yaw_rotator"
+    },
+    "angle=18,powered=false": {
+      "model": "astranautics:block/yaw_rotator"
+    },
+    "angle=19,powered=false": {
+      "model": "astranautics:block/yaw_rotator"
+    },
+    "angle=20,powered=false": {
+      "model": "astranautics:block/yaw_rotator"
+    },
+    "angle=21,powered=false": {
+      "model": "astranautics:block/yaw_rotator"
+    },
+    "angle=22,powered=false": {
+      "model": "astranautics:block/yaw_rotator"
+    },
+    "angle=23,powered=false": {
+      "model": "astranautics:block/yaw_rotator"
+    },
+    "angle=0,powered=true": {
+      "model": "astranautics:block/yaw_rotator_on"
+    },
+    "angle=1,powered=true": {
+      "model": "astranautics:block/yaw_rotator_on"
+    },
+    "angle=2,powered=true": {
+      "model": "astranautics:block/yaw_rotator_on"
+    },
+    "angle=3,powered=true": {
+      "model": "astranautics:block/yaw_rotator_on"
+    },
+    "angle=4,powered=true": {
+      "model": "astranautics:block/yaw_rotator_on"
+    },
+    "angle=5,powered=true": {
+      "model": "astranautics:block/yaw_rotator_on"
+    },
+    "angle=6,powered=true": {
+      "model": "astranautics:block/yaw_rotator_on"
+    },
+    "angle=7,powered=true": {
+      "model": "astranautics:block/yaw_rotator_on"
+    },
+    "angle=8,powered=true": {
+      "model": "astranautics:block/yaw_rotator_on"
+    },
+    "angle=9,powered=true": {
+      "model": "astranautics:block/yaw_rotator_on"
+    },
+    "angle=10,powered=true": {
+      "model": "astranautics:block/yaw_rotator_on"
+    },
+    "angle=11,powered=true": {
+      "model": "astranautics:block/yaw_rotator_on"
+    },
+    "angle=12,powered=true": {
+      "model": "astranautics:block/yaw_rotator_on"
+    },
+    "angle=13,powered=true": {
+      "model": "astranautics:block/yaw_rotator_on"
+    },
+    "angle=14,powered=true": {
+      "model": "astranautics:block/yaw_rotator_on"
+    },
+    "angle=15,powered=true": {
+      "model": "astranautics:block/yaw_rotator_on"
+    },
+    "angle=16,powered=true": {
+      "model": "astranautics:block/yaw_rotator_on"
+    },
+    "angle=17,powered=true": {
+      "model": "astranautics:block/yaw_rotator_on"
+    },
+    "angle=18,powered=true": {
+      "model": "astranautics:block/yaw_rotator_on"
+    },
+    "angle=19,powered=true": {
+      "model": "astranautics:block/yaw_rotator_on"
+    },
+    "angle=20,powered=true": {
+      "model": "astranautics:block/yaw_rotator_on"
+    },
+    "angle=21,powered=true": {
+      "model": "astranautics:block/yaw_rotator_on"
+    },
+    "angle=22,powered=true": {
+      "model": "astranautics:block/yaw_rotator_on"
+    },
+    "angle=23,powered=true": {
+      "model": "astranautics:block/yaw_rotator_on"
+    }
+  }
+}

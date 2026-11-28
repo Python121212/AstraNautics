@@ -520,6 +520,37 @@ if (previous != null && sameShip && |previous.y - y| <= 0.02) {
 
 `/astranautics watch` の「プレイヤーY 変化幅」がこの値です。0 に近ければ揺れていません。
 
+## 回転ブロック（v3.10.0）
+
+### 角度の持ち方
+
+`RotatorBlock` は `angle`（0–23、×15°）と `powered` を**ブロック状態**に持ちます。船体の構造は
+クライアントへ同期されるので、**ダイヤルは現在値をそのまま読めます**（開くときの通信ゼロ）。
+変更時だけ `SetRotator` パケットをサーバーへ送り、サーバーが `ShipStructure` を組み直します。
+
+### 回転
+
+`Rotators`（純粋な数式、ユニットテストあり）:
+
+* 方位 = `atan2(-fwd.x, -fwd.z)`（`fwd = R·(0,0,-1)`）
+* 傾き = `atan2(up.z, up.y)`（`up = R·(0,1,0)`）
+* 差分は**最短経路**（`shortestDelta`、`(-180, 180]`）
+* 1 tick の回転量 = `speed / 20`。目標に届く場合は**差分ちょうど**を回すので、行き過ぎも残差も出ない
+* 適用は `orientation = rotation_world * orientation`（JOML は `premultiply` を持たないのでこの順序で組む）
+
+```java
+Rotators.stepTowards(body.orientation, mode, target, step);
+body.angularVelocity.zero();      // 姿勢を直接動かすので角速度とは喧嘩させない
+body.updateRotationMatrix();
+indexStale = true; wake(); pushOrientation(); updateBoundingExtents();
+```
+
+### レッドストーンの読み方
+
+船体のブロックはワールドに存在しないため、`level.getBestNeighborSignal` を
+**そのブロックが居る位置**（hull 変換で求めたワールド座標）と、その**6 近傍**で評価します。
+つまり**船体の外壁に接したレバー／線**がそのまま信号源になります。
+
 ## 互換性（v3.5.9）
 
 * **非フルブロック**: `VoxelShapes` が `BlockState#getCollisionShape` から各ボクセルの

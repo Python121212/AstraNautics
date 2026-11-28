@@ -3,11 +3,13 @@ package com.astranautics.entity;
 import com.astranautics.AstraNautics;
 import com.astranautics.block.PhysicsSwitchBlock;
 import com.astranautics.block.PropellerBlock;
+import com.astranautics.block.RotatorBlock;
 import com.astranautics.block.SteamEngineBlock;
 import com.astranautics.config.AstraConfig;
 import com.astranautics.physics.Aerodynamics;
 import com.astranautics.physics.ContactCache;
 import com.astranautics.physics.EngineFuel;
+import com.astranautics.physics.Rotators;
 import com.astranautics.physics.RpmSource;
 import com.astranautics.physics.PhysicsParams;
 import com.astranautics.physics.RigidBody;
@@ -425,6 +427,7 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
         }
 
         this.tickEngines(level);
+        this.tickRotators(level);
 
         if (this.sleeping) {
             if (this.enginesRunning()) {
@@ -506,6 +509,9 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
                 BlockPos target = BlockPos.containing(world.x, world.y, world.z);
                 BlockState state = entry.getValue();
                 CompoundTag storedData = this.blockEntities.get(entry.getKey());
+                if (state.getBlock() instanceof RotatorBlock) {
+                    state = state.setValue(RotatorBlock.POWERED, false);
+                }
                 if (state.getBlock() instanceof SteamEngineBlock) {
                     // No fire in a stowed engine.
                     state = state.setValue(SteamEngineBlock.LIT, false);
@@ -639,6 +645,14 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
             return InteractionResult.PASS;
         }
         if (this.level().isClientSide) {
+            // The dial is a client screen; the angle it edits arrives from the synced
+            // structure, and the change goes back as a packet.
+            VoxelHit clientHit = this.raycastHull(player.getEyePosition(), player.getLookAngle());
+            if (clientHit != null && isHullRotator(clientHit.cell())) {
+                net.minecraftforge.fml.DistExecutor.unsafeRunWhenOn(
+                        net.minecraftforge.api.distmarker.Dist.CLIENT,
+                        () -> () -> com.astranautics.client.ClientRotatorHook.open(this, clientHit.cell()));
+            }
             return InteractionResult.SUCCESS;
         }
         if (!(this.level() instanceof ServerLevel level)) {
@@ -726,6 +740,35 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
     private boolean isHullSwitch(BlockPos cell) {
         BlockState state = this.structure == null ? null : this.structure.voxels().get(cell);
         return state != null && state.getBlock() instanceof PhysicsSwitchBlock;
+    }
+
+    /** True when the given local cell holds a rotator. */
+    private boolean isHullRotator(BlockPos cell) {
+        BlockState state = this.structure == null ? null : this.structure.voxels().get(cell);
+        return state != null && state.getBlock() instanceof RotatorBlock;
+    }
+
+    /**
+     * Sets a rotator's dial angle and rebuilds the hull cache. Called from the network packet
+     * the dialog sends.
+     */
+    public boolean setRotatorAngle(BlockPos cell, int degrees) {
+        ShipStructure current = this.structure;
+        if (current == null) {
+            return false;
+        }
+        BlockState state = current.voxels().get(cell);
+        if (state == null || !(state.getBlock() instanceof RotatorBlock)) {
+            return false;
+        }
+        int step = RotatorBlock.stepFor(degrees);
+        if (state.getValue(RotatorBlock.ANGLE) == step) {
+            return true;
+        }
+        Map<BlockPos, BlockState> voxels = new LinkedHashMap<>(current.voxels());
+        voxels.put(cell, state.setValue(RotatorBlock.ANGLE, step));
+        this.applyVoxels(ShipStructure.of(voxels));
+        return true;
     }
 
     /** True when the given local cell holds a steam engine. */
@@ -938,6 +981,71 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
         Map<BlockPos, BlockState> voxels = new LinkedHashMap<>(current.voxels());
         voxels.put(cell, state.setValue(SteamEngineBlock.LIT, lit));
         this.applyVoxels(ShipStructure.of(voxels));
+    }
+
+    /**
+     * Turns the hull towards each rotator's dial angle while that rotator sees a redstone
+     * signal. Nothing is animated on the client: the body's orientation really changes, so the
+     * deck, the collisions and anything standing on it follow.
+     */
+    private void tickRotators(ServerLevel level) {
+        ShipStructure current = this.structure;
+        if (current == null || current.rotators().isEmpty() || !AstraConfig.ENABLE_ROTATORS.get()) {
+            return;
+        }
+        double step = Math.max(0.0D, AstraConfig.ROTATOR_SPEED.get()) / 20.0D;
+        Map<BlockPos, BlockState> voxels = null;
+
+        for (ShipStructure.RotatorSource rotator : current.rotators()) {
+            BlockPos cell = rotator.cell();
+            BlockState state = current.voxels().get(cell);
+            if (state == null) {
+                continue;
+            }
+            boolean powered = this.rotatorHasSignal(level, cell);
+            if (powered != state.getValue(RotatorBlock.POWERED)) {
+                // Keep the block's glow (and the synced structure) in step with the signal.
+                if (voxels == null) {
+                    voxels = new LinkedHashMap<>(current.voxels());
+                }
+                voxels.put(cell, state.setValue(RotatorBlock.POWERED, powered));
+            }
+            if (!powered || step <= 0.0D) {
+                continue;
+            }
+            Rotators.stepTowards(this.body.orientation, rotator.mode(), rotator.targetDegrees(), step);
+            // Rotating in place: no angular velocity to fight the change, and nothing else
+            // should think the hull is spinning.
+            this.body.angularVelocity.zero();
+            this.body.updateRotationMatrix();
+            this.indexStale = true;
+            this.wake();
+            this.pushOrientation();
+            this.updateBoundingExtents();
+        }
+        if (voxels != null) {
+            this.applyVoxels(ShipStructure.of(voxels));
+        }
+    }
+
+    /**
+     * A hull's blocks are not in the world, so a rotator cannot be powered as a block. The
+     * signal is read from where the block would be, and from the six cells around it - one
+     * block of reach out of the hull, which is where a lever or a wire can actually sit.
+     */
+    private boolean rotatorHasSignal(ServerLevel level, BlockPos cell) {
+        Vector3d at = new Vector3d();
+        this.voxelWorldCenter(cell, at);
+        BlockPos pos = BlockPos.containing(at.x, at.y, at.z);
+        if (level.getBestNeighborSignal(pos) > 0) {
+            return true;
+        }
+        for (Direction direction : Direction.values()) {
+            if (level.getBestNeighborSignal(pos.relative(direction)) > 0) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** A hit of the view ray against the hull: the voxel and the face that was hit. */

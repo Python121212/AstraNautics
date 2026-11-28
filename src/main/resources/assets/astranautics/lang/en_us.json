@@ -57,5 +57,17 @@
   "ponder.astranautics.flywheel.title.0": "Adding inertia",
   "ponder.astranautics.flywheel.body.0": "It transmits like a shaft and adds inertia on top.\nEach one makes the engine respond 0.45 s slower.",
   "ponder.astranautics.flywheel.title.1": "When to use one",
-  "ponder.astranautics.flywheel.body.1": "It smooths out sudden starts and stops on a heavy ship, which makes landing and towing calmer.\nIt is heavy, so do not stack them without thinking."
+  "ponder.astranautics.flywheel.body.1": "It smooths out sudden starts and stops on a heavy ship, which makes landing and towing calmer.\nIt is heavy, so do not stack them without thinking.",
+  "block.astranautics.yaw_rotator": "Yaw Rotator",
+  "block.astranautics.pitch_rotator": "Pitch Rotator",
+  "rotator.astranautics.hint": "Click the ring to pick an angle (%s\u00b0 steps)",
+  "rotator.astranautics.signal": "Give it a redstone signal and the hull turns there",
+  "ponder.astranautics.yaw_rotator.title.0": "Turning the ship horizontally",
+  "ponder.astranautics.yaw_rotator.body.0": "Bolt it on a hull and right-click it: a round dial opens. Pick an angle by clicking, then close the screen (arrow keys nudge by 15\u00b0).",
+  "ponder.astranautics.yaw_rotator.title.1": "Making it turn",
+  "ponder.astranautics.yaw_rotator.body.1": "Put a lever or a wire against the outside of the block and give it a signal: the hull turns to the chosen angle at 90\u00b0 per second, and stops the moment the signal goes away.",
+  "ponder.astranautics.pitch_rotator.title.0": "Turning the ship vertically",
+  "ponder.astranautics.pitch_rotator.body.0": "Rotates the hull around the east-west axis: 0\u00b0 is level, 180\u00b0 is upside down. Right-click to open the dial and choose an angle.",
+  "ponder.astranautics.pitch_rotator.title.1": "Careful",
+  "ponder.astranautics.pitch_rotator.body.1": "The hull turns in place around its centre of mass, so it will be pushed out of anything it grinds into. Leave room around it before you turn it."
 }

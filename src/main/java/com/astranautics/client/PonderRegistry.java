@@ -26,6 +26,8 @@ public final class PonderRegistry {
         register("shaft", ModItems.SHAFT.get(), 2);
         register("cogwheel", ModItems.COGWHEEL.get(), 2);
         register("flywheel", ModItems.FLYWHEEL.get(), 2);
+        register("yaw_rotator", ModItems.YAW_ROTATOR.get(), 2);
+        register("pitch_rotator", ModItems.PITCH_ROTATOR.get(), 2);
     }
 
     private PonderRegistry() {
