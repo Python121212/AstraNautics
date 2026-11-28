@@ -38,6 +38,10 @@ public final class AstraConfig {
     public static final ForgeConfigSpec.DoubleValue BALLOON_LIFT;
     public static final ForgeConfigSpec.DoubleValue PROPELLER_THRUST;
     public static final ForgeConfigSpec.DoubleValue AIR_DRAG;
+    public static final ForgeConfigSpec.DoubleValue AIR_PRESSURE_FALLOFF;
+    public static final ForgeConfigSpec.DoubleValue PROPELLER_AIRFLOW;
+    public static final ForgeConfigSpec.DoubleValue BALLOON_DRAG;
+    public static final ForgeConfigSpec.BooleanValue PROPELLER_TORQUE;
     public static final ForgeConfigSpec.DoubleValue WATER_DENSITY;
     public static final ForgeConfigSpec.DoubleValue WATER_DRAG;
 
@@ -114,6 +118,25 @@ public final class AstraConfig {
         AIR_DRAG = builder
                 .comment("Air drag coefficient (F = -k * area * speed^2). Bigger = lower top speed.")
                 .defineInRange("airDrag", 0.01D, 0.0D, 1.0D);
+        AIR_PRESSURE_FALLOFF = builder
+                .comment("Air pressure falls as e^(-falloff * (y - 63)), like Create: Aeronautics.",
+                        "Lift, thrust and drag all scale with pressure, so a ship settles at the",
+                        "altitude where its lift equals its weight and cannot climb past the point",
+                        "where there is no lift left. 0 disables the altitude effect.")
+                .defineInRange("pressureFalloff", 0.004D, 0.0D, 0.05D);
+        PROPELLER_AIRFLOW = builder
+                .comment("Speed (blocks/second) at which a propeller stops pushing: thrust falls",
+                        "linearly to zero there, which sets the ship's top speed.")
+                .defineInRange("propellerAirflow", 24.0D, 1.0D, 200.0D);
+        BALLOON_DRAG = builder
+                .comment("Drag per balloon block per block/second (Aeronautics uses 0.33).",
+                        "Bulky envelopes are why a big balloon ship is slow.")
+                .defineInRange("balloonDrag", 0.33D, 0.0D, 10.0D);
+        PROPELLER_TORQUE = builder
+                .comment("Apply propeller thrust off-centre so engines also turn the hull.",
+                        "Off by default: Create: Aeronautics exempts propellers from torque so",
+                        "aircraft do not roll from their own engines.")
+                .define("propellerTorque", false);
         WATER_DENSITY = builder
                 .comment("Mass of one block of displaced water. Buoyancy = displaced * density.",
                         "Sealed air inside the hull counts as displaced volume too.")
