@@ -11,6 +11,8 @@ import org.joml.Vector3d;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.WeakHashMap;
 import java.util.function.Predicate;
 
 /**
@@ -50,6 +52,15 @@ public final class EntityShipCollision {
     private static final double SUPPORT_SKIN = 0.004D;
     /** A normal with at least this much Y is a support (or ceiling) contact. */
     private static final double VERTICAL_NORMAL = 0.5D;
+    /**
+     * Wall contacts are tested against the entity box trimmed by this much at the feet.
+     *
+     * <p>Without it, an entity that is standing on the deck and sinks the few centimetres
+     * of one tick of gravity also overlaps the *neighbouring* deck block, and the shallow
+     * overlap there is resolved along X/Z: the player gets shoved back and their walk
+     * speed is cancelled, which feels like "moves a little, stops, moves again".</p>
+     */
+    private static final double FEET_CLEARANCE = 0.12D;
     /** One tick in seconds. */
     private static final double TICK_SECONDS = 0.05D;
     /** Corrections larger than this (blocks) are synced with a teleport packet. */
@@ -61,7 +72,20 @@ public final class EntityShipCollision {
      */
     private static final double VELOCITY_PACKET_THRESHOLD_SQ = 0.1D * 0.1D;
 
+    /** Entities that had a support contact in the last resolution (weak keys, no leak). */
+    private static final Map<Entity, Long> SUPPORTED = new WeakHashMap<>();
+
     private EntityShipCollision() {
+    }
+
+    /** True if {@code entity} stood on a hull in the previous tick. */
+    public static boolean isSupported(Entity entity, long gameTime) {
+        Long tick = SUPPORTED.get(entity);
+        return tick != null && gameTime >= tick && gameTime - tick <= 2L;
+    }
+
+    public static void clearSupported() {
+        SUPPORTED.clear();
     }
 
     public static void resolve(Level level, PhysicsShip ship, VoxelSpatialIndex index) {
@@ -84,14 +108,16 @@ public final class EntityShipCollision {
         RigidBody body = ship.getBody();
         Obb voxelObb = new Obb();
         Obb entityObb = new Obb();
+        Obb bodyObb = new Obb();
         Vector3d normal = new Vector3d();
         double[] penetration = new double[1];
         Vector3d queryCenter = new Vector3d();
         List<VoxelSpatialIndex.Entry> nearby = new ArrayList<>();
 
         for (Entity entity : entities) {
+            SUPPORTED.remove(entity);
             for (int iteration = 0; iteration < MAX_ITERATIONS; iteration++) {
-                if (!resolveOne(level, body, index, entity, voxelObb, entityObb, normal,
+                if (!resolveOne(level, body, index, entity, voxelObb, entityObb, bodyObb, normal,
                         penetration, queryCenter, nearby)) {
                     break;
                 }
@@ -101,8 +127,8 @@ public final class EntityShipCollision {
 
     /** One push-out step. Returns true when a deep contact may need another pass. */
     private static boolean resolveOne(Level level, RigidBody body, VoxelSpatialIndex index,
-                                      Entity entity, Obb voxelObb, Obb entityObb, Vector3d normal,
-                                      double[] penetration, Vector3d queryCenter,
+                                      Entity entity, Obb voxelObb, Obb entityObb, Obb bodyObb,
+                                      Vector3d normal, double[] penetration, Vector3d queryCenter,
                                       List<VoxelSpatialIndex.Entry> nearby) {
         AABB box = entity.getBoundingBox();
         queryCenter.set((box.minX + box.maxX) * 0.5D, (box.minY + box.maxY) * 0.5D,
@@ -114,6 +140,8 @@ public final class EntityShipCollision {
         }
 
         entityObb.setAabb(box);
+        double bodyMinY = Math.min(box.minY + FEET_CLEARANCE, box.maxY - 0.01D);
+        bodyObb.setAabb(new AABB(box.minX, bodyMinY, box.minZ, box.maxX, box.maxY, box.maxZ));
         double supportPen = 0.0D;
         Vector3d supportNormal = null;
         VoxelSpatialIndex.Entry supportEntry = null;
@@ -138,9 +166,16 @@ public final class EntityShipCollision {
                 }
             } else if (normal.y < -VERTICAL_NORMAL) {
                 ceilingPen = Math.max(ceilingPen, pen);
-            } else if (pen > wallPen) {
-                wallPen = pen;
-                wallNormal = new Vector3d(normal);
+            } else {
+                // Confirm the side contact against the trimmed body box so the few
+                // centimetres the feet sink into the deck do not read as a wall.
+                if (!Obb.intersect(bodyObb, voxelObb, normal, penetration)) {
+                    continue;
+                }
+                if (penetration[0] > wallPen) {
+                    wallPen = penetration[0];
+                    wallNormal = new Vector3d(normal);
+                }
             }
         }
 
@@ -159,6 +194,13 @@ public final class EntityShipCollision {
         boolean moved = false;
 
         // --- support: stand on the deck -------------------------------------------
+        if (supportNormal != null) {
+            // Remember the support even when the separation is already zero: the tick
+            // handler uses it to cancel the player's own gravity (see ShipPlatformSupport).
+            SUPPORTED.put(entity, level.getGameTime());
+            entity.fallDistance = 0.0F;
+            entity.setOnGround(true);
+        }
         if (supportNormal != null && supportPen > SUPPORT_SKIN) {
             // Separate straight up by the vertical distance needed to clear the block:
             // correct for a tilted hull (unlike snapping to "voxel centre + 0.5", which
@@ -171,8 +213,6 @@ public final class EntityShipCollision {
                 velocityDeltaSq += vy * vy;
                 vy = 0.0D;
             }
-            entity.fallDistance = 0.0F;
-            entity.setOnGround(true);
 
             // Ride with the deck: carry the entity by the surface velocity of the block
             // it stands on (this is what a moving platform does, without touching the
