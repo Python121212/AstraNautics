@@ -11,6 +11,7 @@ import com.astranautics.physics.ShipPhysics;
 import com.astranautics.physics.ShipStructure;
 import com.astranautics.physics.ShipStructureCodec;
 import com.astranautics.physics.ShipWorld;
+import com.astranautics.physics.VoxelMining;
 import com.astranautics.physics.VoxelSpatialIndex;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
@@ -24,6 +25,7 @@ import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.Container;
@@ -56,6 +58,7 @@ import org.joml.Vector3d;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * A block structure that has been detached from the world and is simulated as a
@@ -80,6 +83,13 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
     private final ContactCache contactCache = new ContactCache();
     private ShipStructure structure;
     private boolean structureSyncPending;
+
+    /** Last punch of a player, so a click that becomes a hold can be taken back. */
+    @Nullable
+    private UUID lastPunchPlayer;
+    private long lastPunchTick = Long.MIN_VALUE;
+    private final Vector3d lastPunchImpulse = new Vector3d();
+    private final Vector3d lastPunchPoint = new Vector3d();
     /** Saved block entity data per local voxel (chest contents, sign text, ...). */
     private final Map<BlockPos, CompoundTag> blockEntities = new LinkedHashMap<>();
     /** Remaining ticks during which the structure is (re)sent, so late tracking still receives it. */
@@ -513,14 +523,14 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
     /**
      * Right-click interaction with the hull.
      *
-     * <p>The switch is part of the structure, so flipping it off is done by simply
-     * using the hull: an empty hand (or any non-block item) turns the switch off and
-     * puts every block back. A block in hand bolts that block onto the hull instead.</p>
+     * <p>A block in hand bolts that block onto the hull; a chest or barrel on the hull is
+     * opened. The hull is turned back into blocks with a physics switch: place one next to
+     * the hull and switch it on (the switch snaps back off once the hull is dissolved).</p>
      *
      * <ul>
-     *     <li>right-click with an empty hand / non-block item: switch OFF, blocks restored</li>
      *     <li>right-click with a block: extend the hull (the block becomes part of the body)</li>
-     *     <li>shift + right-click: report blocks / mass / speed</li>
+     *     <li>right-click with an empty hand on a chest: open it</li>
+     *     <li>right-click with an empty hand anywhere else: report blocks / mass / speed</li>
      * </ul>
      */
     @Override
@@ -536,15 +546,6 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
         }
 
         ItemStack stack = player.getItemInHand(hand);
-
-        if (player.isShiftKeyDown()) {
-            player.displayClientMessage(Component.translatable("message.astranautics.ship.status",
-                    this.structure.voxels().size(),
-                    String.format("%.1f", this.body.getMass()),
-                    String.format("%.2f", this.body.linearVelocity.length()))
-                    .withStyle(ChatFormatting.GOLD), false);
-            return InteractionResult.CONSUME;
-        }
 
         if (stack.getItem() instanceof BlockItem blockItem) {
             BlockState state = blockItem.getBlock().defaultBlockState();
@@ -571,15 +572,13 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
             return InteractionResult.CONSUME;
         }
 
-        // Switch OFF: the hull turns back into blocks (the switch comes back switched off).
-        int blocks = this.structure.voxels().size();
-        level.playSound(null, this.getX(), this.getY(), this.getZ(),
-                SoundEvents.LEVER_CLICK, SoundSource.BLOCKS, 0.6F, 0.6F);
-        level.playSound(null, this.getX(), this.getY(), this.getZ(),
-                SoundEvents.BEACON_DEACTIVATE, SoundSource.BLOCKS, 0.5F, 0.7F);
-        this.dissolve(level);
-        player.displayClientMessage(Component.translatable(
-                "message.astranautics.ship.switched_off", blocks).withStyle(ChatFormatting.GRAY), false);
+        // Switching the hull off is done with a physics switch (place one next to the
+        // hull and right-click it), so an empty hand only reports the state.
+        player.displayClientMessage(Component.translatable("message.astranautics.ship.status",
+                this.structure.voxels().size(),
+                String.format("%.1f", this.body.getMass()),
+                String.format("%.2f", this.body.linearVelocity.length()))
+                .withStyle(ChatFormatting.GOLD), false);
         return InteractionResult.CONSUME;
     }
 
@@ -619,27 +618,23 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
         return true;
     }
 
-    /** Removes the block the player is looking at and drops it (with its contents). */
-    private boolean breakVoxel(ServerLevel level, Player player) {
+    /** Removes one block of the hull and drops it (with its contents). */
+    public boolean breakVoxelAt(ServerLevel level, BlockPos cell) {
         ShipStructure current = this.structure;
         if (current == null) {
             return false;
         }
-        VoxelHit hit = this.raycastHull(player.getEyePosition(), player.getLookAngle());
-        if (hit == null) {
-            return false;
-        }
-        BlockState state = current.voxels().get(hit.cell());
+        BlockState state = current.voxels().get(cell);
         if (state == null) {
             return false;
         }
 
         Vector3d dropAt = new Vector3d();
-        this.voxelWorldCenter(hit.cell(), dropAt);
+        this.voxelWorldCenter(cell, dropAt);
         BlockPos dropPos = BlockPos.containing(dropAt.x, dropAt.y, dropAt.z);
 
         Block.popResource(level, dropPos, new ItemStack(state.getBlock()));
-        CompoundTag stored = this.blockEntities.remove(hit.cell());
+        CompoundTag stored = this.blockEntities.remove(cell);
         if (stored != null) {
             ListTag items = stored.getList("Items", Tag.TAG_COMPOUND);
             for (int i = 0; i < items.size(); i++) {
@@ -655,7 +650,7 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
         level.levelEvent(2001, dropPos, Block.getId(state));
 
         Map<BlockPos, BlockState> voxels = new LinkedHashMap<>(current.voxels());
-        voxels.remove(hit.cell());
+        voxels.remove(cell);
         if (voxels.isEmpty()) {
             // Nothing left to simulate.
             this.structure = null;
@@ -728,9 +723,17 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
         return true;
     }
 
+    /** Local voxel of the hull the given ray hits first, or {@code null}. */
+    @Nullable
+    public BlockPos raycastCell(Vec3 eye, Vec3 look) {
+        VoxelHit hit = this.raycastHull(eye, look);
+        return hit == null ? null : hit.cell();
+    }
+
     @Nullable
     private VoxelHit raycastHull(Vec3 eye, Vec3 look) {
-        ShipStructure current = this.structure;
+        // getStructure() also decodes the synced data on the client.
+        ShipStructure current = this.getStructure();
         if (current == null) {
             return null;
         }
@@ -937,9 +940,13 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
             return false;
         }
 
-        // Shift + hit picks the block apart instead of pushing the hull.
-        if (attacker instanceof Player player && player.isShiftKeyDown()) {
-            return this.breakVoxel(level, player);
+        // While the player holds the attack button the hull is being mined: do not
+        // punch it away from under the crosshair.
+        if (attacker instanceof Player player) {
+            BlockPos target = this.raycastCell(player.getEyePosition(), player.getLookAngle());
+            if (target != null && VoxelMining.isMining((ServerPlayer) player, this, target)) {
+                return true;
+            }
         }
 
         Vector3d point = new Vector3d(this.body.position);
@@ -978,8 +985,16 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
         double impulseMagnitude = AstraConfig.PUNCH_SPEED.get() * scale * mass;
 
         this.wake();
-        this.body.applyImpulseAt(new Vector3d(direction).mul(impulseMagnitude), point);
+        Vector3d impulse = new Vector3d(direction).mul(impulseMagnitude);
+        this.body.applyImpulseAt(impulse, point);
         this.spatialIndex = null;
+
+        if (attacker instanceof Player player) {
+            this.lastPunchPlayer = player.getUUID();
+            this.lastPunchTick = level.getGameTime();
+            this.lastPunchImpulse.set(impulse);
+            this.lastPunchPoint.set(point);
+        }
 
         if (hitState != null) {
             level.playSound(null, point.x, point.y, point.z,
@@ -989,6 +1004,24 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
             level.playSound(null, point.x, point.y, point.z,
                     SoundEvents.STONE_HIT, SoundSource.BLOCKS, 0.9F, 1.0F);
         }
+        return true;
+    }
+
+    /**
+     * Takes back the punch of {@code player} when it happened a moment ago, so that a
+     * click which turns into a held left click does not shove the hull away while the
+     * player is trying to mine it.
+     */
+    public boolean undoLastPunch(ServerLevel level, Player player) {
+        if (this.lastPunchPlayer == null || !this.lastPunchPlayer.equals(player.getUUID())) {
+            return false;
+        }
+        this.lastPunchPlayer = null;
+        if (level.getGameTime() - this.lastPunchTick > 6L) {
+            return false;
+        }
+        this.body.applyImpulseAt(new Vector3d(this.lastPunchImpulse).negate(), this.lastPunchPoint);
+        this.spatialIndex = null;
         return true;
     }
 

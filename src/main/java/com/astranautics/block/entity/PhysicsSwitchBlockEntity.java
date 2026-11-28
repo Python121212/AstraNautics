@@ -4,6 +4,7 @@ import com.astranautics.AstraNautics;
 import com.astranautics.block.PhysicsSwitchBlock;
 import com.astranautics.config.AstraConfig;
 import com.astranautics.entity.PhysicsShip;
+import com.astranautics.physics.ShipWorld;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
@@ -14,6 +15,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.AABB;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.UUID;
@@ -103,6 +105,26 @@ public class PhysicsSwitchBlockEntity extends BlockEntity {
         }
 
         if (enabled) {
+            // A switch placed next to an already physical hull is the "switch it off"
+            // control: turn it and the hull goes back to blocks. Only an explicit
+            // right-click does this (never the automatic ticker).
+            PhysicsShip nearby = player == null ? null : findNearbyShip(serverLevel, pos);
+            if (nearby != null) {
+                int blocks = nearby.getStructure() == null ? 0 : nearby.getStructure().voxels().size();
+                nearby.dissolve(serverLevel);
+
+                BlockState current = serverLevel.getBlockState(pos);
+                if (current.getBlock() instanceof PhysicsSwitchBlock) {
+                    serverLevel.setBlock(pos, current.setValue(PhysicsSwitchBlock.ENABLED, false), 3);
+                }
+                if (player != null) {
+                    player.displayClientMessage(Component.translatable(
+                            "message.astranautics.ship.switched_off", blocks)
+                            .withStyle(ChatFormatting.GRAY), false);
+                }
+                return blocks;
+            }
+
             ShipAssembler.Result result = switchEntity.assembleNow(serverLevel);
             if (player != null) {
                 player.displayClientMessage(result.message(), false);
@@ -119,6 +141,36 @@ public class PhysicsSwitchBlockEntity extends BlockEntity {
                     .withStyle(ChatFormatting.YELLOW), false);
         }
         return restored;
+    }
+
+    /** Closest physical hull whose bounding box is within reach of this switch. */
+    @Nullable
+    public static PhysicsShip findNearbyShip(ServerLevel level, BlockPos pos) {
+        double x = pos.getX() + 0.5D;
+        double y = pos.getY() + 0.5D;
+        double z = pos.getZ() + 0.5D;
+        double maxDistance = 8.0D;
+
+        PhysicsShip best = null;
+        double bestDistance = maxDistance * maxDistance;
+        for (PhysicsShip ship : ShipWorld.ships(level)) {
+            if (!ship.isAlive()) {
+                continue;
+            }
+            double distance = distanceSqToBox(ship.getBoundingBox(), x, y, z);
+            if (distance < bestDistance) {
+                bestDistance = distance;
+                best = ship;
+            }
+        }
+        return best;
+    }
+
+    private static double distanceSqToBox(AABB box, double x, double y, double z) {
+        double dx = Math.max(0.0D, Math.max(box.minX - x, x - box.maxX));
+        double dy = Math.max(0.0D, Math.max(box.minY - y, y - box.maxY));
+        double dz = Math.max(0.0D, Math.max(box.minZ - z, z - box.maxZ));
+        return dx * dx + dy * dy + dz * dz;
     }
 
     /** Assembles right now (or reports why it cannot). Never flips the state off. */
