@@ -107,6 +107,23 @@ class SolverSimulationTest {
     }
 
     @Test
+    void restingCubeComesToAStandstill() {
+        FakeWorld world = new FakeWorld().floor(0, 4);
+        RigidBody body = cube(1.0D);
+        body.position.set(0.5D, 1.5D, 0.5D);
+
+        simulate(world, body, new SingleCube(), 600);
+
+        // A hull that keeps a few mm/s of residual velocity is invisible on its own, but it
+        // drags the deck (and the camera of anyone standing on it) around and never sleeps.
+        assertTrue(body.linearVelocity.length() < 0.01D, "residual motion: " + body.linearVelocity);
+
+        double y = body.position.y;
+        simulate(world, body, new SingleCube(), 20);
+        assertTrue(Math.abs(body.position.y - y) < 1.0E-3D, "deck still drifting: " + body.position);
+    }
+
+    @Test
     void fastCubeDoesNotTunnelThroughTheFloor() {
         FakeWorld world = new FakeWorld().floor(0, 4);
         RigidBody body = cube(1.0D);

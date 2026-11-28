@@ -40,7 +40,8 @@ public final class AstraCommands {
     public static void register(RegisterCommandsEvent event) {
         CommandDispatcher<CommandSourceStack> dispatcher = event.getDispatcher();
         dispatcher.register(Commands.literal("astranautics")
-                .then(Commands.literal("diag").executes(AstraCommands::diagnose)));
+                .then(Commands.literal("diag").executes(AstraCommands::diagnose))
+                .then(Commands.literal("watch").executes(AstraCommands::watch)));
     }
 
     private static int diagnose(CommandContext<CommandSourceStack> context) {
@@ -103,6 +104,16 @@ public final class AstraCommands {
         for (Component line : lines) {
             player.sendSystemMessage(line);
         }
+        return 1;
+    }
+
+    private static int watch(CommandContext<CommandSourceStack> context) {
+        ServerPlayer player = context.getSource().getPlayer();
+        if (player == null) {
+            context.getSource().sendFailure(Component.literal("run this as a player"));
+            return 0;
+        }
+        ShipWatch.start(player);
         return 1;
     }
 

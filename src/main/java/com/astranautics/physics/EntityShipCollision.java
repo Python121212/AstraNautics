@@ -95,10 +95,12 @@ public final class EntityShipCollision {
     private static final class Support {
         private final long tick;
         private final double y;
+        private final int shipId;
 
-        private Support(long tick, double y) {
+        private Support(long tick, double y, int shipId) {
             this.tick = tick;
             this.y = y;
+            this.shipId = shipId;
         }
     }
 
@@ -129,6 +131,18 @@ public final class EntityShipCollision {
             return Double.NaN;
         }
         return support.y;
+    }
+
+    /**
+     * Id of the hull the entity was standing on in the previous tick, or {@code -1}. Used by
+     * {@code /astranautics watch} to report whether that hull is the thing that moves.
+     */
+    public static int supportShipId(Entity entity, long gameTime) {
+        Support support = SUPPORTED.get(entity);
+        if (support == null || gameTime < support.tick || gameTime - support.tick > 2L) {
+            return -1;
+        }
+        return support.shipId;
     }
 
     public static void clearSupported() {
@@ -166,8 +180,8 @@ public final class EntityShipCollision {
         for (Entity entity : entities) {
             SUPPORTED.remove(entity);
             for (int iteration = 0; iteration < MAX_ITERATIONS; iteration++) {
-                if (!resolveOne(level, body, index, entity, voxelObb, entityObb, bodyObb, headObb,
-                        probeObb, normal, penetration, queryCenter, nearby)) {
+                if (!resolveOne(level, ship.getId(), body, index, entity, voxelObb, entityObb, bodyObb,
+                        headObb, probeObb, normal, penetration, queryCenter, nearby)) {
                     break;
                 }
             }
@@ -175,7 +189,7 @@ public final class EntityShipCollision {
     }
 
     /** One push-out step. Returns true when a deep contact may need another pass. */
-    private static boolean resolveOne(Level level, RigidBody body, VoxelSpatialIndex index,
+    private static boolean resolveOne(Level level, int shipId, RigidBody body, VoxelSpatialIndex index,
                                       Entity entity, Obb voxelObb, Obb entityObb, Obb bodyObb,
                                       Obb headObb, Obb probeObb, Vector3d normal,
                                       double[] penetration, Vector3d queryCenter,
@@ -321,7 +335,7 @@ public final class EntityShipCollision {
             // Nothing to separate, but the entity may still be resting exactly on the deck:
             // record the support, otherwise the gravity cancel would alternate on and off
             // every other tick (a 10 Hz bob) instead of being continuous.
-            recordSupport(level, entity, supportNormal, atRest);
+            recordSupport(level, entity, supportNormal, atRest, shipId);
             return false;
         }
 
@@ -341,7 +355,7 @@ public final class EntityShipCollision {
             moveEntity(level, entity, targetX, targetY, targetZ);
         }
 
-        recordSupport(level, entity, supportNormal, atRest);
+        recordSupport(level, entity, supportNormal, atRest, shipId);
         // Another pass is only useful when the entity was still deep inside the hull.
         return supportPen > CONTACT_SKIN || wallPen > 0.25D || ceilingPen > CONTACT_SKIN;
     }
@@ -351,11 +365,11 @@ public final class EntityShipCollision {
      * {@code ShipPlatformSupport} can cancel its gravity during the next tick.
      */
     private static void recordSupport(Level level, Entity entity, @Nullable Vector3d supportNormal,
-                                      boolean atRest) {
+                                      boolean atRest, int shipId) {
         if (supportNormal == null || !atRest) {
             return;
         }
-        SUPPORTED.put(entity, new Support(level.getGameTime(), entity.getY()));
+        SUPPORTED.put(entity, new Support(level.getGameTime(), entity.getY(), shipId));
     }
 
     private static void moveEntity(Level level, Entity entity, double x, double y, double z) {
