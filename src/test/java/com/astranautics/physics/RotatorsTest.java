@@ -68,9 +68,16 @@ class RotatorsTest {
 
     @Test
     void steppingNeverOvershoots() {
+        // A big step towards a target ten degrees away stops on the target, going the short
+        // way (backwards), instead of sailing past it.
         Quaterniond orientation = new Quaterniond();
         Rotators.stepTowards(orientation, Rotators.Mode.YAW, 350.0D, 100.0D);
-        assertEquals(260.0D, Rotators.yawDegrees(orientation), 1.0E-4D);
+        assertEquals(350.0D, Rotators.yawDegrees(orientation), 1.0E-4D);
+
+        // With room to move, it moves exactly one step.
+        Quaterniond second = new Quaterniond();
+        Rotators.stepTowards(second, Rotators.Mode.YAW, 170.0D, 100.0D);
+        assertEquals(100.0D, Rotators.yawDegrees(second), 1.0E-4D);
     }
 
     @Test
