@@ -1,6 +1,7 @@
 package com.astranautics.entity;
 
 import com.astranautics.AstraNautics;
+import com.astranautics.block.AnchorBlock;
 import com.astranautics.block.PhysicsSwitchBlock;
 import com.astranautics.block.PropellerBlock;
 import com.astranautics.block.RotatorBlock;
@@ -146,6 +147,15 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
     private boolean indexStale = true;
     /** True when the last refresh found the pose unchanged (the index is still current). */
     private boolean poseSettled;
+
+    /**
+     * Welded to the world by an {@link AnchorBlock}: the pose is captured and restored every
+     * tick, so gravity, collisions and shoves cannot move it. Rotators still may, because they
+     * are an explicit command from the player.
+     */
+    private boolean anchored;
+    private final Vector3d anchorPosition = new Vector3d();
+    private final Quaterniond anchorOrientation = new Quaterniond();
 
     // Sleeping (perf): a settled ship skips the solver until something wakes it.
     private boolean sleeping;
@@ -429,6 +439,23 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
         this.tickEngines(level);
         this.tickRotators(level);
 
+        if (this.anchored) {
+            // Welded to the world: no gravity, no sliding, no being shoved. The pose is the one
+            // captured when the hull was linked; a rotator may have turned it since, so that is
+            // folded back into the anchor before it is restored.
+            this.anchorOrientation.set(this.body.orientation);
+            this.body.position.set(this.anchorPosition);
+            this.body.orientation.set(this.anchorOrientation);
+            this.body.linearVelocity.zero();
+            this.body.angularVelocity.zero();
+            this.body.updateRotationMatrix();
+            this.setPos(this.body.position.x, this.body.position.y, this.body.position.z);
+            this.pushOrientation();
+            this.updateBoundingExtents();
+            this.indexStale = true;
+            return;
+        }
+
         if (this.sleeping) {
             if (this.enginesRunning()) {
                 this.wake();
@@ -509,6 +536,9 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
                 BlockPos target = BlockPos.containing(world.x, world.y, world.z);
                 BlockState state = entry.getValue();
                 CompoundTag storedData = this.blockEntities.get(entry.getKey());
+                if (state.getBlock() instanceof AnchorBlock) {
+                    state = state.setValue(AnchorBlock.LINKED, false);
+                }
                 if (state.getBlock() instanceof RotatorBlock) {
                     state = state.setValue(RotatorBlock.POWERED, false);
                 }
@@ -679,6 +709,41 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
                     SoundEvents.BEACON_DEACTIVATE, SoundSource.BLOCKS, 0.5F, 0.7F);
             player.displayClientMessage(Component.translatable(
                     "message.astranautics.ship.switched_off", blocks).withStyle(ChatFormatting.GRAY), false);
+            return InteractionResult.CONSUME;
+        }
+
+        // An anchor block on the hull welds it to the world (or lets it go).
+        if (hit != null && isHullAnchor(hit.cell())) {
+            this.setAnchored(!this.anchored);
+            Vector3d at = new Vector3d();
+            this.voxelWorldCenter(hit.cell(), at);
+            level.playSound(null, at.x, at.y, at.z,
+                    this.anchored ? SoundEvents.NETHERITE_BLOCK_PLACE : SoundEvents.NETHERITE_BLOCK_BREAK,
+                    SoundSource.BLOCKS, 0.7F, this.anchored ? 0.8F : 1.2F);
+            player.displayClientMessage(Component.translatable(this.anchored
+                            ? "message.astranautics.anchor.locked" : "message.astranautics.anchor.released")
+                    .withStyle(this.anchored ? ChatFormatting.AQUA : ChatFormatting.GRAY), true);
+            return InteractionResult.CONSUME;
+        }
+
+        // A lever on the hull cannot be flipped as a block either, but it is what makes
+        // redstone on a ship usable, so it toggles here.
+        if (hit != null && isHullLever(hit.cell())) {
+            ShipStructure current = this.structure;
+            BlockState state = current == null ? null : current.voxels().get(hit.cell());
+            if (state != null) {
+                Map<BlockPos, BlockState> voxels = new LinkedHashMap<>(current.voxels());
+                boolean powered = !state.getValue(net.minecraft.world.level.block.LeverBlock.POWERED);
+                voxels.put(hit.cell(), state.setValue(net.minecraft.world.level.block.LeverBlock.POWERED, powered));
+                this.applyVoxels(ShipStructure.of(voxels));
+                Vector3d at = new Vector3d();
+                this.voxelWorldCenter(hit.cell(), at);
+                level.playSound(null, at.x, at.y, at.z, SoundEvents.LEVER_CLICK, SoundSource.BLOCKS,
+                        0.5F, powered ? 1.0F : 0.6F);
+                player.displayClientMessage(Component.translatable(powered
+                                ? "message.astranautics.lever.on" : "message.astranautics.lever.off")
+                        .withStyle(powered ? ChatFormatting.GREEN : ChatFormatting.GRAY), true);
+            }
             return InteractionResult.CONSUME;
         }
 
@@ -1034,6 +1099,10 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
      * block of reach out of the hull, which is where a lever or a wire can actually sit.
      */
     private boolean rotatorHasSignal(ServerLevel level, BlockPos cell) {
+        if (this.structure != null && this.structure.poweredAt(cell)) {
+            // A redstone block, torch or wire bolted to the hull powers it from the inside.
+            return true;
+        }
         Vector3d at = new Vector3d();
         this.voxelWorldCenter(cell, at);
         BlockPos pos = BlockPos.containing(at.x, at.y, at.z);
@@ -1046,6 +1115,95 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
             }
         }
         return false;
+    }
+
+    /** True when this hull is welded in place by an anchor block. */
+    public boolean isAnchored() {
+        return this.anchored;
+    }
+
+    /**
+     * Welds the hull to the world (or releases it).
+     *
+     * <p>When welding, the hull is first snapped to the block grid if it is already aligned to
+     * it, so a ship that stopped at 12.3 blocks becomes a structure that lines up with the
+     * normal blocks around it instead of floating a third of a block off. A hull that is not
+     * axis aligned is simply fixed where it is.</p>
+     */
+    public void setAnchored(boolean anchored) {
+        if (anchored == this.anchored) {
+            return;
+        }
+        this.anchored = anchored;
+        if (anchored) {
+            Vector3d snap = new Vector3d(this.body.position);
+            if (this.isAxisAligned(this.body.orientation)) {
+                Vector3d com = this.structure == null ? new Vector3d() : this.structure.getCenterOfMass();
+                snap.set(Math.rint(this.body.position.x - com.x) + com.x,
+                        Math.rint(this.body.position.y - com.y) + com.y,
+                        Math.rint(this.body.position.z - com.z) + com.z);
+            }
+            this.body.position.set(snap);
+            this.anchorPosition.set(snap);
+            this.anchorOrientation.set(this.body.orientation);
+            this.body.linearVelocity.zero();
+            this.body.angularVelocity.zero();
+            this.setPos(snap.x, snap.y, snap.z);
+            this.updateBoundingExtents();
+        }
+        this.indexStale = true;
+        this.wake();
+        this.setAnchoredVisuals(anchored);
+    }
+
+    /** True when every axis of the pose still points along a world axis (within rounding). */
+    private boolean isAxisAligned(Quaterniond orientation) {
+        Matrix3d rotation = new Matrix3d().rotation(orientation);
+        double[][] axes = {
+                {rotation.m00, rotation.m10, rotation.m20},
+                {rotation.m01, rotation.m11, rotation.m21},
+                {rotation.m02, rotation.m12, rotation.m22}
+        };
+        for (double[] axis : axes) {
+            double max = Math.max(Math.abs(axis[0]), Math.max(Math.abs(axis[1]), Math.abs(axis[2])));
+            if (max < 0.9999D) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /** Mirrors the welded state onto the anchor blocks, so they glow while holding. */
+    private void setAnchoredVisuals(boolean linked) {
+        ShipStructure current = this.structure;
+        if (current == null || current.anchors().isEmpty()) {
+            return;
+        }
+        Map<BlockPos, BlockState> voxels = new LinkedHashMap<>(current.voxels());
+        boolean changed = false;
+        for (BlockPos cell : current.anchors()) {
+            BlockState state = voxels.get(cell);
+            if (state != null && state.hasProperty(AnchorBlock.LINKED)
+                    && state.getValue(AnchorBlock.LINKED) != linked) {
+                voxels.put(cell, state.setValue(AnchorBlock.LINKED, linked));
+                changed = true;
+            }
+        }
+        if (changed) {
+            this.applyVoxels(ShipStructure.of(voxels));
+        }
+    }
+
+    /** True when the given local cell holds an anchor block. */
+    private boolean isHullAnchor(BlockPos cell) {
+        BlockState state = this.structure == null ? null : this.structure.voxels().get(cell);
+        return state != null && state.getBlock() instanceof AnchorBlock;
+    }
+
+    /** True when the given local cell holds a lever (which can be flipped on the hull). */
+    private boolean isHullLever(BlockPos cell) {
+        BlockState state = this.structure == null ? null : this.structure.voxels().get(cell);
+        return state != null && state.getBlock() instanceof net.minecraft.world.level.block.LeverBlock;
     }
 
     /** A hit of the view ray against the hull: the voxel and the face that was hit. */
@@ -1097,6 +1255,10 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
         Map<BlockPos, BlockState> voxels = new LinkedHashMap<>(current.voxels());
         voxels.put(target, state);
         this.applyVoxels(ShipStructure.of(voxels));
+        if (state.getBlock() instanceof AnchorBlock) {
+            // Bolting an anchor on is the same as clicking one: the hull is welded at once.
+            this.setAnchored(true);
+        }
         return true;
     }
 
@@ -1168,6 +1330,9 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
         this.body.setMassProperties(newMass, rebuilt.getInertiaLocal());
 
         this.structure = rebuilt;
+        if (this.anchored && rebuilt.anchors().isEmpty()) {
+            this.anchored = false;
+        }
         this.syncEngines();
         this.structureSyncPending = true;
         this.structureSyncTicks = STRUCTURE_SYNC_TICKS;

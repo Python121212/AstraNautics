@@ -1,0 +1,23 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "IRI",
+    "ISI",
+    "IRI"
+  ],
+  "key": {
+    "I": {
+      "item": "minecraft:iron_block"
+    },
+    "R": {
+      "item": "minecraft:redstone_block"
+    },
+    "S": {
+      "item": "astranautics:physics_switch"
+    }
+  },
+  "result": {
+    "item": "astranautics:anchor",
+    "count": 1
+  }
+}

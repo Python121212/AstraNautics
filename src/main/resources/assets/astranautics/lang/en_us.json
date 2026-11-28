@@ -69,5 +69,14 @@
   "ponder.astranautics.pitch_rotator.title.0": "Turning the ship vertically",
   "ponder.astranautics.pitch_rotator.body.0": "Rotates the hull around the east-west axis: 0\u00b0 is level, 180\u00b0 is upside down. Right-click to open the dial and choose an angle.",
   "ponder.astranautics.pitch_rotator.title.1": "Careful",
-  "ponder.astranautics.pitch_rotator.body.1": "The hull turns in place around its centre of mass, so it will be pushed out of anything it grinds into. Leave room around it before you turn it."
+  "ponder.astranautics.pitch_rotator.body.1": "The hull turns in place around its centre of mass, so it will be pushed out of anything it grinds into. Leave room around it before you turn it.",
+  "block.astranautics.anchor": "Anchor Block",
+  "message.astranautics.anchor.locked": "Linked - this hull will not move any more",
+  "message.astranautics.anchor.released": "Link released",
+  "message.astranautics.lever.on": "Lever ON",
+  "message.astranautics.lever.off": "Lever OFF",
+  "ponder.astranautics.anchor.title.0": "Welding a hull to the world",
+  "ponder.astranautics.anchor.body.0": "Bolting one on links the hull to the world: gravity, collisions and shoves can no longer move it. If it stopped at a fraction of a block, it snaps to the block grid as it locks.",
+  "ponder.astranautics.anchor.title.1": "Releasing it",
+  "ponder.astranautics.anchor.body.1": "Right-click to link or release; breaking it releases the hull too. Keep it locked and turn it with a rotator to get a turntable that stays exactly where it is."
 }
