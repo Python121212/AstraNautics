@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/orientable",
+  "textures": {
+    "front": "astranautics:block/propeller_front_on",
+    "side": "astranautics:block/propeller_side",
+    "top": "astranautics:block/propeller_top"
+  }
+}

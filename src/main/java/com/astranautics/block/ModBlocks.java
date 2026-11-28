@@ -15,6 +15,14 @@ public class ModBlocks {
     public static final RegistryObject<Block> PHYSICS_SWITCH =
             BLOCKS.register("physics_switch", PhysicsSwitchBlock::new);
 
+    /** Lift gas in a block: each one holds up {@code aerodynamics.balloonLift} mass units. */
+    public static final RegistryObject<Block> BALLOON =
+            BLOCKS.register("balloon", BalloonBlock::new);
+
+    /** Thrust in a block: a powered one pushes the hull along its facing. */
+    public static final RegistryObject<Block> PROPELLER =
+            BLOCKS.register("propeller", PropellerBlock::new);
+
     public static void register(IEventBus eventBus) {
         BLOCKS.register(eventBus);
     }

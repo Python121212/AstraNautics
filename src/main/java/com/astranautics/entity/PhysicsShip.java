@@ -2,7 +2,9 @@ package com.astranautics.entity;
 
 import com.astranautics.AstraNautics;
 import com.astranautics.block.PhysicsSwitchBlock;
+import com.astranautics.block.PropellerBlock;
 import com.astranautics.config.AstraConfig;
+import com.astranautics.physics.Aerodynamics;
 import com.astranautics.physics.ContactCache;
 import com.astranautics.physics.PhysicsParams;
 import com.astranautics.physics.RigidBody;
@@ -14,6 +16,7 @@ import com.astranautics.physics.VoxelMining;
 import com.astranautics.physics.VoxelSpatialIndex;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.NonNullList;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
@@ -403,10 +406,20 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
         }
 
         if (this.sleeping) {
-            return;
+            if (Aerodynamics.liftsItself(this.body, this.structure)) {
+                // Balloons hold up more than the hull weighs, so it must not stay frozen in
+                // place just because it happened to settle there.
+                this.wake();
+            } else {
+                return;
+            }
         }
 
         PhysicsParams params = PhysicsParams.fromConfig();
+
+        // Lift, thrust, buoyancy and drag for this tick. Applied as impulses here, once,
+        // so the substepped solver below sees them exactly once instead of per substep.
+        Aerodynamics.apply(level, this.body, this.structure, params);
 
         // Adaptive substepping: fast ships get more substeps so they cannot tunnel
         // through the world between two collision checks.
@@ -621,6 +634,13 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
             return InteractionResult.CONSUME;
         }
 
+        // A propeller on the hull is its engine: right-click spins it up or stops it.
+        // Same reason as the switch - it is a voxel, not a block, so it needs handling here.
+        if (hit != null && !player.isShiftKeyDown() && isHullPropeller(hit.cell())) {
+            togglePropeller(level, hit.cell(), player);
+            return InteractionResult.CONSUME;
+        }
+
         // Sneaking always means "do not build on the hull", so placing a block next to a
         // ship keeps behaving like vanilla placement (and other mods' sneak-click actions
         // are not swallowed).
@@ -667,6 +687,39 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
         return state != null && state.getBlock() instanceof PhysicsSwitchBlock;
     }
 
+    /** True when the given local cell holds a propeller. */
+    private boolean isHullPropeller(BlockPos cell) {
+        BlockState state = this.structure == null ? null : this.structure.voxels().get(cell);
+        return state != null && state.getBlock() instanceof PropellerBlock
+                && state.hasProperty(PropellerBlock.POWERED);
+    }
+
+    /** Spins one propeller up or down and rebuilds the hull's cached thrust list. */
+    private void togglePropeller(ServerLevel level, BlockPos cell, Player player) {
+        ShipStructure current = this.structure;
+        if (current == null) {
+            return;
+        }
+        BlockState state = current.voxels().get(cell);
+        if (state == null || !state.hasProperty(PropellerBlock.POWERED)) {
+            return;
+        }
+        boolean powered = !state.getValue(PropellerBlock.POWERED);
+        Map<BlockPos, BlockState> voxels = new LinkedHashMap<>(current.voxels());
+        voxels.put(cell, state.setValue(PropellerBlock.POWERED, powered));
+        this.applyVoxels(ShipStructure.of(voxels));
+
+        Vector3d at = new Vector3d();
+        this.voxelWorldCenter(cell, at);
+        level.playSound(null, at.x, at.y, at.z,
+                powered ? SoundEvents.BEACON_ACTIVATE : SoundEvents.BEACON_DEACTIVATE,
+                SoundSource.BLOCKS, 0.5F, powered ? 1.6F : 0.8F);
+        player.displayClientMessage(Component.translatable(powered
+                        ? "message.astranautics.propeller.on"
+                        : "message.astranautics.propeller.off")
+                .withStyle(powered ? ChatFormatting.GREEN : ChatFormatting.GRAY), true);
+    }
+
     /** Chat report of the hull's size, mass and speed. */
     private void reportStatus(Player player) {
         if (this.structure == null) {
@@ -695,6 +748,10 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
         ShipStructure current = this.structure;
         if (current == null) {
             return false;
+        }
+        if (state.getBlock() instanceof PropellerBlock && state.hasProperty(PropellerBlock.FACING)) {
+            // A propeller bolted on pushes the way the player is looking.
+            state = state.setValue(PropellerBlock.FACING, Direction.fromYRot(player.getYRot()));
         }
         if (state.getBlock() instanceof PhysicsSwitchBlock && state.hasProperty(PhysicsSwitchBlock.ENABLED)) {
             // A switch bolted onto a hull mirrors it: the hull is physical, so the switch

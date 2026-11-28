@@ -23,6 +23,8 @@ public class ModCreativeTabs {
                     .icon(() -> new ItemStack(ModItems.PHYSICS_SWITCH.get()))
                     .displayItems((params, output) -> {
                         output.accept(ModItems.PHYSICS_SWITCH.get());
+                        output.accept(ModItems.BALLOON.get());
+                        output.accept(ModItems.PROPELLER.get());
                     })
                     .build());
 
