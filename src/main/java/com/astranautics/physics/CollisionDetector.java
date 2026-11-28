@@ -35,9 +35,20 @@ public final class CollisionDetector {
         Vector3d contactPoint = new Vector3d();
 
         for (BlockPos localPos : voxelBody.surfaceVoxels()) {
+            AABB box = voxelBody.collisionBox(localPos);
+            if (VoxelShapes.isEmpty(box)) {
+                // No collision shape (a torch, a flower, ...): it rides along but never hits.
+                continue;
+            }
             voxelBody.localCenterRelativeToCom(localPos, localCenter);
+            // Offset from the voxel centre to the centre of its collision box, so a hull of
+            // slabs or stairs rests on the shape it actually has.
+            localCenter.x += (box.minX + box.maxX) * 0.5D - 0.5D;
+            localCenter.y += (box.minY + box.maxY) * 0.5D - 0.5D;
+            localCenter.z += (box.minZ + box.maxZ) * 0.5D - 0.5D;
             body.toWorld(localCenter, worldCenter);
-            voxelObb.set(worldCenter, body.getRotationMatrix(), 0.5D, 0.5D, 0.5D);
+            voxelObb.set(worldCenter, body.getRotationMatrix(),
+                    box.getXsize() * 0.5D, box.getYsize() * 0.5D, box.getZsize() * 0.5D);
 
             AABB loose = voxelObb.toAabb().inflate(MARGIN);
             int minX = Mth.floor(loose.minX);

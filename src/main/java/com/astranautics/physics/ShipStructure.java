@@ -21,6 +21,8 @@ import java.util.Set;
 public final class ShipStructure implements VoxelBody {
     private final Map<BlockPos, BlockState> voxels;
     private final Set<BlockPos> surfaceVoxels;
+    /** Per-voxel local collision box, so slabs / stairs / fences collide like they should. */
+    private final Map<BlockPos, AABB> collisionBoxes;
 
     private final Vector3d centerOfMass = new Vector3d();
     private final double mass;
@@ -29,8 +31,9 @@ public final class ShipStructure implements VoxelBody {
 
     private ShipStructure(Map<BlockPos, BlockState> voxels, double mass,
                           Vector3d centerOfMass, Matrix3d inertiaLocal, AABB localBounds,
-                          Set<BlockPos> surfaceVoxels) {
+                          Set<BlockPos> surfaceVoxels, Map<BlockPos, AABB> collisionBoxes) {
         this.voxels = Collections.unmodifiableMap(voxels);
+        this.collisionBoxes = Collections.unmodifiableMap(collisionBoxes);
         this.mass = mass;
         this.centerOfMass.set(centerOfMass);
         this.inertiaLocal.set(inertiaLocal);
@@ -98,7 +101,13 @@ public final class ShipStructure implements VoxelBody {
             }
         }
 
-        return new ShipStructure(new LinkedHashMap<>(voxels), totalMass, com, inertia, bounds, surface);
+        Map<BlockPos, AABB> collisionBoxes = new LinkedHashMap<>();
+        for (Map.Entry<BlockPos, BlockState> entry : voxels.entrySet()) {
+            collisionBoxes.put(entry.getKey(), VoxelShapes.collisionBox(entry.getValue()));
+        }
+
+        return new ShipStructure(new LinkedHashMap<>(voxels), totalMass, com, inertia, bounds, surface,
+                collisionBoxes);
     }
 
     private static boolean isSurface(Map<BlockPos, BlockState> voxels, BlockPos pos) {
@@ -117,6 +126,16 @@ public final class ShipStructure implements VoxelBody {
     @Override
     public Set<BlockPos> surfaceVoxels() {
         return surfaceVoxels;
+    }
+
+    /**
+     * Collision box of a voxel in the voxel's own coordinates, or {@link VoxelShapes#FULL}
+     * for a voxel this structure does not know about.
+     */
+    @Override
+    public AABB collisionBox(BlockPos local) {
+        AABB box = this.collisionBoxes.get(local);
+        return box == null ? VoxelShapes.FULL : box;
     }
 
     public double getMass() {

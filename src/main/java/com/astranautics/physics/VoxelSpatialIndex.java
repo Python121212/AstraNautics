@@ -1,6 +1,7 @@
 package com.astranautics.physics;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.world.phys.AABB;
 import org.joml.Vector3d;
 
 import java.util.ArrayList;
@@ -24,6 +25,8 @@ public final class VoxelSpatialIndex {
     public static final class Entry {
         public final BlockPos local;
         public final Vector3d center = new Vector3d();
+        /** Half size of the voxel's collision box (0.5 each for a full block). */
+        public final Vector3d halfExtents = new Vector3d(0.5D, 0.5D, 0.5D);
 
         Entry(BlockPos local) {
             this.local = local;
@@ -35,9 +38,19 @@ public final class VoxelSpatialIndex {
         Vector3d localCenter = new Vector3d();
 
         for (BlockPos local : voxels.surfaceVoxels()) {
+            AABB box = voxels.collisionBox(local);
+            if (VoxelShapes.isEmpty(box)) {
+                // Torches, flowers, signs: they render, but nothing collides with them.
+                continue;
+            }
             voxels.localCenterRelativeToCom(local, localCenter);
+            // From the voxel centre to the centre of its collision box (slabs, stairs, ...).
+            localCenter.x += (box.minX + box.maxX) * 0.5D - 0.5D;
+            localCenter.y += (box.minY + box.maxY) * 0.5D - 0.5D;
+            localCenter.z += (box.minZ + box.maxZ) * 0.5D - 0.5D;
             Entry entry = new Entry(local);
             body.toWorld(localCenter, entry.center);
+            entry.halfExtents.set(box.getXsize() * 0.5D, box.getYsize() * 0.5D, box.getZsize() * 0.5D);
             index.add(entry);
         }
         return index;

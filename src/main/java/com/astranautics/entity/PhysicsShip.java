@@ -573,13 +573,17 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
      * Right-click interaction with the hull.
      *
      * <p>A block in hand bolts that block onto the hull; a chest or barrel on the hull is
-     * opened. The hull is turned back into blocks with a physics switch: place one next to
-     * the hull and switch it on (the switch snaps back off once the hull is dissolved).</p>
+     * opened. The hull is turned back into blocks with a physics switch - either the one
+     * that is part of the hull itself (that is the case players hit first, because placing a
+     * switch on a hull attaches it as a voxel instead of putting a block in the world), or a
+     * switch placed next to the hull.</p>
      *
      * <ul>
+     *     <li>right-click on a physics switch that is part of the hull: physics off, blocks back</li>
      *     <li>right-click with a block: extend the hull (the block becomes part of the body)</li>
      *     <li>right-click with an empty hand on a chest: open it</li>
      *     <li>right-click with an empty hand anywhere else: report blocks / mass / speed</li>
+     *     <li>sneak + right-click with an item: not handled here, so other mods' tools work</li>
      * </ul>
      */
     @Override
@@ -595,6 +599,34 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
         }
 
         ItemStack stack = player.getItemInHand(hand);
+        VoxelHit hit = this.raycastHull(player.getEyePosition(), player.getLookAngle());
+
+        // A switch that is part of the hull is the hull's own "off" control. It has to be
+        // handled here: once assembled the switch is no longer a block in the world, so
+        // PhysicsSwitchBlock#use can never run for it. This is the "put a switch on the
+        // physics block and click it" path that used to do nothing.
+        if (hit != null && isHullSwitch(hit.cell())) {
+            if (player.isShiftKeyDown()) {
+                reportStatus(player);
+                return InteractionResult.CONSUME;
+            }
+            int blocks = this.structure == null ? 0 : this.structure.voxels().size();
+            level.playSound(null, this.getX(), this.getY(), this.getZ(),
+                    SoundEvents.LEVER_CLICK, SoundSource.BLOCKS, 0.6F, 0.6F);
+            this.dissolve(level);
+            level.playSound(null, this.getX(), this.getY(), this.getZ(),
+                    SoundEvents.BEACON_DEACTIVATE, SoundSource.BLOCKS, 0.5F, 0.7F);
+            player.displayClientMessage(Component.translatable(
+                    "message.astranautics.ship.switched_off", blocks).withStyle(ChatFormatting.GRAY), false);
+            return InteractionResult.CONSUME;
+        }
+
+        // Sneaking always means "do not build on the hull", so placing a block next to a
+        // ship keeps behaving like vanilla placement (and other mods' sneak-click actions
+        // are not swallowed).
+        if (player.isShiftKeyDown() && !stack.isEmpty()) {
+            return InteractionResult.PASS;
+        }
 
         if (stack.getItem() instanceof BlockItem blockItem) {
             BlockState state = blockItem.getBlock().defaultBlockState();
@@ -616,19 +648,35 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
         }
 
         // A chest / barrel / shulker box on the hull can be opened normally.
-        VoxelHit hit = this.raycastHull(player.getEyePosition(), player.getLookAngle());
         if (hit != null && this.openContainer(level, player, hit.cell())) {
             return InteractionResult.CONSUME;
         }
 
-        // Switching the hull off is done with a physics switch (place one next to the
-        // hull and right-click it), so an empty hand only reports the state.
+        // Anything we do not handle is passed on: another mod's wrench or tool must still
+        // work when it is pointed at a hull. Only an empty hand reports the state.
+        if (!stack.isEmpty()) {
+            return InteractionResult.PASS;
+        }
+        reportStatus(player);
+        return InteractionResult.CONSUME;
+    }
+
+    /** True when the given local cell of the hull holds a physics switch. */
+    private boolean isHullSwitch(BlockPos cell) {
+        BlockState state = this.structure == null ? null : this.structure.voxels().get(cell);
+        return state != null && state.getBlock() instanceof PhysicsSwitchBlock;
+    }
+
+    /** Chat report of the hull's size, mass and speed. */
+    private void reportStatus(Player player) {
+        if (this.structure == null) {
+            return;
+        }
         player.displayClientMessage(Component.translatable("message.astranautics.ship.status",
                 this.structure.voxels().size(),
                 String.format("%.1f", this.body.getMass()),
                 String.format("%.2f", this.body.linearVelocity.length()))
                 .withStyle(ChatFormatting.GOLD), false);
-        return InteractionResult.CONSUME;
     }
 
     /** A hit of the view ray against the hull: the voxel and the face that was hit. */
@@ -757,14 +805,24 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
         if (state == null) {
             return false;
         }
-        if (!(state.getBlock() instanceof ChestBlock
+        CompoundTag stored = this.blockEntities.get(cell);
+        boolean vanillaContainer = state.getBlock() instanceof ChestBlock
                 || state.getBlock() instanceof BarrelBlock
-                || state.getBlock() instanceof ShulkerBoxBlock)) {
-            return false;
+                || state.getBlock() instanceof ShulkerBoxBlock;
+        int slots = 27;
+        if (!vanillaContainer) {
+            // Compatibility: a container from another mod is opened through the same
+            // NBT-backed view when its saved data really is a vanilla item list. The size is
+            // taken from the saved slots so nothing beyond the visible rows is thrown away
+            // when the contents are written back.
+            if (stored == null || !stored.contains("Items", Tag.TAG_LIST)) {
+                return false;
+            }
+            slots = Math.max(27, highestSlot(stored) + 1);
         }
 
         CompoundTag data = this.blockEntities.computeIfAbsent(cell, key -> new CompoundTag());
-        ShipContainer container = new ShipContainer(data);
+        ShipContainer container = new ShipContainer(data, slots);
         player.openMenu(new SimpleMenuProvider(
                 (id, inventory, opener) -> ChestMenu.threeRows(id, inventory, container),
                 Component.translatable(state.getBlock().getDescriptionId())));
@@ -877,6 +935,16 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
         return axis == 0 ? pos.getX() : axis == 1 ? pos.getY() : pos.getZ();
     }
 
+    /** Highest slot index used by the saved item list, or -1 when it has none. */
+    private static int highestSlot(CompoundTag data) {
+        ListTag list = data.getList("Items", Tag.TAG_COMPOUND);
+        int highest = -1;
+        for (int i = 0; i < list.size(); i++) {
+            highest = Math.max(highest, list.getCompound(i).getByte("Slot") & 255);
+        }
+        return highest;
+    }
+
     private static void readItems(CompoundTag data, NonNullList<ItemStack> items) {
         ListTag list = data.getList("Items", Tag.TAG_COMPOUND);
         for (int i = 0; i < list.size(); i++) {
@@ -905,10 +973,11 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
     /** Inventory of one container block that lives on the hull. */
     private final class ShipContainer implements Container {
         private final CompoundTag data;
-        private final NonNullList<ItemStack> items = NonNullList.withSize(27, ItemStack.EMPTY);
+        private final NonNullList<ItemStack> items;
 
-        private ShipContainer(CompoundTag data) {
+        private ShipContainer(CompoundTag data, int slots) {
             this.data = data;
+            this.items = NonNullList.withSize(Math.max(1, slots), ItemStack.EMPTY);
             readItems(this.data, this.items);
         }
 

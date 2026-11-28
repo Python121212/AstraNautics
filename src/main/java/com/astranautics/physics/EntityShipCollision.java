@@ -299,7 +299,8 @@ public final class EntityShipCollision {
                     if (entry.center.y > box.maxY + 1.0D || entry.center.y < box.minY - 2.0D) {
                         continue;
                     }
-                    double top = FootprintSupport.topHeightAt(rotation, entry.center, sx, sz);
+                    double top = FootprintSupport.topHeightAt(rotation, entry.center,
+                            entry.halfExtents.x, entry.halfExtents.y, entry.halfExtents.z, sx, sz);
                     if (Double.isNaN(top) || top > topLimit || top < bottomLimit) {
                         continue;
                     }
@@ -321,7 +322,8 @@ public final class EntityShipCollision {
         }
 
         for (VoxelSpatialIndex.Entry entry : nearby) {
-            voxelObb.set(entry.center, body.getRotationMatrix(), 0.5D, 0.5D, 0.5D);
+            voxelObb.set(entry.center, body.getRotationMatrix(), entry.halfExtents.x,
+                    entry.halfExtents.y, entry.halfExtents.z);
             // The probe box (feet extended downwards) is a superset of the real box, so a
             // contact is never missed. Only the support depth is measured against the real
             // feet position; the other directions re-test with their own trimmed boxes.

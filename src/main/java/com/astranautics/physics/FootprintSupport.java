@@ -27,14 +27,18 @@ public final class FootprintSupport {
 
     /**
      * @param rotation world rotation of the hull (voxels are axis aligned in local space)
-     * @param center   world centre of the voxel
+     * @param center   world centre of the voxel's collision box
+     * @param hx       half size of the collision box along local X
+     * @param hy       half size of the collision box along local Y (the top face sits here)
+     * @param hz       half size of the collision box along local Z
      * @param x        world X of the point to look down from
      * @param z        world Z of the point to look down from
      * @return world Y of the top face under that point, or {@code NaN} when the point is not
      *         over this voxel's top face (including for a hull rotated so far that the face
      *         is vertical and nothing can be stood on)
      */
-    public static double topHeightAt(Matrix3d rotation, Vector3d center, double x, double z) {
+    public static double topHeightAt(Matrix3d rotation, Vector3d center,
+                                     double hx, double hy, double hz, double x, double z) {
         // world = center + rotation * (lx, 0.5, lz); solve the X/Z half for (lx, lz).
         double ax = rotation.m00;
         double bx = rotation.m20;
@@ -44,13 +48,13 @@ public final class FootprintSupport {
         if (Math.abs(det) < 1.0E-6D) {
             return Double.NaN;
         }
-        double rx = x - center.x - rotation.m10 * 0.5D;
-        double rz = z - center.z - rotation.m12 * 0.5D;
+        double rx = x - center.x - rotation.m10 * hy;
+        double rz = z - center.z - rotation.m12 * hy;
         double lx = (rx * bz - bx * rz) / det;
         double lz = (ax * rz - rx * az) / det;
-        if (Math.abs(lx) > 0.5D + EDGE_SLACK || Math.abs(lz) > 0.5D + EDGE_SLACK) {
+        if (Math.abs(lx) > hx + EDGE_SLACK || Math.abs(lz) > hz + EDGE_SLACK) {
             return Double.NaN;
         }
-        return center.y + rotation.m01 * lx + rotation.m11 * 0.5D + rotation.m21 * lz;
+        return center.y + rotation.m01 * lx + rotation.m11 * hy + rotation.m21 * lz;
     }
 }
