@@ -6,8 +6,12 @@ import com.astranautics.config.AstraConfig;
 import com.astranautics.entity.ModEntities;
 import com.astranautics.physics.ShipPhysicsTicker;
 import com.astranautics.physics.ShipWorld;
+import com.astranautics.physics.VoxelMining;
 import com.astranautics.item.ModItems;
+import com.astranautics.network.PhysicsNetwork;
 import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.event.server.ServerStoppedEvent;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.fml.common.Mod;
@@ -45,7 +49,13 @@ public class AstraNautics {
         MinecraftForge.EVENT_BUS.register(ShipPhysicsTicker.class);
     }
 
+    @SubscribeEvent
+    public void onServerStopped(ServerStoppedEvent event) {
+        VoxelMining.clear();
+    }
+
     private void commonSetup(final FMLCommonSetupEvent event) {
+        event.enqueueWork(PhysicsNetwork::init);
         LOGGER.info("AstraNautics loaded (Minecraft 1.20.1 / Forge)");
     }
 }
