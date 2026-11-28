@@ -8,6 +8,7 @@ import com.astranautics.physics.ShipWorld;
 import com.astranautics.physics.VoxelSpatialIndex;
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.phys.AABB;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -32,6 +33,10 @@ import java.util.function.Predicate;
  */
 @Mod.EventBusSubscriber(modid = AstraNautics.MODID, bus = Mod.EventBusSubscriber.Bus.FORGE, value = Dist.CLIENT)
 public final class ClientShipCollision {
+    /** Allocated once: this predicate is tested for every candidate entity, every tick. */
+    private static final Predicate<Entity> LOCAL_PLAYER =
+            entity -> entity == Minecraft.getInstance().player;
+
     private ClientShipCollision() {
     }
 
@@ -53,9 +58,11 @@ public final class ClientShipCollision {
             return;
         }
 
-        Predicate<Entity> localPlayerOnly = entity -> entity == minecraft.player;
+        // Only hulls that can actually touch the player are resolved: with a dozen ships in
+        // the dimension, resolving all of them used to run an entity query per ship per tick.
+        AABB playerBox = minecraft.player.getBoundingBox().inflate(1.5D);
         List<PhysicsShip> stale = null;
-        for (PhysicsShip ship : new ArrayList<>(ships)) {
+        for (PhysicsShip ship : ships) {
             if (ship.isRemoved() || ship.level() != minecraft.level) {
                 // Ships of a level that is gone (world switch): drop them from the registry.
                 if (stale == null) {
@@ -64,9 +71,12 @@ public final class ClientShipCollision {
                 stale.add(ship);
                 continue;
             }
+            if (!ship.getBoundingBox().inflate(1.0D).intersects(playerBox)) {
+                continue;
+            }
             VoxelSpatialIndex index = ship.getSpatialIndex();
             if (index != null) {
-                EntityShipCollision.resolve(minecraft.level, ship, index, localPlayerOnly);
+                EntityShipCollision.resolve(minecraft.level, ship, index, LOCAL_PLAYER);
             }
         }
         if (stale != null) {

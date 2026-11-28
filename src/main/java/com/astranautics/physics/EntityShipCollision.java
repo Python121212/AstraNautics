@@ -7,6 +7,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
+import org.joml.Matrix3d;
 import org.joml.Vector3d;
 
 import java.util.ArrayList;
@@ -60,6 +61,14 @@ public final class EntityShipCollision {
      * camera - exactly the "the viewpoint moves up and down" report.</p>
      */
     private static final double SUPPORT_PROBE = 0.06D;
+    /**
+     * How deep (blocks) a hull's top face still counts as a floor to be lifted out of.
+     * A falling entity moves at most ~0.2 blocks per tick, so this comfortably catches
+     * every sink; it only has to be deep enough that a fast fall cannot skip past it.
+     */
+    private static final double MAX_SUPPORT_DEPTH = 1.0D;
+    /** Footprint sample points are pulled this far inside the entity box (blocks). */
+    private static final double FOOTPRINT_INSET = 0.05D;
     /** A normal with at least this much Y is a support (or ceiling) contact. */
     private static final double VERTICAL_NORMAL = 0.5D;
     /**
@@ -96,11 +105,15 @@ public final class EntityShipCollision {
         private final long tick;
         private final double y;
         private final int shipId;
+        private final double x;
+        private final double z;
 
-        private Support(long tick, double y, int shipId) {
+        private Support(long tick, double y, int shipId, double x, double z) {
             this.tick = tick;
             this.y = y;
             this.shipId = shipId;
+            this.x = x;
+            this.z = z;
         }
     }
 
@@ -178,6 +191,9 @@ public final class EntityShipCollision {
         List<VoxelSpatialIndex.Entry> nearby = new ArrayList<>();
 
         for (Entity entity : entities) {
+            if (restoreSettledSupport(level, ship, entity)) {
+                continue;
+            }
             SUPPORTED.remove(entity);
             for (int iteration = 0; iteration < MAX_ITERATIONS; iteration++) {
                 if (!resolveOne(level, ship.getId(), body, index, entity, voxelObb, entityObb, bodyObb,
@@ -186,6 +202,51 @@ public final class EntityShipCollision {
                 }
             }
         }
+    }
+
+    /**
+     * Height the entity stood at on a hull that has not changed since: restores it without
+     * touching the voxels at all.
+     *
+     * <p>Every tick an entity standing on a deck sinks by one tick of gravity (~0.078) and
+     * is lifted back out at the end of the tick. When the hull is asleep its pose is frozen,
+     * so if the entity also stayed over the same spot, the answer cannot be anything but
+     * "put it back where it was". Skipping the per-voxel work for that case is the single
+     * biggest saving there is: standing still is what players do most.</p>
+     *
+     * <p>Any horizontal motion, a moving hull, or a depth outside one tick of gravity falls
+     * through to the full resolution.</p>
+     */
+    private static boolean restoreSettledSupport(Level level, PhysicsShip ship, Entity entity) {
+        Support previous = SUPPORTED.get(entity);
+        if (previous == null || previous.shipId != ship.getId()) {
+            return false;
+        }
+        // Sleeping on the server, or (on the client, where the sleep flag is not synced) a
+        // hull whose pose has not changed since the index was built.
+        if (!ship.isSleeping() && !ship.isPoseSettled()) {
+            return false;
+        }
+        if (Math.abs(entity.getX() - previous.x) > 1.0E-4D
+                || Math.abs(entity.getZ() - previous.z) > 1.0E-4D) {
+            return false;
+        }
+        double dy = entity.getY() - previous.y;
+        if (dy > 0.02D || dy < -MAX_SUPPORT_DEPTH) {
+            return false;
+        }
+        Vec3 velocity = entity.getDeltaMovement();
+        if (velocity.y < 0.0D) {
+            entity.setDeltaMovement(velocity.x, 0.0D, velocity.z);
+        }
+        entity.fallDistance = 0.0F;
+        entity.setOnGround(true);
+        if (Math.abs(dy) > 1.0E-9D) {
+            moveEntity(level, entity, previous.x, previous.y, previous.z);
+        }
+        SUPPORTED.put(entity, new Support(level.getGameTime(), previous.y, previous.shipId,
+                previous.x, previous.z));
+        return true;
     }
 
     /** One push-out step. Returns true when a deep contact may need another pass. */
@@ -213,9 +274,51 @@ public final class EntityShipCollision {
         double supportPen = 0.0D;
         Vector3d supportNormal = null;
         VoxelSpatialIndex.Entry supportEntry = null;
+        boolean supportFromFootprint = false;
         double ceilingPen = 0.0D;
         double wallPen = 0.0D;
         Vector3d wallNormal = null;
+
+        // --- floor under the footprint -------------------------------------------
+        // See FootprintSupport: the SAT below can classify the floor as a wall at a seam
+        // between two deck blocks, which is what let entities drop through the joints.
+        Matrix3d rotation = body.getRotationMatrix();
+        if (rotation.m11 > VERTICAL_NORMAL) {
+            double topLimit = box.minY + SUPPORT_PROBE;
+            double bottomLimit = box.minY - MAX_SUPPORT_DEPTH;
+            double bestTop = Double.NaN;
+            VoxelSpatialIndex.Entry bestEntry = null;
+            for (int sample = 0; sample < 5; sample++) {
+                double sx = sample == 1 || sample == 3 ? box.minX + FOOTPRINT_INSET
+                        : sample == 2 || sample == 4 ? box.maxX - FOOTPRINT_INSET
+                        : (box.minX + box.maxX) * 0.5D;
+                double sz = sample == 1 || sample == 2 ? box.minZ + FOOTPRINT_INSET
+                        : sample == 3 || sample == 4 ? box.maxZ - FOOTPRINT_INSET
+                        : (box.minZ + box.maxZ) * 0.5D;
+                for (VoxelSpatialIndex.Entry entry : nearby) {
+                    if (entry.center.y > box.maxY + 1.0D || entry.center.y < box.minY - 2.0D) {
+                        continue;
+                    }
+                    double top = FootprintSupport.topHeightAt(rotation, entry.center, sx, sz);
+                    if (Double.isNaN(top) || top > topLimit || top < bottomLimit) {
+                        continue;
+                    }
+                    if (Double.isNaN(bestTop) || top > bestTop) {
+                        bestTop = top;
+                        bestEntry = entry;
+                    }
+                }
+            }
+            if (bestEntry != null) {
+                double real = Math.max(0.0D, bestTop - box.minY);
+                if (supportNormal == null || real >= supportPen) {
+                    supportPen = real;
+                    supportNormal = new Vector3d(rotation.m10, rotation.m11, rotation.m12).normalize();
+                    supportEntry = bestEntry;
+                    supportFromFootprint = true;
+                }
+            }
+        }
 
         for (VoxelSpatialIndex.Entry entry : nearby) {
             voxelObb.set(entry.center, body.getRotationMatrix(), 0.5D, 0.5D, 0.5D);
@@ -235,6 +338,7 @@ public final class EntityShipCollision {
                     supportPen = real;
                     supportNormal = new Vector3d(normal);
                     supportEntry = entry;
+                    supportFromFootprint = false;
                 }
             } else if (normal.y < -VERTICAL_NORMAL) {
                 // Same reasoning as the wall case: only count the block above when it
@@ -280,7 +384,11 @@ public final class EntityShipCollision {
             // correct for a tilted hull (unlike snapping to "voxel centre + 0.5", which
             // jumps between blocks) and it does not slide the entity sideways.
             // No skin bias here: an upward bias per correction makes the camera creep up.
-            double lift = Math.min(supportPen / Math.max(0.7D, supportNormal.y) + 0.001D, MAX_PUSH);
+            // The footprint test already measures a vertical distance, so it is not divided
+            // by the normal's Y; the SAT measures along the normal, which has to be.
+            double lift = supportFromFootprint
+                    ? Math.min(supportPen + 0.001D, MAX_PUSH)
+                    : Math.min(supportPen / Math.max(0.7D, supportNormal.y) + 0.001D, MAX_PUSH);
             targetY += lift;
             moved = true;
 
@@ -369,7 +477,8 @@ public final class EntityShipCollision {
         if (supportNormal == null || !atRest) {
             return;
         }
-        SUPPORTED.put(entity, new Support(level.getGameTime(), entity.getY(), shipId));
+        SUPPORTED.put(entity, new Support(level.getGameTime(), entity.getY(), shipId,
+                entity.getX(), entity.getZ()));
     }
 
     private static void moveEntity(Level level, Entity entity, double x, double y, double z) {
