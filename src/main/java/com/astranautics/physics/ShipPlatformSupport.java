@@ -54,7 +54,9 @@ public final class ShipPlatformSupport {
             return;
         }
 
-        player.setPos(player.getX(), deckY, player.getZ());
+        if (Math.abs(player.getY() - deckY) > 1.0E-9D) {
+            player.setPos(player.getX(), deckY, player.getZ());
+        }
         player.setDeltaMovement(velocity.x, 0.0D, velocity.z);
         player.setOnGround(true);
         player.fallDistance = 0.0F;

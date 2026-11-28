@@ -503,6 +503,23 @@ burn  -= (1 + throttle)          // スロットルを開くほど速く減る
 回転中のエンジンがある船は**眠りません**（`updateSleepState` が早期 return）。睡眠中に
 エンジンが回り出した場合も `tickEngines` → `wake()` で起こします。
 
+### 立ち位置のがくつき（v3.9.0）
+
+支持高さは毎 tick 足元のボクセルから測り直すので、船がわずかに動いていると **数 mm の差**が
+毎 tick 交互に出ます。それをそのまま `setPos` すると、カメラはその差を毎 tick 描くので画面が揺れます。
+
+```
+if (previous != null && sameShip && |previous.y - y| <= 0.02) {
+    // サンプリング誤差: 前の高さを維持し、実際にもその高さへ戻す
+}
+```
+
+* 2 cm 以内の差は**無視**（`SUPPORT_HYSTERESIS = 0.02`）。位置が変わらないので描画も動かない
+* それ以上の差（エレベーター・段差・接地のやり直し）は今までどおり追従
+* `ShipPlatformSupport` も、すでに同じ高さなら `setPos` を呼ばない
+
+`/astranautics watch` の「プレイヤーY 変化幅」がこの値です。0 に近ければ揺れていません。
+
 ## 互換性（v3.5.9）
 
 * **非フルブロック**: `VoxelShapes` が `BlockState#getCollisionShape` から各ボクセルの

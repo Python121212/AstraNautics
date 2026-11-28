@@ -67,6 +67,13 @@ public final class EntityShipCollision {
      * every sink; it only has to be deep enough that a fast fall cannot skip past it.
      */
     private static final double MAX_SUPPORT_DEPTH = 1.0D;
+    /**
+     * A settled deck is sampled to the millimetre every tick, and the sampling noise between
+     * two ticks is a few millimetres. Chasing it made the standing height alternate between
+     * two nearly equal values, which the camera renders as shaking. Differences below this
+     * are ignored: the height that was already recorded wins.
+     */
+    private static final double SUPPORT_HYSTERESIS = 0.02D;
     /** Footprint sample points are pulled this far inside the entity box (blocks). */
     private static final double FOOTPRINT_INSET = 0.05D;
     /** A normal with at least this much Y is a support (or ceiling) contact. */
@@ -479,7 +486,18 @@ public final class EntityShipCollision {
         if (supportNormal == null || !atRest) {
             return;
         }
-        SUPPORTED.put(entity, new Support(level.getGameTime(), entity.getY(), shipId,
+        double y = entity.getY();
+        Support previous = SUPPORTED.get(entity);
+        if (previous != null && previous.shipId == shipId
+                && Math.abs(previous.y - y) <= SUPPORT_HYSTERESIS) {
+            // Same deck within sampling noise: keep the height we already had, so the entity
+            // does not wobble by a millimetre every tick.
+            if (Math.abs(y - previous.y) > 1.0E-9D) {
+                moveEntity(level, entity, entity.getX(), previous.y, entity.getZ());
+            }
+            y = previous.y;
+        }
+        SUPPORTED.put(entity, new Support(level.getGameTime(), y, shipId,
                 entity.getX(), entity.getZ()));
     }
 
