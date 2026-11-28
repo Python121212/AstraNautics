@@ -39,6 +39,14 @@ public class ModBlocks {
     public static final RegistryObject<Block> FLYWHEEL =
             BLOCKS.register("flywheel", FlywheelBlock::new);
 
+    /** Turns the whole hull around the world's vertical axis, to the angle on its dial. */
+    public static final RegistryObject<Block> YAW_ROTATOR =
+            BLOCKS.register("yaw_rotator", () -> new RotatorBlock(com.astranautics.physics.Rotators.Mode.YAW));
+
+    /** Turns the whole hull end over end around the world's east-west axis. */
+    public static final RegistryObject<Block> PITCH_ROTATOR =
+            BLOCKS.register("pitch_rotator", () -> new RotatorBlock(com.astranautics.physics.Rotators.Mode.PITCH));
+
     public static void register(IEventBus eventBus) {
         BLOCKS.register(eventBus);
     }

@@ -48,6 +48,9 @@ public final class AstraConfig {
     public static final ForgeConfigSpec.DoubleValue ENGINE_RESPONSE;
     public static final ForgeConfigSpec.DoubleValue ENGINE_FLYWHEEL_RESPONSE;
     public static final ForgeConfigSpec.DoubleValue ENGINE_THRUST_BOOST;
+
+    public static final ForgeConfigSpec.BooleanValue ENABLE_ROTATORS;
+    public static final ForgeConfigSpec.DoubleValue ROTATOR_SPEED;
     public static final ForgeConfigSpec.DoubleValue WATER_DENSITY;
     public static final ForgeConfigSpec.DoubleValue WATER_DRAG;
 
@@ -171,6 +174,16 @@ public final class AstraConfig {
                 .comment("Extra thrust a propeller gets at full RPM, as a multiple of its base",
                         "thrust (2.0 = up to three times as much).")
                 .defineInRange("thrustBoost", 2.0D, 0.0D, 20.0D);
+        builder.pop();
+
+        builder.push("rotators");
+        ENABLE_ROTATORS = builder
+                .comment("Yaw / pitch rotator blocks: while one sees a redstone signal, the hull",
+                        "turns towards the angle its dial was set to.")
+                .define("enabled", true);
+        ROTATOR_SPEED = builder
+                .comment("Turning speed in degrees per second.")
+                .defineInRange("speed", 90.0D, 1.0D, 1440.0D);
         builder.pop();
 
         SPEC = builder.build();

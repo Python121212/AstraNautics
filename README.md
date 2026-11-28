@@ -3,7 +3,7 @@
 Minecraft **1.20.1 / Forge 47.x** 向けの MOD です。
 
 - Mod ID: `astranautics`
-- Version: `3.9.0`
+- Version: `3.10.0`
 - Minecraft: `1.20.1`（`[1.20.1,1.21)`）
 - Forge: `47.x`（`[47,)`）
 - Java: 17

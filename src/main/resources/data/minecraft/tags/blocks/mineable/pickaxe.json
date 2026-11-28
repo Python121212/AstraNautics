@@ -6,6 +6,8 @@
     "astranautics:shaft",
     "astranautics:cogwheel",
     "astranautics:flywheel",
-    "astranautics:steam_engine"
+    "astranautics:steam_engine",
+    "astranautics:yaw_rotator",
+    "astranautics:pitch_rotator"
   ]
 }

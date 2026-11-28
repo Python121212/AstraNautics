@@ -1,6 +1,7 @@
 package com.astranautics.network;
 
 import com.astranautics.AstraNautics;
+import com.astranautics.entity.PhysicsShip;
 import com.astranautics.physics.VoxelMining;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.FriendlyByteBuf;
@@ -38,6 +39,36 @@ public final class PhysicsNetwork {
                 .decoder(MineTick::decode)
                 .consumerMainThread(MineTick::handle)
                 .add();
+        CHANNEL.messageBuilder(SetRotator.class, id++, NetworkDirection.PLAY_TO_SERVER)
+                .encoder(SetRotator::encode)
+                .decoder(SetRotator::decode)
+                .consumerMainThread(SetRotator::handle)
+                .add();
+    }
+
+    /** Client -&gt; server: the dial of a rotator was turned to {@code degrees}. */
+    public record SetRotator(int shipId, BlockPos cell, int degrees) {
+        public void encode(FriendlyByteBuf buffer) {
+            buffer.writeVarInt(this.shipId);
+            buffer.writeBlockPos(this.cell);
+            buffer.writeVarInt(this.degrees);
+        }
+
+        public static SetRotator decode(FriendlyByteBuf buffer) {
+            return new SetRotator(buffer.readVarInt(), buffer.readBlockPos(), buffer.readVarInt());
+        }
+
+        public void handle(Supplier<NetworkEvent.Context> supplier) {
+            NetworkEvent.Context context = supplier.get();
+            ServerPlayer player = context.getSender();
+            if (player != null && player.level() instanceof net.minecraft.server.level.ServerLevel level) {
+                if (level.getEntity(this.shipId) instanceof PhysicsShip ship
+                        && ship.distanceToSqr(player) < 64.0D) {
+                    ship.setRotatorAngle(this.cell, this.degrees);
+                }
+            }
+            context.setPacketHandled(true);
+        }
     }
 
     /** Client -&gt; server: keep mining this voxel of this ship. */

@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/cube_bottom_top",
+  "textures": {
+    "top": "astranautics:block/pitch_rotator_top_on",
+    "bottom": "astranautics:block/rotator_side",
+    "side": "astranautics:block/rotator_side"
+  }
+}
