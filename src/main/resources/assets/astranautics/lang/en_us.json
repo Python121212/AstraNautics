@@ -19,5 +19,13 @@
   "block.astranautics.balloon": "Balloon",
   "block.astranautics.propeller": "Propeller",
   "message.astranautics.propeller.on": "Propeller ON",
-  "message.astranautics.propeller.off": "Propeller OFF"
+  "message.astranautics.propeller.off": "Propeller OFF",
+  "block.astranautics.steam_engine": "Steam Engine",
+  "block.astranautics.shaft": "Shaft",
+  "block.astranautics.cogwheel": "Cogwheel",
+  "block.astranautics.flywheel": "Flywheel",
+  "message.astranautics.engine.throttle": "Throttle %s / %s",
+  "message.astranautics.engine.fuelled": "Firebox stoked - %s s of fuel left",
+  "message.astranautics.engine.status": "Engine: throttle %s / %s, %s RPM, fuel %s s",
+  "message.astranautics.engine.hint": "right-click with coal to stoke it / sneak-right-click to change the throttle"
 }

@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:block/cube_column",
+  "textures": {
+    "side": "astranautics:block/flywheel_side",
+    "end": "astranautics:block/flywheel_end"
+  }
+}

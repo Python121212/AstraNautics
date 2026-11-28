@@ -118,6 +118,17 @@ public final class Aerodynamics {
      * @param params    gravity and other solver parameters
      */
     public static void apply(Level level, RigidBody body, ShipStructure structure, PhysicsParams params) {
+        apply(level, body, structure, params, RpmSource.NONE);
+    }
+
+    /**
+     * Applies one tick of aerodynamic impulses, with propellers boosted by the rotation their
+     * drivetrain feeds them.
+     *
+     * @param rpm where to read each engine's current speed from (see {@link RpmSource})
+     */
+    public static void apply(Level level, RigidBody body, ShipStructure structure, PhysicsParams params,
+                             RpmSource rpm) {
         if (!AstraConfig.ENABLE_AERODYNAMICS.get() || structure == null || body.isKinematic()) {
             return;
         }
@@ -132,7 +143,7 @@ public final class Aerodynamics {
         Vector3d impulse = new Vector3d();
 
         applyBalloonLift(body, structure, params, pressure, rotation, world, impulse);
-        applyThrust(body, structure, pressure, rotation, world, impulse);
+        applyThrust(body, structure, pressure, rotation, world, impulse, rpm);
 
         WaterContact water = measureWater(level, body, structure, rotation, world);
         applyWater(body, structure, params, water);
@@ -155,7 +166,7 @@ public final class Aerodynamics {
     }
 
     private static void applyThrust(RigidBody body, ShipStructure structure, double pressure,
-                                    Matrix3d rotation, Vector3d world, Vector3d impulse) {
+                                    Matrix3d rotation, Vector3d world, Vector3d impulse, RpmSource rpm) {
         if (structure.thrusters().isEmpty()) {
             return;
         }
@@ -174,6 +185,10 @@ public final class Aerodynamics {
             if (factor <= 0.0D) {
                 continue;
             }
+            // Rotation from a drivetrain is what separates a propeller from a fan: bolted on
+            // with no engine it still pushes, but an engine-driven one pushes up to
+            // (1 + thrustBoost) times harder.
+            double power = thrustPower(rpm, thruster);
             // Aeronautics applies propeller thrust at the centre of mass so an aircraft does
             // not roll or yaw from its own engines; the torque option is there for players who
             // want an outboard motor that also turns the boat.
@@ -182,8 +197,28 @@ public final class Aerodynamics {
             } else {
                 world.set(body.position);
             }
-            body.applyImpulseAt(impulse.set(direction).mul(perBlock * factor), world);
+            body.applyImpulseAt(impulse.set(direction).mul(perBlock * factor * power), world);
         }
+    }
+
+    /** Multiplier on a propeller's base thrust from the fastest engine driving it. */
+    static double thrustPower(RpmSource rpm, ShipStructure.ThrustSource thruster) {
+        if (rpm == null || thruster.engineCells.isEmpty()) {
+            return 1.0D;
+        }
+        double top = 0.0D;
+        for (BlockPos cell : thruster.engineCells) {
+            top = Math.max(top, rpm.rpmAt(cell));
+        }
+        if (top <= 0.0D) {
+            return 1.0D;
+        }
+        double maxRpm = AstraConfig.ENGINE_RPM_PER_THROTTLE.get()
+                * com.astranautics.block.SteamEngineBlock.MAX_THROTTLE;
+        if (maxRpm <= 0.0D) {
+            return 1.0D;
+        }
+        return 1.0D + AstraConfig.ENGINE_THRUST_BOOST.get() * Math.min(1.0D, top / maxRpm);
     }
 
     private static void applyWater(RigidBody body, ShipStructure structure, PhysicsParams params,

@@ -22,6 +22,18 @@ public class ModItems {
     public static final RegistryObject<Item> PROPELLER = ITEMS.register("propeller",
             () -> new BlockItem(ModBlocks.PROPELLER.get(), new Item.Properties()));
 
+    public static final RegistryObject<Item> STEAM_ENGINE = ITEMS.register("steam_engine",
+            () -> new BlockItem(ModBlocks.STEAM_ENGINE.get(), new Item.Properties()));
+
+    public static final RegistryObject<Item> SHAFT = ITEMS.register("shaft",
+            () -> new BlockItem(ModBlocks.SHAFT.get(), new Item.Properties()));
+
+    public static final RegistryObject<Item> COGWHEEL = ITEMS.register("cogwheel",
+            () -> new BlockItem(ModBlocks.COGWHEEL.get(), new Item.Properties()));
+
+    public static final RegistryObject<Item> FLYWHEEL = ITEMS.register("flywheel",
+            () -> new BlockItem(ModBlocks.FLYWHEEL.get(), new Item.Properties()));
+
     public static void register(IEventBus eventBus) {
         ITEMS.register(eventBus);
     }

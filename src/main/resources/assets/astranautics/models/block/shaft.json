@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:block/cube_column",
+  "textures": {
+    "side": "astranautics:block/shaft_side",
+    "end": "astranautics:block/shaft_end"
+  }
+}

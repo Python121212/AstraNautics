@@ -25,6 +25,10 @@ public class ModCreativeTabs {
                         output.accept(ModItems.PHYSICS_SWITCH.get());
                         output.accept(ModItems.BALLOON.get());
                         output.accept(ModItems.PROPELLER.get());
+                        output.accept(ModItems.STEAM_ENGINE.get());
+                        output.accept(ModItems.SHAFT.get());
+                        output.accept(ModItems.COGWHEEL.get());
+                        output.accept(ModItems.FLYWHEEL.get());
                     })
                     .build());
 

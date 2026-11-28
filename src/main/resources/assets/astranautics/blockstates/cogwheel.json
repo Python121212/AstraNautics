@@ -1,0 +1,16 @@
+{
+  "variants": {
+    "axis=y": {
+      "model": "astranautics:block/cogwheel"
+    },
+    "axis=z": {
+      "model": "astranautics:block/cogwheel",
+      "x": 90
+    },
+    "axis=x": {
+      "model": "astranautics:block/cogwheel",
+      "x": 90,
+      "y": 90
+    }
+  }
+}

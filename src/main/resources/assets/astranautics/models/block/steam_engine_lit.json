@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:block/cube_column",
+  "textures": {
+    "side": "astranautics:block/steam_engine_side_lit",
+    "end": "astranautics:block/steam_engine_end"
+  }
+}
