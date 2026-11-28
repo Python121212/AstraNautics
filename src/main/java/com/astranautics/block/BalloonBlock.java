@@ -15,7 +15,7 @@ import net.minecraft.world.level.material.MapColor;
 public class BalloonBlock extends Block {
     public BalloonBlock() {
         super(BlockBehaviour.Properties.of()
-                .mapColor(MapColor.COLOR_WHITE)
+                .mapColor(MapColor.SNOW)
                 .strength(0.4F)
                 .sound(SoundType.WOOL)
                 .noOcclusion());
