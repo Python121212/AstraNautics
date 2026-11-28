@@ -3,7 +3,7 @@
 Minecraft **1.20.1 / Forge 47.x** 向けの MOD です。
 
 - Mod ID: `astranautics`
-- Version: `3.7.0`
+- Version: `3.8.0`
 - Minecraft: `1.20.1`（`[1.20.1,1.21)`）
 - Forge: `47.x`（`[47,)`）
 - Java: 17
@@ -280,6 +280,20 @@ python3 tools/gen_textures.py
   `blockEntities` NBT に鏡映してセーブ／ロードします
 * 調整は `[engines]`（`enabled` / `rpmPerThrottle` / `response` / `flywheelResponse` / `thrustBoost`）
 
+## Ponder（v3.8.0）— アイテムの使い方をその場で見る
+
+インベントリ・クリエイティブ・チェストなど**どのコンテナ画面でも**、アイテムにカーソルを
+合わせて **W を 0.6 秒長押し**すると、そのアイテムの使い方と応用がカードで開きます。
+
+* 画面下に「`W` を長押し: 使い方を見る」と進捗バーが出るので、何が開くか分かります
+* カードは 2 ページ（使い方 / 応用・数値）。**←→・ホイール**でページ送り、`Esc` で閉じます
+* 対応アイテム: 物理トグルスイッチ / 気球 / プロペラ / 蒸気エンジン / シャフト / 歯車 / はずみ車
+* 文言は言語ファイル（`ponder.astranautics.*`）にあるので、翻訳を足すだけで増やせます
+
+実装は `PonderHandler`（`ClientTickEvent` で長押しを数え、`ScreenEvent.Render.Post` で
+ヒントを描く）と `PonderScreen`（パネル描画）、`PonderRegistry`（どのアイテムに何ページ）です。
+画面の切り替えは tick 側でだけ行うので、描画中に画面が入れ替わることはありません。
+
 ## 既知の制限
 
 `docs/PHYSICS.md` の「既知の制限」に詳細があります。要点:
@@ -290,6 +304,8 @@ python3 tools/gen_textures.py
 
 ## 変更履歴
 
+- **v3.8.0** — **Ponder 画面**。コンテナ画面でアイテムにカーソルを合わせて **W 長押し**すると、
+  使い方と応用をカード表示（←→ / ホイールでページ送り）。7 アイテム分の解説を日英で追加
 - **v3.7.0** — **駆動系（組み立て式エンジン）**。`steam_engine`（燃料＋スロットル 0–4）、
   `shaft` / `cogwheel` / `flywheel` を追加。シャフトは軸方向に並んだときだけ噛み合い、**歯車だけが
   角を曲げられる**（Create の回転系と同じ考え方）。繋がったプロペラは回転に応じて**最大 3 倍**まで
