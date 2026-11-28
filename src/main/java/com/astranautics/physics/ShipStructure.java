@@ -1,7 +1,11 @@
 package com.astranautics.physics;
 
 import com.astranautics.block.BalloonBlock;
+import com.astranautics.block.CogwheelBlock;
+import com.astranautics.block.FlywheelBlock;
 import com.astranautics.block.PropellerBlock;
+import com.astranautics.block.ShaftBlock;
+import com.astranautics.block.SteamEngineBlock;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.level.block.state.BlockState;
@@ -38,16 +42,26 @@ public final class ShipStructure implements VoxelBody {
     private final Vector3d balloonCentroid = new Vector3d();
     private final List<ThrustSource> thrusters;
     private final int enclosedVolume;
+    /** Drivetrain: engines in the hull and how many flywheels slow their response. */
+    private final List<BlockPos> engines;
+    private final int flywheels;
 
     /** A powered propeller: where it sits (local, relative to the centre of mass) and which
      * way it pushes (also local, so the world direction follows the hull's rotation). */
     public static final class ThrustSource {
         public final Vector3d localCenter;
         public final Vector3d localDirection;
+        /**
+         * Engine cells that drive this propeller through shafts and gears. Empty when the
+         * propeller is bolted straight onto the hull with nothing spinning it, in which case
+         * it only produces its base thrust.
+         */
+        public final List<BlockPos> engineCells;
 
-        public ThrustSource(Vector3d localCenter, Vector3d localDirection) {
+        public ThrustSource(Vector3d localCenter, Vector3d localDirection, List<BlockPos> engineCells) {
             this.localCenter = localCenter;
             this.localDirection = localDirection;
+            this.engineCells = engineCells;
         }
     }
 
@@ -55,7 +69,7 @@ public final class ShipStructure implements VoxelBody {
                           Vector3d centerOfMass, Matrix3d inertiaLocal, AABB localBounds,
                           Set<BlockPos> surfaceVoxels, Map<BlockPos, AABB> collisionBoxes,
                           int balloonCount, Vector3d balloonCentroid, List<ThrustSource> thrusters,
-                          int enclosedVolume) {
+                          int enclosedVolume, List<BlockPos> engines, int flywheels) {
         this.voxels = Collections.unmodifiableMap(voxels);
         this.collisionBoxes = Collections.unmodifiableMap(collisionBoxes);
         this.mass = mass;
@@ -67,6 +81,8 @@ public final class ShipStructure implements VoxelBody {
         this.balloonCentroid.set(balloonCentroid);
         this.thrusters = Collections.unmodifiableList(thrusters);
         this.enclosedVolume = enclosedVolume;
+        this.engines = Collections.unmodifiableList(engines);
+        this.flywheels = flywheels;
     }
 
     public static ShipStructure of(Map<BlockPos, BlockState> voxels) {
@@ -129,6 +145,17 @@ public final class ShipStructure implements VoxelBody {
             }
         }
 
+        // Drivetrain topology (engines / shafts / gears / propellers). Built here, once per
+        // hull change, so the physics tick never has to walk it.
+        Map<BlockPos, RotationalNetwork.Node> drivetrainNodes = new LinkedHashMap<>();
+        for (Map.Entry<BlockPos, BlockState> entry : voxels.entrySet()) {
+            RotationalNetwork.Node node = drivetrainNodeOf(entry.getValue());
+            if (node.rotatable()) {
+                drivetrainNodes.put(entry.getKey(), node);
+            }
+        }
+        RotationalNetwork.Drivetrain drivetrain = RotationalNetwork.resolve(drivetrainNodes);
+
         Map<BlockPos, AABB> collisionBoxes = new LinkedHashMap<>();
         int balloonCount = 0;
         Vector3d balloonSum = new Vector3d();
@@ -148,7 +175,8 @@ public final class ShipStructure implements VoxelBody {
                     && state.getValue(PropellerBlock.POWERED)) {
                 Direction facing = state.getValue(PropellerBlock.FACING);
                 thrusters.add(new ThrustSource(new Vector3d(lx, ly, lz),
-                        new Vector3d(facing.getStepX(), 0.0D, facing.getStepZ())));
+                        new Vector3d(facing.getStepX(), 0.0D, facing.getStepZ()),
+                        drivetrain.propellerEngines().getOrDefault(pos, List.of())));
             }
         }
         Vector3d balloonCentroid = balloonCount == 0 ? new Vector3d()
@@ -156,7 +184,33 @@ public final class ShipStructure implements VoxelBody {
 
         return new ShipStructure(new LinkedHashMap<>(voxels), totalMass, com, inertia, bounds, surface,
                 collisionBoxes, balloonCount, balloonCentroid, thrusters,
-                HullVolume.enclosedCells(voxels.keySet()));
+                HullVolume.enclosedCells(voxels.keySet()), drivetrain.engines(), drivetrain.flywheels());
+    }
+
+    /** Which part of the drivetrain (if any) this state is, and along which axis it spins. */
+    private static RotationalNetwork.Node drivetrainNodeOf(BlockState state) {
+        if (state.getBlock() instanceof SteamEngineBlock) {
+            return new RotationalNetwork.Node(RotationalNetwork.Kind.ENGINE, axisIndex(state.getValue(SteamEngineBlock.AXIS)));
+        }
+        if (state.getBlock() instanceof FlywheelBlock) {
+            return new RotationalNetwork.Node(RotationalNetwork.Kind.FLYWHEEL, axisIndex(state.getValue(FlywheelBlock.AXIS)));
+        }
+        if (state.getBlock() instanceof ShaftBlock) {
+            return new RotationalNetwork.Node(RotationalNetwork.Kind.SHAFT, axisIndex(state.getValue(ShaftBlock.AXIS)));
+        }
+        if (state.getBlock() instanceof CogwheelBlock) {
+            return new RotationalNetwork.Node(RotationalNetwork.Kind.GEAR, axisIndex(state.getValue(CogwheelBlock.AXIS)));
+        }
+        if (state.getBlock() instanceof PropellerBlock) {
+            // A propeller's shaft goes in behind it, i.e. along its facing axis.
+            return new RotationalNetwork.Node(RotationalNetwork.Kind.PROPELLER,
+                    axisIndex(state.getValue(PropellerBlock.FACING).getAxis()));
+        }
+        return RotationalNetwork.Node.NONE;
+    }
+
+    private static int axisIndex(Direction.Axis axis) {
+        return axis == Direction.Axis.X ? 0 : (axis == Direction.Axis.Y ? 1 : 2);
     }
 
     private static boolean isSurface(Map<BlockPos, BlockState> voxels, BlockPos pos) {
@@ -200,6 +254,16 @@ public final class ShipStructure implements VoxelBody {
     /** Powered propellers only: an idle propeller costs nothing. */
     public List<ThrustSource> thrusters() {
         return this.thrusters;
+    }
+
+    /** Engine cells of the hull, in local coordinates. */
+    public List<BlockPos> engines() {
+        return this.engines;
+    }
+
+    /** Flywheels on the hull: the more of them, the lazier the engines respond. */
+    public int flywheels() {
+        return this.flywheels;
     }
 
     /** Air sealed inside the hull, in blocks - the volume a floating hull displaces. */

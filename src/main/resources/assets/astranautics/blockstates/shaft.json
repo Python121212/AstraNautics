@@ -1,0 +1,16 @@
+{
+  "variants": {
+    "axis=y": {
+      "model": "astranautics:block/shaft"
+    },
+    "axis=z": {
+      "model": "astranautics:block/shaft",
+      "x": 90
+    },
+    "axis=x": {
+      "model": "astranautics:block/shaft",
+      "x": 90,
+      "y": 90
+    }
+  }
+}

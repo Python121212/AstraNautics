@@ -3,9 +3,12 @@ package com.astranautics.entity;
 import com.astranautics.AstraNautics;
 import com.astranautics.block.PhysicsSwitchBlock;
 import com.astranautics.block.PropellerBlock;
+import com.astranautics.block.SteamEngineBlock;
 import com.astranautics.config.AstraConfig;
 import com.astranautics.physics.Aerodynamics;
 import com.astranautics.physics.ContactCache;
+import com.astranautics.physics.EngineFuel;
+import com.astranautics.physics.RpmSource;
 import com.astranautics.physics.PhysicsParams;
 import com.astranautics.physics.RigidBody;
 import com.astranautics.physics.ShipPhysics;
@@ -59,7 +62,9 @@ import org.joml.Quaterniond;
 import org.joml.Vector3d;
 
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -106,6 +111,17 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
     private final Vector3d lastPunchPoint = new Vector3d();
     /** Saved block entity data per local voxel (chest contents, sign text, ...). */
     private final Map<BlockPos, CompoundTag> blockEntities = new LinkedHashMap<>();
+    /**
+     * Live steam engines of the hull, keyed by local cell. A hull's blocks are not in the
+     * world, so engines cannot run as block entities: their throttle, fuel and RPM live here
+     * and are mirrored into {@link #blockEntities} for saving.
+     */
+    private final Map<BlockPos, EngineState> engines = new LinkedHashMap<>();
+    /** Advances every engine towards its throttle setting once per tick. */
+    private final RpmSource rpmSource = cell -> {
+        EngineState state = this.engines.get(cell);
+        return state == null ? 0.0D : state.rpm;
+    };
     /** Remaining ticks during which the structure is (re)sent, so late tracking still receives it. */
     private int structureSyncTicks;
     /**
@@ -157,6 +173,8 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
     public void setBlockEntityData(Map<BlockPos, CompoundTag> data) {
         this.blockEntities.clear();
         this.blockEntities.putAll(data);
+        this.engines.clear();
+        this.syncEngines();
     }
 
     /** Server-side: turn the structure into a dynamic rigid body at {@code worldCenterOfMass}. */
@@ -172,6 +190,7 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
         this.structureSyncTicks = STRUCTURE_SYNC_TICKS;
         this.structureDirty = true;
         this.indexStale = true;
+        this.syncEngines();
         this.wake();
         this.pushOrientation();
         this.updateBoundingExtents();
@@ -405,8 +424,12 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
             }
         }
 
+        this.tickEngines(level);
+
         if (this.sleeping) {
-            if (Aerodynamics.liftsItself(this.body, this.structure)) {
+            if (this.enginesRunning()) {
+                this.wake();
+            } else if (Aerodynamics.liftsItself(this.body, this.structure)) {
                 // Balloons hold up more than the hull weighs, so it must not stay frozen in
                 // place just because it happened to settle there.
                 this.wake();
@@ -419,7 +442,7 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
 
         // Lift, thrust, buoyancy and drag for this tick. Applied as impulses here, once,
         // so the substepped solver below sees them exactly once instead of per substep.
-        Aerodynamics.apply(level, this.body, this.structure, params);
+        Aerodynamics.apply(level, this.body, this.structure, params, this.rpmSource);
 
         // Adaptive substepping: fast ships get more substeps so they cannot tunnel
         // through the world between two collision checks.
@@ -444,6 +467,10 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
     }
 
     private void updateSleepState() {
+        if (this.enginesRunning()) {
+            this.sleepTicks = 0;
+            return;
+        }
         double linear = this.body.linearVelocity.length();
         double angular = this.body.angularVelocity.length();
         boolean slow = linear < AstraConfig.SLEEP_LINEAR_THRESHOLD.get()
@@ -465,6 +492,7 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
 
     /** Puts every block back into the world and removes the entity. */
     public void dissolve(ServerLevel level) {
+        this.flushEngines();
         if (this.structure != null) {
             Matrix3d rotation = new Matrix3d(this.body.getRotationMatrix());
             Vector3d local = new Vector3d();
@@ -478,6 +506,10 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
                 BlockPos target = BlockPos.containing(world.x, world.y, world.z);
                 BlockState state = entry.getValue();
                 CompoundTag storedData = this.blockEntities.get(entry.getKey());
+                if (state.getBlock() instanceof SteamEngineBlock) {
+                    // No fire in a stowed engine.
+                    state = state.setValue(SteamEngineBlock.LIT, false);
+                }
                 if (state.getBlock() instanceof PhysicsSwitchBlock) {
                     // The hull carried the switch in its ON position: put it back OFF so it
                     // is ready to be switched on again.
@@ -541,6 +573,7 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
             }
         }
 
+        this.syncEngines();
         this.structureSyncTicks = STRUCTURE_SYNC_TICKS;
         this.structureDirty = true;
         this.updateBoundingExtents();
@@ -548,6 +581,7 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
 
     @Override
     protected void addAdditionalSaveData(CompoundTag tag) {
+        this.flushEngines();
         if (this.structure != null) {
             tag.putString("Structure", ShipStructureCodec.encode(this.structure));
         }
@@ -634,6 +668,13 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
             return InteractionResult.CONSUME;
         }
 
+        // A steam engine on the hull: right-click with fuel stokes it, sneak-right-click
+        // steps the throttle, an empty hand reports it.
+        if (hit != null && isHullEngine(hit.cell())) {
+            this.useEngine(level, hit.cell(), player, stack);
+            return InteractionResult.CONSUME;
+        }
+
         // A propeller on the hull is its engine: right-click spins it up or stops it.
         // Same reason as the switch - it is a voxel, not a block, so it needs handling here.
         if (hit != null && !player.isShiftKeyDown() && isHullPropeller(hit.cell())) {
@@ -687,6 +728,60 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
         return state != null && state.getBlock() instanceof PhysicsSwitchBlock;
     }
 
+    /** True when the given local cell holds a steam engine. */
+    private boolean isHullEngine(BlockPos cell) {
+        BlockState state = this.structure == null ? null : this.structure.voxels().get(cell);
+        return state != null && state.getBlock() instanceof SteamEngineBlock;
+    }
+
+    /**
+     * Fuel / throttle / status for one engine. The throttle is stepped rather than set with a
+     * screen: a hull is not a block, and a one-click control keeps flying possible from the
+     * deck without opening anything.
+     */
+    private void useEngine(ServerLevel level, BlockPos cell, Player player, ItemStack stack) {
+        EngineState state = this.engines.computeIfAbsent(cell, this::loadEngineState);
+
+        if (player.isShiftKeyDown()) {
+            state.throttle = (state.throttle + 1) % (SteamEngineBlock.MAX_THROTTLE + 1);
+            this.writeEngineState(cell, state);
+            this.setEngineLit(cell, state.burn > 0 && state.throttle > 0);
+            level.playSound(null, this.getX(), this.getY(), this.getZ(), SoundEvents.LEVER_CLICK,
+                    SoundSource.BLOCKS, 0.5F, 0.8F + 0.15F * state.throttle);
+            player.displayClientMessage(Component.translatable("message.astranautics.engine.throttle",
+                            state.throttle, SteamEngineBlock.MAX_THROTTLE)
+                    .withStyle(state.throttle > 0 ? ChatFormatting.GREEN : ChatFormatting.GRAY), true);
+            return;
+        }
+
+        int burnTicks = EngineFuel.burnTicks(stack);
+        if (burnTicks > 0) {
+            state.burn += burnTicks;
+            if (!player.getAbilities().instabuild) {
+                stack.shrink(1);
+            }
+            this.writeEngineState(cell, state);
+            this.setEngineLit(cell, state.throttle > 0);
+            level.playSound(null, this.getX(), this.getY(), this.getZ(),
+                    SoundEvents.FIRE_AMBIENT, SoundSource.BLOCKS, 0.7F, 0.9F);
+            player.displayClientMessage(Component.translatable("message.astranautics.engine.fuelled",
+                            seconds(state.burn))
+                    .withStyle(ChatFormatting.GOLD), true);
+            return;
+        }
+
+        player.displayClientMessage(Component.translatable("message.astranautics.engine.status",
+                        state.throttle, SteamEngineBlock.MAX_THROTTLE,
+                        Math.round(state.rpm), seconds(state.burn))
+                .withStyle(ChatFormatting.GOLD), false);
+        player.displayClientMessage(Component.translatable("message.astranautics.engine.hint")
+                .withStyle(ChatFormatting.GRAY), false);
+    }
+
+    private static String seconds(int ticks) {
+        return String.format("%.1f", ticks / 20.0D);
+    }
+
     /** True when the given local cell holds a propeller. */
     private boolean isHullPropeller(BlockPos cell) {
         BlockState state = this.structure == null ? null : this.structure.voxels().get(cell);
@@ -732,6 +827,119 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
                 .withStyle(ChatFormatting.GOLD), false);
     }
 
+    /** Runtime state of one engine on the hull. */
+    private static final class EngineState {
+        private int throttle;
+        private int burn;
+        private double rpm;
+    }
+
+    /** Rebuilds the engine table after the hull changed, keeping the state of engines that stayed. */
+    private void syncEngines() {
+        Set<BlockPos> cells = this.structure == null ? Set.of() : new LinkedHashSet<>(this.structure.engines());
+        this.engines.keySet().retainAll(cells);
+        for (BlockPos cell : cells) {
+            this.engines.computeIfAbsent(cell, this::loadEngineState);
+        }
+    }
+
+    private EngineState loadEngineState(BlockPos cell) {
+        EngineState state = new EngineState();
+        CompoundTag tag = this.blockEntities.get(cell);
+        if (tag != null) {
+            state.throttle = net.minecraft.util.Mth.clamp(tag.getInt("Throttle"), 0, SteamEngineBlock.MAX_THROTTLE);
+            state.burn = Math.max(0, tag.getInt("Burn"));
+            state.rpm = Math.max(0.0D, tag.getDouble("Rpm"));
+        }
+        return state;
+    }
+
+    private void writeEngineState(BlockPos cell, EngineState state) {
+        CompoundTag tag = this.blockEntities.computeIfAbsent(cell, key -> new CompoundTag());
+        tag.putInt("Throttle", state.throttle);
+        tag.putInt("Burn", state.burn);
+        tag.putDouble("Rpm", state.rpm);
+    }
+
+    /** Mirrors the live engine states into the saved data. */
+    private void flushEngines() {
+        for (Map.Entry<BlockPos, EngineState> entry : this.engines.entrySet()) {
+            this.writeEngineState(entry.getKey(), entry.getValue());
+        }
+    }
+
+    /** True while any engine is turning; such a hull must not fall asleep. */
+    private boolean enginesRunning() {
+        for (EngineState state : this.engines.values()) {
+            if (state.rpm > 0.5D) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Advances every engine towards its throttle setting and burns fuel. A steam engine does
+     * not jump to its new speed: it spins up over {@code engines.response} seconds plus
+     * {@code engines.flywheelResponse} per flywheel, which is what a heavy hull needs to feel
+     * heavy.
+     */
+    private void tickEngines(ServerLevel level) {
+        if (this.engines.isEmpty()) {
+            return;
+        }
+        double dt = 1.0D / 20.0D;
+        int flywheels = this.structure == null ? 0 : this.structure.flywheels();
+        double response = Math.max(0.02D, AstraConfig.ENGINE_RESPONSE.get()
+                + AstraConfig.ENGINE_FLYWHEEL_RESPONSE.get() * flywheels);
+        double perNotch = AstraConfig.ENGINE_RPM_PER_THROTTLE.get();
+
+        for (Map.Entry<BlockPos, EngineState> entry : this.engines.entrySet()) {
+            BlockPos cell = entry.getKey();
+            EngineState state = entry.getValue();
+            boolean burning = state.burn > 0;
+            double target = burning ? state.throttle * perNotch : 0.0D;
+            double step = Math.min(1.0D, dt / response);
+            double rpm = state.rpm + (target - state.rpm) * step;
+            boolean changed = Math.abs(rpm - state.rpm) > 1.0E-6D;
+            if (Math.abs(rpm) < 0.05D) {
+                rpm = 0.0D;
+            }
+            state.rpm = rpm;
+
+            if (burning && state.rpm > 1.0D) {
+                // Opening the throttle burns fuel faster, exactly like a firebox.
+                state.burn = Math.max(0, state.burn - (1 + state.throttle));
+                changed = true;
+                if (state.burn == 0) {
+                    this.setEngineLit(cell, false);
+                }
+            }
+            if (changed && state.burn == 0 && state.rpm == 0.0D) {
+                this.writeEngineState(cell, state);
+            }
+        }
+        if (this.enginesRunning()) {
+            this.wake();
+        }
+    }
+
+    /** Turns the engine's firebox glow on or off, rebuilding the hull's cached state. */
+    private void setEngineLit(BlockPos cell, boolean lit) {
+        ShipStructure current = this.structure;
+        if (current == null) {
+            return;
+        }
+        BlockState state = current.voxels().get(cell);
+        if (state == null || !state.hasProperty(SteamEngineBlock.LIT)
+                || state.getValue(SteamEngineBlock.LIT) == lit) {
+            return;
+        }
+        Map<BlockPos, BlockState> voxels = new LinkedHashMap<>(current.voxels());
+        voxels.put(cell, state.setValue(SteamEngineBlock.LIT, lit));
+        this.applyVoxels(ShipStructure.of(voxels));
+    }
+
     /** A hit of the view ray against the hull: the voxel and the face that was hit. */
     private record VoxelHit(BlockPos cell, int axis, int sign) {
         BlockPos outsideCell() {
@@ -752,6 +960,13 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
         if (state.getBlock() instanceof PropellerBlock && state.hasProperty(PropellerBlock.FACING)) {
             // A propeller bolted on pushes the way the player is looking.
             state = state.setValue(PropellerBlock.FACING, Direction.fromYRot(player.getYRot()));
+        }
+        if (state.hasProperty(net.minecraft.world.level.block.RotatedPillarBlock.AXIS)) {
+            // Shafts and engines run along the axis the player is looking down, so a
+            // drivetrain can be laid out without a separate orienting tool.
+            state = state.setValue(net.minecraft.world.level.block.RotatedPillarBlock.AXIS,
+                    Direction.getNearest(player.getLookAngle().x, player.getLookAngle().y,
+                            player.getLookAngle().z).getAxis());
         }
         if (state.getBlock() instanceof PhysicsSwitchBlock && state.hasProperty(PhysicsSwitchBlock.ENABLED)) {
             // A switch bolted onto a hull mirrors it: the hull is physical, so the switch
@@ -845,6 +1060,7 @@ public class PhysicsShip extends Entity implements IEntityAdditionalSpawnData {
         this.body.setMassProperties(newMass, rebuilt.getInertiaLocal());
 
         this.structure = rebuilt;
+        this.syncEngines();
         this.structureSyncPending = true;
         this.structureSyncTicks = STRUCTURE_SYNC_TICKS;
         this.structureDirty = true;

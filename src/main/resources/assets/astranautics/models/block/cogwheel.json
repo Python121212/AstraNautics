@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:block/cube_column",
+  "textures": {
+    "side": "astranautics:block/cogwheel_side",
+    "end": "astranautics:block/cogwheel_end"
+  }
+}

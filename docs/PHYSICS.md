@@ -447,6 +447,62 @@ waterDensity = 1.0
 waterDrag = 3.0
 ```
 
+## 駆動系（v3.7.0）
+
+### ネットワーク (`RotationalNetwork`)
+
+船体を組み直すたび（`ShipStructure.of`）に、回転ブロックだけを BFS でまとめます。
+
+| 種類 | 軸 | 備考 |
+| --- | --- | --- |
+| `SteamEngineBlock` | `AXIS` | 動力源 |
+| `ShaftBlock` / `FlywheelBlock` | `AXIS` | 伝達（はずみ車は慣性） |
+| `CogwheelBlock` | `AXIS` | **何とでも噛み合う継手** |
+| `PropellerBlock` | `FACING` の軸 | 消費者（シャフトは背面から） |
+
+噛み合い判定は 2 行:
+
+```java
+if (a.kind() == GEAR || b.kind() == GEAR) return true;   // 歯車は角を曲げる
+return a.axis() == faceAxis && b.axis() == faceAxis;     // それ以外は軸方向に並ぶ
+```
+
+結果は `ShipStructure#thrusters()` の各 `ThrustSource` に「駆動元のエンジンセル一覧」として
+焼き込まれるので、**tick 中の回転ネットワーク探索はありません**。
+
+### エンジンの状態
+
+船体のブロックはもうワールドに無いので、エンジンは block entity になれません。
+
+* ランタイム: `PhysicsShip` の `Map<BlockPos, EngineState>`（`throttle` / `burn` / `rpm`）
+* 保存: `addAdditionalSaveData` の前に `blockEntities` NBT（`Throttle` / `Burn` / `Rpm`）へ鏡映
+* 組み直し時: `syncEngines()` がセル単位で引き継ぎ（増築しても回転数がリセットされない）
+* 焚き口の `lit` ブロック状態はスロットル操作・燃料補給・燃料切れでだけ切り替えます
+  （毎 tick 組み直さないため）
+
+### 回転数と推力
+
+```java
+target = burning ? throttle * rpmPerThrottle : 0
+rpm   += (target - rpm) * min(1, dt / (response + flywheelResponse * flywheels))
+burn  -= (1 + throttle)          // スロットルを開くほど速く減る
+```
+
+プロペラ推力の倍率（`Aerodynamics.thrustPower`）:
+
+```java
+1 + thrustBoost * min(1, maxEngineRpm / (rpmPerThrottle * 4))
+```
+
+* 繋がっていないプロペラは倍率 1（従来どおりの基本推力）
+* エンジンが止まっていても倍率 1（`POWERED` の右クリック ON はそのまま効く）
+* `engines.enabled = false` で倍率は常に 1
+
+### 睡眠との関係
+
+回転中のエンジンがある船は**眠りません**（`updateSleepState` が早期 return）。睡眠中に
+エンジンが回り出した場合も `tickEngines` → `wake()` で起こします。
+
 ## 互換性（v3.5.9）
 
 * **非フルブロック**: `VoxelShapes` が `BlockState#getCollisionShape` から各ボクセルの
@@ -554,7 +610,7 @@ v3.5.1 で「最深の接触を 1 つ選んで押し出す」方式をやめ、*
 
 ## 既知の制限（Phase 3 以降）
 
-1. **空気力学なし** — 浮力・抗力・プロペラ推力・翼揚力は未実装
+1. **翼（迎え角による揚力）なし** — 気球の浮力とプロペラ推力は実装済み（v3.6.x / v3.7.0）
 2. **スレッディングなし** — 物理はサーバースレッドで計算（船ごとの並列化は未着手）
 3. 描画はボクセル単位の `renderSingleBlock`。表面のみに絞ったが、巨大な船では依然重い
 4. クライアント補間は姿勢のみ（位置はバニラの補間に依存）
@@ -564,7 +620,8 @@ v3.5.1 で「最深の接触を 1 つ選んで押し出す」方式をやめ、*
 
 ### Phase 3 候補
 
-- 浮力・抗力・推力ブロック（プロペラ / スラスター）— エアロノーティクス的本命
+- 翼・エアロン・エレベーター（迎え角による揚力と操縦）
+- 回転数の見た目（プロペラの回転アニメーション）
 - チャンク単位のメッシュ化 + VBO キャッシュによる描画最適化
 - 物理のワーカースレッド分離（船単位の並列ソルブ）
 - 船上ブロックの設置・破壊（構造の動的更新）

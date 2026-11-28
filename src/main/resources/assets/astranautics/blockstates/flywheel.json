@@ -1,0 +1,16 @@
+{
+  "variants": {
+    "axis=y": {
+      "model": "astranautics:block/flywheel"
+    },
+    "axis=z": {
+      "model": "astranautics:block/flywheel",
+      "x": 90
+    },
+    "axis=x": {
+      "model": "astranautics:block/flywheel",
+      "x": 90,
+      "y": 90
+    }
+  }
+}

@@ -3,7 +3,7 @@
 Minecraft **1.20.1 / Forge 47.x** 向けの MOD です。
 
 - Mod ID: `astranautics`
-- Version: `3.6.1`
+- Version: `3.7.0`
 - Minecraft: `1.20.1`（`[1.20.1,1.21)`）
 - Forge: `47.x`（`[47,)`）
 - Java: 17
@@ -234,6 +234,52 @@ python3 tools/gen_textures.py
 * 調整は `config/astranautics-common.toml` の `[aerodynamics]`（`balloonLift` / `propellerThrust` /
   `propellerAirflow` / `pressureFalloff` / `airDrag` / `balloonDrag` / `waterDensity` / `waterDrag`）
 
+## 駆動系（v3.7.0）— エンジンは自分で組む
+
+| ブロック | 役割 |
+| --- | --- |
+| `astranautics:steam_engine` | 動力源。燃料（石炭など）を焚いて回転を生みます |
+| `astranautics:shaft` | 回転を**軸方向へ**伝えます |
+| `astranautics:cogwheel` | **角を曲げる継手**。軸が違っても繋がります |
+| `astranautics:flywheel` | シャフトと同じ伝達＋**慣性**（回転の立ち上がりが遅くなる） |
+
+### 繋がり方（ルールは 2 つだけ）
+
+1. **シャフト・エンジン・プロペラは「軸が同じで、軸方向に並んでいる」ときだけ繋がる**
+   （並んで置いただけでは伝わりません）
+2. **歯車は何とでも噛み合う** — 曲がりたい場所に歯車を 1 個置くだけ
+
+```
+[エンジン]--[シャフト]--[シャフト]--[プロペラ]        まっすぐ
+[エンジン]--[シャフト]--[歯車]--[シャフト]--[プロペラ]  曲がる
+```
+
+* 置くときは**見ている方向が軸**になります（上下を見れば縦向き）
+* エンジンに**燃料を持って右クリック**で燃料補給、**スニーク＋右クリック**でスロットル
+  `0 → 1 → 2 → 3 → 4`、素手で状態表示（スロットル・RPM・残燃料）
+* 焚き口が燃えている間は `lit` モデルで**光ります**
+
+### 物理
+
+* プロペラの基本推力はそのまま（右クリック ON/OFF も従来どおり）。**繋がったエンジンがあると
+  推力が最大 `1 + engines.thrustBoost`（既定 3 倍）まで上乗せ**されます
+  ```
+  thrust = 80 × p(y) × max(0, 1 - V/airflow) × (1 + thrustBoost × min(1, rpm / maxRpm))
+  ```
+* エンジンは**瞬時に回りません**。`engines.response`（既定 0.35 秒）＋ はずみ車 1 個ごとに
+  0.45 秒かけて目標 RPM へ近づきます → 重い船はゆっくり加速します
+* スロットルを開くほど燃料の減りが速い（`1 + スロットル` tick/tick）
+* スロットル 4 で `rpmPerThrottle × 4 = 128 RPM` が上限
+
+### 実装の要点
+
+* 回転ネットワークは**船体を組み直したときに 1 回だけ** BFS で解きます（`RotationalNetwork`）。
+  tick 中は「このプロペラを駆動しているエンジンのセル一覧」を引くだけなので**負荷ゼロ**
+* 船体のブロックはもうワールドに無いので、エンジンは block entity になれません。スロットル・
+  燃料・RPM は**エンティティのランタイム表**（`Map<BlockPos, EngineState>`）に持ち、
+  `blockEntities` NBT に鏡映してセーブ／ロードします
+* 調整は `[engines]`（`enabled` / `rpmPerThrottle` / `response` / `flywheelResponse` / `thrustBoost`）
+
 ## 既知の制限
 
 `docs/PHYSICS.md` の「既知の制限」に詳細があります。要点:
@@ -244,6 +290,12 @@ python3 tools/gen_textures.py
 
 ## 変更履歴
 
+- **v3.7.0** — **駆動系（組み立て式エンジン）**。`steam_engine`（燃料＋スロットル 0–4）、
+  `shaft` / `cogwheel` / `flywheel` を追加。シャフトは軸方向に並んだときだけ噛み合い、**歯車だけが
+  角を曲げられる**（Create の回転系と同じ考え方）。繋がったプロペラは回転に応じて**最大 3 倍**まで
+  推力が上がります。エンジンは慣性を持って回転数が追従し、はずみ車でさらに鈍くなります。
+* **v3.6.1** — Create: Aeronautics の式に合わせて空気力学を調整（高度気圧・流速上限・気球抵抗・
+  トルク無し）
 - **v3.6.1** — **Create: Aeronautics の式に合わせて空気力学を調整**。気圧の高度減衰
   `p(y)=e^(-0.004(y-63))` を導入し、浮力・推力・抵抗すべてに適用（→ **自然な天井高度**で釣り合う）。
   プロペラ推力に**流速による頭打ち**（`propellerAirflow`、最高速度が決まる）を追加。気球 1 個あたりの

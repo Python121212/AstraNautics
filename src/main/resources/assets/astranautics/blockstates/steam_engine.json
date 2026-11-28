@@ -1,0 +1,28 @@
+{
+  "variants": {
+    "lit=false,axis=y": {
+      "model": "astranautics:block/steam_engine"
+    },
+    "lit=false,axis=z": {
+      "model": "astranautics:block/steam_engine",
+      "x": 90
+    },
+    "lit=false,axis=x": {
+      "model": "astranautics:block/steam_engine",
+      "x": 90,
+      "y": 90
+    },
+    "lit=true,axis=y": {
+      "model": "astranautics:block/steam_engine_lit"
+    },
+    "lit=true,axis=z": {
+      "model": "astranautics:block/steam_engine_lit",
+      "x": 90
+    },
+    "lit=true,axis=x": {
+      "model": "astranautics:block/steam_engine_lit",
+      "x": 90,
+      "y": 90
+    }
+  }
+}

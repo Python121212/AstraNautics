@@ -23,6 +23,22 @@ public class ModBlocks {
     public static final RegistryObject<Block> PROPELLER =
             BLOCKS.register("propeller", PropellerBlock::new);
 
+    /** Power source: burns fuel to spin the drivetrain it is bolted into. */
+    public static final RegistryObject<Block> STEAM_ENGINE =
+            BLOCKS.register("steam_engine", SteamEngineBlock::new);
+
+    /** Drivetrain: carries rotation along its axis. */
+    public static final RegistryObject<Block> SHAFT =
+            BLOCKS.register("shaft", ShaftBlock::new);
+
+    /** Drivetrain corner: meshes with anything, so it can turn the axis. */
+    public static final RegistryObject<Block> COGWHEEL =
+            BLOCKS.register("cogwheel", CogwheelBlock::new);
+
+    /** Drivetrain inertia: transmits like a shaft and slows the engine's response. */
+    public static final RegistryObject<Block> FLYWHEEL =
+            BLOCKS.register("flywheel", FlywheelBlock::new);
+
     public static void register(IEventBus eventBus) {
         BLOCKS.register(eventBus);
     }

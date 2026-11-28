@@ -42,6 +42,12 @@ public final class AstraConfig {
     public static final ForgeConfigSpec.DoubleValue PROPELLER_AIRFLOW;
     public static final ForgeConfigSpec.DoubleValue BALLOON_DRAG;
     public static final ForgeConfigSpec.BooleanValue PROPELLER_TORQUE;
+
+    public static final ForgeConfigSpec.BooleanValue ENABLE_ENGINES;
+    public static final ForgeConfigSpec.DoubleValue ENGINE_RPM_PER_THROTTLE;
+    public static final ForgeConfigSpec.DoubleValue ENGINE_RESPONSE;
+    public static final ForgeConfigSpec.DoubleValue ENGINE_FLYWHEEL_RESPONSE;
+    public static final ForgeConfigSpec.DoubleValue ENGINE_THRUST_BOOST;
     public static final ForgeConfigSpec.DoubleValue WATER_DENSITY;
     public static final ForgeConfigSpec.DoubleValue WATER_DRAG;
 
@@ -146,9 +152,31 @@ public final class AstraConfig {
                 .defineInRange("waterDrag", 3.0D, 0.0D, 50.0D);
         builder.pop();
 
+        builder.push("engines");
+        ENABLE_ENGINES = builder
+                .comment("Steam engines, shafts, gears and flywheels: a drivetrain boosts the",
+                        "propellers it is connected to. Turn this off to have propellers work",
+                        "on their own base thrust only.")
+                .define("enabled", true);
+        ENGINE_RPM_PER_THROTTLE = builder
+                .comment("RPM per throttle notch. Throttle 4 (the maximum) is 4x this value.")
+                .defineInRange("rpmPerThrottle", 32.0D, 1.0D, 1000.0D);
+        ENGINE_RESPONSE = builder
+                .comment("Seconds an engine takes to reach a new throttle setting.")
+                .defineInRange("response", 0.35D, 0.0D, 10.0D);
+        ENGINE_FLYWHEEL_RESPONSE = builder
+                .comment("Extra seconds of response per flywheel on the drivetrain.")
+                .defineInRange("flywheelResponse", 0.45D, 0.0D, 10.0D);
+        ENGINE_THRUST_BOOST = builder
+                .comment("Extra thrust a propeller gets at full RPM, as a multiple of its base",
+                        "thrust (2.0 = up to three times as much).")
+                .defineInRange("thrustBoost", 2.0D, 0.0D, 20.0D);
+        builder.pop();
+
         SPEC = builder.build();
     }
 
     private AstraConfig() {
     }
+
 }
