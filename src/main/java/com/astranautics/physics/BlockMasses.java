@@ -39,11 +39,17 @@ public final class BlockMasses {
         if (state.is(BlockTags.WOOL) || state.is(BlockTags.WOOL_CARPETS)) {
             return 0.25D;
         }
-        if (state.is(BlockTags.BUTTONS) || state.is(BlockTags.RAILS) || state.is(BlockTags.TORCHES)) {
+        if (state.is(BlockTags.BUTTONS) || state.is(BlockTags.RAILS)) {
             return 0.3D;
         }
-        if (state.is(BlockTags.PLANKS) || state.is(BlockTags.WOODEN_SLABS) || state.is(BlockTags.WOODEN_STAIRS)) {
+        if (state.is(BlockTags.PLANKS)) {
             return 0.6D;
+        }
+        if (state.is(BlockTags.WOODEN_SLABS)) {
+            return 0.3D;
+        }
+        if (state.is(BlockTags.WOODEN_STAIRS)) {
+            return 0.45D;
         }
         if (state.is(BlockTags.LOGS) || state.is(BlockTags.BAMBOO_BLOCKS)) {
             return 0.7D;
@@ -54,7 +60,7 @@ public final class BlockMasses {
         if (state.is(BlockTags.SAND) || state.is(BlockTags.DIRT) || block == Blocks.GRAVEL) {
             return 1.4D;
         }
-        if (state.is(BlockTags.TERRACOTTA) || state.is(BlockTags.CONCRETE) || state.is(BlockTags.CONCRETE_POWDER)) {
+        if (state.is(BlockTags.TERRACOTTA)) {
             return 1.8D;
         }
         if (state.is(BlockTags.STONE_BRICKS) || state.is(BlockTags.BASE_STONE_OVERWORLD)
@@ -64,10 +70,6 @@ public final class BlockMasses {
         if (state.is(BlockTags.ICE)) {
             return 0.95D;
         }
-        if (state.is(BlockTags.STONE_SLABS) || state.is(BlockTags.STONE_STAIRS)) {
-            return 2.2D;
-        }
-
         // --- then by name, for the blocks no tag describes ------------------------------
         String path = BuiltInRegistries.BLOCK.getKey(block).getPath();
         return densityOfName(path, block.defaultDestroyTime());
@@ -82,6 +84,18 @@ public final class BlockMasses {
     static double densityOfName(String path, float hardness) {
         if (path.endsWith("_wool")) {
             return 0.25D;
+        }
+        if (path.equals("torch") || path.equals("wall_torch") || path.equals("soul_torch")
+                || path.equals("soul_wall_torch") || path.equals("redstone_torch")
+                || path.equals("redstone_wall_torch")) {
+            return 0.3D;
+        }
+        // Half a block weighs about half of one; a stair about three quarters.
+        if (path.endsWith("_slab")) {
+            return 1.1D;
+        }
+        if (path.endsWith("_stairs")) {
+            return 1.7D;
         }
         if (path.endsWith("_planks")) {
             return 0.6D;
