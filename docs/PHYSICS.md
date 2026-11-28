@@ -405,14 +405,44 @@ v3.5.9 から `PhysicsShip#interact` が**視線の先のボクセルがスイ�
 * 毎 tick 全表面ボクセルの `getFluidState` を引くのは無駄なので、まず船の中心と最下部の
   4 点で水を探し、無ければ「乾いている」と判定します
 
+### Create: Aeronautics に合わせた調整（v3.6.1）
+
+参照実装（Create: Aeronautics / Simulated-Project）の式を確認し、次の 4 点を合わせました。
+
+**1. 気圧は高度で下がる** — `p(y) = e^(-0.004 (y - 63))`（`ServerBalloon` / `AeroPhysics`）
+
+* 浮力・推力・抵抗の**すべて**に掛かります
+* 船は `浮力 × p(y) = 重量` になる高度まで上がって**そこで釣り合います**（高さ制限ではなく自然な天井）
+* y=256 で p≈0.46（浮力が半分）、y=1000 で p≈0.024
+* `aerodynamics.pressureFalloff` を 0 にすると高度効果なし
+
+**2. プロペラは流速で頭打ち** — `thrust = 推力 × p(y) × max(0, 1 - V/airflow)`
+（`BlockEntityPropeller#getAirflowScaling`）
+
+* `V` は**推力方向への船の速度**。`airflow`（既定 24 ブロック/秒）に達すると推力が 0
+* **どんなにプロペラを増やしても最高速度は airflow を超えません**（Aeronautics と同じ性質）
+
+**3. 気球は抵抗そのもの** — 1 個あたり `0.33 × p(y)` の線形抵抗（`floating_materials`）
+
+* 大きな気球船が遅いのはこれが理由です。船体断面積の二次抵抗に上乗せされます
+
+**4. プロペラはトルクを出さない**（既定）— Aeronautics は「プロペラはトルクを生まない」と
+明示的に例外にしています（`0.2 × sails^1.5 × RPM` の推力のみ）。そうしないと航空機が自分の
+エンジンでロール／ヨーして操作できません。`aerodynamics.propellerTorque = true` にすると
+従来どおり偏心推力で船が回ります（船外機っぽい挙動）。
+
 ### 設定（`config/astranautics-common.toml`）
 
 ```toml
 [aerodynamics]
 enabled = true
-balloonLift = 1.5
-propellerThrust = 80.0
-airDrag = 0.01
+balloonLift = 1.5        # 気球 1 個が支える質量（海面高度で）
+propellerThrust = 80.0   # プロペラ 1 個の推力
+propellerAirflow = 24.0  # この速度で推力 0（＝最高速度）
+propellerTorque = false  # true で偏心推力を有効に
+airDrag = 0.01           # 船体断面積の二次抵抗
+balloonDrag = 0.33       # 気球 1 個あたりの線形抵抗
+pressureFalloff = 0.004  # 気圧の高度減衰（0 で無効）
 waterDensity = 1.0
 waterDrag = 3.0
 ```

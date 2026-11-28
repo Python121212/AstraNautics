@@ -17,11 +17,34 @@ import org.joml.Vector3d;
  * <p>Everything is applied as an <em>impulse for one tick</em> at the point where it acts,
  * not as a force added to the solver's accumulator. Two reasons: the solver substeps (so a
  * per-tick force would only land in the first substep), and applying at a point gives the
- * torque for free - balloons on one end of a hull tilt it, an off-centre propeller spins it,
- * which is exactly what makes an airship feel like a vehicle instead of an elevator.</p>
+ * torque for free - balloons on one end of a hull tilt it, an off-centre propeller spins it.</p>
+ *
+ * <p>The numbers follow Create: Aeronautics, which is the reference implementation this mod
+ * is measured against:</p>
+ * <ul>
+ *     <li><b>air pressure</b> {@code p(y) = e^(-0.004 (y - 63))} - lift, thrust and drag all
+ *     scale with it. A ship therefore rises until {@code lift * p(y) = weight} and settles at
+ *     that altitude; above {@code y ~ 320} there is no lift left at all. That is a natural
+ *     ceiling instead of a height limit.</li>
+ *     <li><b>balloon lift</b> {@code 1.5} mass units per block at sea level (their
+ *     {@code LiftStrength}), times pressure.</li>
+ *     <li><b>propeller thrust</b> falls linearly to zero once the hull moves along the thrust
+ *     direction as fast as the propeller's airflow - a hard top speed no amount of extra
+ *     thrust can beat. Thrust also scales with pressure, so high altitude means weaker
+ *     engines.</li>
+ *     <li><b>envelope drag</b>: balloon blocks are bulky, so every one of them adds drag.
+ *     That is why a huge balloon ship is slow.</li>
+ *     <li><b>no torque from propellers</b> by default: Aeronautics exempts propellers from
+ *     torque on purpose, otherwise every aircraft rolls or yaws from its own engines.</li>
+ * </ul>
  */
 public final class Aerodynamics {
     private static final double TICK_SECONDS = 0.05D;
+
+    /** Height at which air pressure is defined as 1.0 (sea level in a vanilla world). */
+    public static final double SEA_LEVEL = 63.0D;
+    /** Pressure above this is clipped; below sea level the air gets thicker, but sanity. */
+    private static final double MAX_PRESSURE = 4.0D;
     /** Impulses below this are noise. */
     private static final double MIN_IMPULSE = 1.0E-5D;
     /** Sample points for the cheap "is there water near this hull at all" test. */
@@ -30,25 +53,69 @@ public final class Aerodynamics {
     private Aerodynamics() {
     }
 
+    // ------------------------------------------------------------------ formulas
+
+    /**
+     * Air pressure relative to sea level, the Create: Aeronautics curve
+     * {@code e^(-falloff * (y - 63))}: 1.0 at y=63, about 0.46 at y=256, nearly nothing at y=320.
+     */
+    public static double airPressure(double y, double falloff) {
+        double pressure = Math.exp(-falloff * (y - SEA_LEVEL));
+        if (Double.isNaN(pressure)) {
+            return 0.0D;
+        }
+        return Math.max(0.0D, Math.min(MAX_PRESSURE, pressure));
+    }
+
+    /** Live pressure for the current config. */
+    public static double airPressure(double y) {
+        return airPressure(y, AstraConfig.AIR_PRESSURE_FALLOFF.get());
+    }
+
+    /**
+     * How much of a propeller's thrust survives the hull already moving: 1 at a standstill,
+     * 0 at the propeller's airflow speed, nothing beyond it.
+     *
+     * @param forwardSpeed speed along the thrust direction (blocks/second)
+     * @param airflow      speed at which this propeller stops pushing (blocks/second)
+     */
+    public static double thrustFactor(double forwardSpeed, double airflow) {
+        if (airflow <= 1.0E-6D) {
+            return 0.0D;
+        }
+        return Math.max(0.0D, Math.min(1.0D, 1.0D - forwardSpeed / airflow));
+    }
+
+    // ------------------------------------------------------------------ state
+
     /** True when the hull carries anything that could move it by itself. */
     public static boolean isSelfDriven(ShipStructure structure) {
         return structure != null
                 && (structure.balloonCount() > 0 || !structure.thrusters().isEmpty());
     }
 
-    /** True when the balloons hold up more than the hull weighs, i.e. it wants to rise. */
+    /**
+     * True when the balloons hold up more than the hull weighs <em>at its current altitude</em>,
+     * i.e. it wants to rise.
+     */
     public static boolean liftsItself(RigidBody body, ShipStructure structure) {
-        return structure != null && structure.balloonCount() > 0
-                && structure.balloonCount() * AstraConfig.BALLOON_LIFT.get() > body.getMass() * 1.02D;
+        if (structure == null || structure.balloonCount() <= 0) {
+            return false;
+        }
+        double lift = structure.balloonCount() * AstraConfig.BALLOON_LIFT.get()
+                * airPressure(body.position.y);
+        return lift > body.getMass() * 1.02D;
     }
+
+    // ------------------------------------------------------------------ per tick
 
     /**
      * Applies one tick of aerodynamic impulses to {@code body}.
      *
-     * @param level         level the hull is in (for the water tests)
-     * @param body          the rigid body to push
-     * @param structure     voxel content, which carries the lift/thrust/volume cache
-     * @param params        gravity and other solver parameters
+     * @param level     level the hull is in (for the water tests)
+     * @param body      the rigid body to push
+     * @param structure voxel content, which carries the lift/thrust/volume cache
+     * @param params    gravity and other solver parameters
      */
     public static void apply(Level level, RigidBody body, ShipStructure structure, PhysicsParams params) {
         if (!AstraConfig.ENABLE_AERODYNAMICS.get() || structure == null || body.isKinematic()) {
@@ -59,25 +126,27 @@ public final class Aerodynamics {
             return;
         }
 
+        double pressure = airPressure(body.position.y);
         Matrix3d rotation = body.getRotationMatrix();
         Vector3d world = new Vector3d();
         Vector3d impulse = new Vector3d();
 
-        applyBalloonLift(body, structure, params, rotation, world, impulse);
-        applyThrust(body, structure, rotation, world, impulse);
+        applyBalloonLift(body, structure, params, pressure, rotation, world, impulse);
+        applyThrust(body, structure, pressure, rotation, world, impulse);
 
         WaterContact water = measureWater(level, body, structure, rotation, world);
-        applyWater(body, structure, params, water, mass);
-        applyAirDrag(body, structure, mass);
+        applyWater(body, structure, params, water);
+
+        applyAirDrag(body, structure, pressure, mass);
     }
 
     private static void applyBalloonLift(RigidBody body, ShipStructure structure, PhysicsParams params,
-                                         Matrix3d rotation, Vector3d world, Vector3d impulse) {
+                                         double pressure, Matrix3d rotation, Vector3d world, Vector3d impulse) {
         if (structure.balloonCount() <= 0) {
             return;
         }
         double lift = AstraConfig.BALLOON_LIFT.get() * structure.balloonCount()
-                * params.gravity * TICK_SECONDS;
+                * params.gravity * pressure * TICK_SECONDS;
         if (lift <= MIN_IMPULSE) {
             return;
         }
@@ -85,24 +154,40 @@ public final class Aerodynamics {
         body.applyImpulseAt(impulse.set(0.0D, lift, 0.0D), world);
     }
 
-    private static void applyThrust(RigidBody body, ShipStructure structure,
+    private static void applyThrust(RigidBody body, ShipStructure structure, double pressure,
                                     Matrix3d rotation, Vector3d world, Vector3d impulse) {
         if (structure.thrusters().isEmpty()) {
             return;
         }
-        double perBlock = AstraConfig.PROPELLER_THRUST.get() * TICK_SECONDS;
+        double perBlock = AstraConfig.PROPELLER_THRUST.get() * pressure * TICK_SECONDS;
         if (perBlock <= MIN_IMPULSE) {
             return;
         }
+        double airflow = AstraConfig.PROPELLER_AIRFLOW.get();
+        boolean torque = AstraConfig.PROPELLER_TORQUE.get();
+        Vector3d direction = new Vector3d();
+
         for (ShipStructure.ThrustSource thruster : structure.thrusters()) {
-            rotation.transform(thruster.localCenter, world).add(body.position);
-            rotation.transform(thruster.localDirection, impulse).mul(perBlock);
-            body.applyImpulseAt(impulse, world);
+            rotation.transform(thruster.localDirection, direction);
+            double forward = body.linearVelocity.dot(direction);
+            double factor = thrustFactor(forward, airflow);
+            if (factor <= 0.0D) {
+                continue;
+            }
+            // Aeronautics applies propeller thrust at the centre of mass so an aircraft does
+            // not roll or yaw from its own engines; the torque option is there for players who
+            // want an outboard motor that also turns the boat.
+            if (torque) {
+                rotation.transform(thruster.localCenter, world).add(body.position);
+            } else {
+                world.set(body.position);
+            }
+            body.applyImpulseAt(impulse.set(direction).mul(perBlock * factor), world);
         }
     }
 
     private static void applyWater(RigidBody body, ShipStructure structure, PhysicsParams params,
-                                   WaterContact water, double mass) {
+                                   WaterContact water) {
         if (water.volume <= 0.0D) {
             return;
         }
@@ -122,25 +207,27 @@ public final class Aerodynamics {
         }
     }
 
-    private static void applyAirDrag(RigidBody body, ShipStructure structure, double mass) {
+    private static void applyAirDrag(RigidBody body, ShipStructure structure, double pressure, double mass) {
         double speed = body.linearVelocity.length();
         if (speed <= 1.0E-4D) {
             return;
         }
+        // Two terms: the hull's own cross-section (quadratic in speed) and the balloons, which
+        // are bulky - Aeronautics gives every envelope block 0.33 * pressure of drag per m/s.
         AABB bounds = structure.getLocalBounds();
         Vector3d localDirection = new Vector3d(body.linearVelocity).div(speed)
                 .rotate(new Quaterniond(body.orientation).conjugate());
         double area = crossSection(bounds, localDirection);
-        double coefficient = AstraConfig.AIR_DRAG.get() * area * speed * speed * TICK_SECONDS;
-        if (coefficient <= 0.0D) {
+        double drag = AstraConfig.AIR_DRAG.get() * pressure * area * speed * speed
+                + AstraConfig.BALLOON_DRAG.get() * pressure * structure.balloonCount() * speed;
+        if (drag <= 0.0D) {
             return;
         }
-        // Quadratic drag: F = -k * A * |v| * v, applied as a velocity change so it works out
-        // the same whatever the substep count is. Capped so a fast ship cannot be stopped
-        // dead in one tick.
-        double factor = Math.min(0.8D, coefficient / mass);
+        // Turned into a velocity change (so it does not depend on the substep count) and capped
+        // so a fast ship cannot be stopped dead in one tick.
+        double factor = Math.min(0.8D, drag * TICK_SECONDS / mass);
         body.linearVelocity.mul(1.0D - factor);
-        body.angularVelocity.mul(1.0D - factor * 0.5D);
+        body.angularVelocity.mul(1.0D - Math.min(0.5D, factor * 0.5D));
     }
 
     /** Projected area of the hull's box onto the plane perpendicular to its motion. */
