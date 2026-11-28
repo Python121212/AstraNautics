@@ -29,15 +29,16 @@ class RotationalNetworkTest {
 
     @Test
     void engineShaftPropellerIsOneNetwork() {
+        // A drivetrain runs along one axis: shafts sit end to end, not side by side.
         put(0, 0, 0, RotationalNetwork.Kind.ENGINE, Z);
-        put(1, 0, 0, RotationalNetwork.Kind.SHAFT, Z);
-        put(2, 0, 0, RotationalNetwork.Kind.SHAFT, Z);
-        put(3, 0, 0, RotationalNetwork.Kind.PROPELLER, Z);
+        put(0, 0, 1, RotationalNetwork.Kind.SHAFT, Z);
+        put(0, 0, 2, RotationalNetwork.Kind.SHAFT, Z);
+        put(0, 0, 3, RotationalNetwork.Kind.PROPELLER, Z);
 
         RotationalNetwork.Drivetrain drivetrain = RotationalNetwork.resolve(this.nodes);
 
         assertEquals(1, drivetrain.engines().size());
-        List<BlockPos> feeding = drivetrain.propellerEngines().get(new BlockPos(3, 0, 0));
+        List<BlockPos> feeding = drivetrain.propellerEngines().get(new BlockPos(0, 0, 3));
         assertTrue(feeding != null && feeding.contains(new BlockPos(0, 0, 0)),
                 "the propeller must be fed by the engine at the far end of the shafts");
     }
@@ -45,9 +46,9 @@ class RotationalNetworkTest {
     @Test
     void aGapStopsTheDrivetrain() {
         put(0, 0, 0, RotationalNetwork.Kind.ENGINE, Z);
-        put(1, 0, 0, RotationalNetwork.Kind.SHAFT, Z);
-        // (2, 0, 0) left empty
-        put(3, 0, 0, RotationalNetwork.Kind.PROPELLER, Z);
+        put(0, 0, 1, RotationalNetwork.Kind.SHAFT, Z);
+        // (0, 0, 2) left empty
+        put(0, 0, 3, RotationalNetwork.Kind.PROPELLER, Z);
 
         RotationalNetwork.Drivetrain drivetrain = RotationalNetwork.resolve(this.nodes);
 
@@ -57,9 +58,10 @@ class RotationalNetworkTest {
 
     @Test
     void aShaftThatTurnsTheCornerDoesNotTransmit() {
+        // An X engine butted against a Z shaft: the faces do not line up with either axis.
         put(0, 0, 0, RotationalNetwork.Kind.ENGINE, X);
         put(1, 0, 0, RotationalNetwork.Kind.SHAFT, Z);
-        put(2, 0, 0, RotationalNetwork.Kind.PROPELLER, Z);
+        put(1, 0, 1, RotationalNetwork.Kind.PROPELLER, Z);
 
         RotationalNetwork.Drivetrain drivetrain = RotationalNetwork.resolve(this.nodes);
 
@@ -85,37 +87,38 @@ class RotationalNetworkTest {
     @Test
     void flywheelsAreCountedPerHull() {
         put(0, 0, 0, RotationalNetwork.Kind.ENGINE, Z);
-        put(1, 0, 0, RotationalNetwork.Kind.FLYWHEEL, Z);
-        put(2, 0, 0, RotationalNetwork.Kind.FLYWHEEL, Z);
-        put(3, 0, 0, RotationalNetwork.Kind.PROPELLER, Z);
+        put(0, 0, 1, RotationalNetwork.Kind.FLYWHEEL, Z);
+        put(0, 0, 2, RotationalNetwork.Kind.FLYWHEEL, Z);
+        put(0, 0, 3, RotationalNetwork.Kind.PROPELLER, Z);
 
         assertEquals(2, RotationalNetwork.resolve(this.nodes).flywheels());
     }
 
     @Test
     void twoEnginesFeedTheSamePropeller() {
-        put(0, 0, 0, RotationalNetwork.Kind.ENGINE, Z);
-        put(2, 0, 0, RotationalNetwork.Kind.ENGINE, Z);
-        put(1, 0, 0, RotationalNetwork.Kind.SHAFT, Z);
-        put(1, 0, 1, RotationalNetwork.Kind.SHAFT, Z);
-        put(1, 1, 1, RotationalNetwork.Kind.PROPELLER, Y);
+        // Two engines on one line of shafts: the propeller takes the fastest of them.
+        put(0, 0, 0, RotationalNetwork.Kind.PROPELLER, Y);
+        put(0, -1, 0, RotationalNetwork.Kind.SHAFT, Y);
+        put(0, -2, 0, RotationalNetwork.Kind.SHAFT, Y);
+        put(0, -3, 0, RotationalNetwork.Kind.ENGINE, Y);
+        put(0, -4, 0, RotationalNetwork.Kind.ENGINE, Y);
 
         RotationalNetwork.Drivetrain drivetrain = RotationalNetwork.resolve(this.nodes);
 
-        List<BlockPos> feeding = drivetrain.propellerEngines().get(new BlockPos(1, 1, 1));
+        List<BlockPos> feeding = drivetrain.propellerEngines().get(new BlockPos(0, 0, 0));
         assertEquals(2, feeding == null ? -1 : feeding.size());
     }
 
     @Test
     void separateDrivetrainsStaySeparate() {
         put(0, 0, 0, RotationalNetwork.Kind.ENGINE, Z);
-        put(1, 0, 0, RotationalNetwork.Kind.PROPELLER, Z);
+        put(0, 0, 1, RotationalNetwork.Kind.PROPELLER, Z);
         put(10, 0, 0, RotationalNetwork.Kind.ENGINE, Z);
-        put(11, 0, 0, RotationalNetwork.Kind.PROPELLER, Z);
+        put(10, 0, 1, RotationalNetwork.Kind.PROPELLER, Z);
 
         RotationalNetwork.Drivetrain drivetrain = RotationalNetwork.resolve(this.nodes);
 
-        assertEquals(List.of(new BlockPos(0, 0, 0)), drivetrain.propellerEngines().get(new BlockPos(1, 0, 0)));
-        assertEquals(List.of(new BlockPos(10, 0, 0)), drivetrain.propellerEngines().get(new BlockPos(11, 0, 0)));
+        assertEquals(List.of(new BlockPos(0, 0, 0)), drivetrain.propellerEngines().get(new BlockPos(0, 0, 1)));
+        assertEquals(List.of(new BlockPos(10, 0, 0)), drivetrain.propellerEngines().get(new BlockPos(10, 0, 1)));
     }
 }
